@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "outDir": "./build/compile/",
+        "target": "es2018",
+        "module": "esnext",
+        "sourceMap": false,
+        "allowJs": true,
+        "rootDir": "src",
+        "strict": true,
+        "noImplicitReturns": true,
+        "noUnusedLocals": true,
+        "removeComments": false,
+        "forceConsistentCasingInFileNames": true,
+        "moduleResolution": "node"
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules/"]
+}
