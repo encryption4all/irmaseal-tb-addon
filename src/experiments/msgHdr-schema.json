@@ -10,7 +10,7 @@
         "parameters": [
           {
             "name": "messageId",
-            "type": "integer"
+            "type": "string"
           }
         ]
       },

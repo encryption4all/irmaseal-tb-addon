@@ -5,6 +5,7 @@ module.exports = (grunt) => {
     const outDir = 'dist/'
     const outDirExtracted = `${outDir}/release/`
     const outXpi = `${outDir}/irmaseal-tb-addon.xpi`
+    const resourceDir = 'resources/'
 
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
@@ -68,6 +69,23 @@ module.exports = (grunt) => {
                 '!src/**/libs/**/*.js',
             ],
         },
+        watch: {
+            scripts: {
+                files: [
+                    srcDir + '**/*',
+                    resourceDir + '**/*',
+                    'webpack.config.js',
+                    'tsconfig.json',
+                ],
+                tasks: ['default'],
+            },
+            configFiles: {
+                files: ['Gruntfile.js', 'webpack.config.js', 'tsconfig.json'],
+                options: {
+                    reload: true,
+                },
+            },
+        },
     })
 
     grunt.loadNpmTasks('grunt-contrib-copy')
@@ -75,6 +93,7 @@ module.exports = (grunt) => {
     grunt.loadNpmTasks('grunt-contrib-compress')
     grunt.loadNpmTasks('grunt-webpack')
     grunt.loadNpmTasks('grunt-eslint')
+    grunt.loadNpmTasks('grunt-contrib-watch')
 
     // Default task(s).
     grunt.registerTask('default', [

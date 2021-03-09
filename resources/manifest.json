@@ -19,5 +19,16 @@
             }
         }
     },
+    "compose_action": {
+        "default_area": "maintoolbar",
+        "default_icon": "icons/encrypt-icon.png",
+        "default_popup": "sealCompose.html"
+    },
+    "message_display_action": {
+        "default_area": "maintoolbar",
+        "default_icon": "icons/decrypt-icon.png",
+        "default_popup": "sealDecrypt.html"
+    },
+    "permissions": ["activeTab", "messagesRead", "accountsRead"],
     "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
 }
