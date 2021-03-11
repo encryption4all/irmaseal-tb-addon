@@ -1,39 +1,39 @@
 [
-  {
-    "namespace": "msgHdr",
-    "functions": [
-      {
-        "name": "get",
-        "description": "Returns nsIMsgDBHdr properties",
-        "type": "function",
-        "async": true,
-        "parameters": [
-          {
-            "name": "messageId",
-            "type": "string"
-          }
+    {
+        "namespace": "msgHdr",
+        "functions": [
+            {
+                "name": "get",
+                "description": "Returns nsIMsgDBHdr properties",
+                "type": "function",
+                "async": true,
+                "parameters": [
+                    {
+                        "name": "messageId",
+                        "type": "string"
+                    }
+                ]
+            },
+            {
+                "name": "set",
+                "description": "Sets nsIMsgDBHdr properties",
+                "type": "function",
+                "async": true,
+                "parameters": [
+                    {
+                        "name": "messageId",
+                        "type": "integer"
+                    },
+                    {
+                        "name": "key",
+                        "type": "string"
+                    },
+                    {
+                        "name": "value",
+                        "type": "string"
+                    }
+                ]
+            }
         ]
-      },
-      {
-        "name": "set",
-        "description": "Sets nsIMsgDBHdr properties",
-        "type": "function",
-        "async": true,
-        "parameters": [
-          {
-            "name": "messageId",
-            "type": "integer"
-          },
-          {
-            "name": "key",
-            "type": "string"
-          },
-          {
-            "name": "value",
-            "type": "string"
-          }
-        ]
-      }
-    ]
-  }
+    }
 ]
