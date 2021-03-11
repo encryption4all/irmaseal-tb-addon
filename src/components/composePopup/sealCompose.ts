@@ -1,6 +1,6 @@
 import { Client } from '@e4a/irmaseal-client'
 
-console.log("hello from sealCompose")
+console.log('hello from sealCompose')
 
 const client = await Client.build('https://qrona.info/pkg')
 
@@ -19,4 +19,3 @@ const bytestream = client.encrypt(
 )
 
 console.log('bytestream: ', bytestream)
-

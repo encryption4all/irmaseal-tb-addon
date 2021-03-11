@@ -1,4 +1,4 @@
-console.log('irmaseal-tb started.')
+console.log('[background]: irmaseal-tb started.')
 
 //import { Client } from '@e4a/irmaseal-client'
 //const registeredScripts = await browser.messageDisplayScripts.register({

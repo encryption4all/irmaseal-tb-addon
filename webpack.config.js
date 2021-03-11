@@ -1,6 +1,6 @@
 const path = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
-const CspHtmlWebpackPlugin = require('csp-html-webpack-plugin');
+const CspHtmlWebpackPlugin = require('csp-html-webpack-plugin')
 
 const defaultMode = 'development'
 const outputPath = path.resolve(__dirname, './dist/release')
@@ -32,15 +32,15 @@ module.exports = [
                 title: 'IRMAseal compose',
                 template: './src/components/composePopup/sealCompose.html',
                 filename: 'sealCompose.html',
-                chunks: ['sealCompose']
+                chunks: ['sealCompose'],
             }),
             new HtmlWebpackPlugin({
                 title: 'IRMAseal decrypt',
                 template: './src/components/decryptPopup/decryptPopup.html',
                 filename: 'sealDecrypt.html',
-                chunks: ['sealDecrypt']
+                chunks: ['sealDecrypt'],
             }),
-            new CspHtmlWebpackPlugin()
+            new CspHtmlWebpackPlugin(),
         ],
     },
     {
