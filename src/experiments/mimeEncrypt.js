@@ -99,7 +99,8 @@ MimeEncrypt.prototype = {
         this.sendReport = sendReport
         this.isDraft = isDraft
 
-        let headers = {
+        const boundary = '--foo'
+        const headers = {
             Subject: `${msgCompFields.subject}`,
             To: `${recipientList}`,
             From: `${msgIdentity.email}`,
@@ -107,13 +108,16 @@ MimeEncrypt.prototype = {
             'Content-Type': `multipart/encrypted; protocol="application/irmaseal-encrypted"; boundary=${boundary}`,
         }
 
-        str = ''
+        var headerStr = ''
         for (const [k, v] in Object.entries(headers)) {
-            str += `${k}: ${v}\r\n`
+            headerStr += `${k}: ${v}\r\n`
         }
-        str += '\r\n'
+        headerStr += '\r\n'
 
-        this.writeOut(str)
+        DEBUG(
+            `mimeEncrypt.jsm: beginCryptoEncapsulation(): writing headers: ${headerStr}`
+        )
+        this.writeOut(headerStr)
     },
 
     /**
@@ -152,7 +156,7 @@ MimeEncrypt.prototype = {
 
     encryptData: function () {
         // replace with IRMAseal encryption.
-        return btoa(this.outBuffer).replace(/(.{72})/g, '$1\r\n')
+        return `encrypted(${this.outBuffer})`
     },
 
     writeOut: function (str) {
