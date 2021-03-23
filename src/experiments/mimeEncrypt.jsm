@@ -2,34 +2,36 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-/*global Components: false */
+/**
+ *  Module for creating PGP/MIME signed and/or encrypted messages
+ *  implemented as XPCOM component.
+ *  Adapted from: https://gitlab.com/pbrunschwig/thunderbird-encryption-example
+ */
+
+/* global Components: false */
 
 'use strict'
 
-/**
- *  Module for creating PGP/MIME signed and/or encrypted messages
- *  implemented as XPCOM component
- */
+var EXPORTED_SYMBOLS = ['IRMAsealMimeEncrypt']
 
-const Cc = Components.classes
-const Ci = Components.interfaces
-const Cr = Components.results
-const Cu = Components.utils
-const Cm = Components.manager
+const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr, manager: Cm } = Components
+
 Cm.QueryInterface(Ci.nsIComponentRegistrar)
 
 const Services = Cu.import('resource://gre/modules/Services.jsm').Services
-const XPCOMUtils = Cu.import('resource://gre/modules/XPCOMUtils.jsm').XPCOMUtils
 
 // contract IDs
 const IRMASEAL_ENCRYPT_CONTRACTID = '@e4a/irmaseal/compose-encrypted;1'
-const IRMASEAL_JS_ENCRYPT_CID = Components.ID(
-    '{2b7a8e39-88d6-4ed2-91ec-f2aaf964be94}'
-)
+const IRMASEAL_JS_ENCRYPT_CID = Components.ID('{2b7a8e39-88d6-4ed2-91ec-f2aaf964be95}')
 
-var gDebugLogLevel = 0
+const DEBUG_LOG = (str) => Services.console.logStringMessage(`[EXPERIMENT]: ${str}`)
+const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.stack}`)
+const BOUNDARY = 'foo'
 
-function MimeEncrypt() {}
+function MimeEncrypt() {
+    this.wrappedJSObject = this
+    this.sampleValue = null
+}
 
 MimeEncrypt.prototype = {
     classDescription: 'IRMAseal Encryption Handler',
@@ -38,7 +40,7 @@ MimeEncrypt.prototype = {
         return IRMASEAL_ENCRYPT_CONTRACTID
     },
 
-    QueryInterface: XPCOMUtils.generateQI(['nsIMsgComposeSecure']),
+    QueryInterface: ChromeUtils.generateQI(['nsIMsgComposeSecure']),
 
     recicpientList: null,
     msgCompFields: null,
@@ -48,8 +50,12 @@ MimeEncrypt.prototype = {
 
     outStream: null,
     outStringStream: null,
-    inBuffer: '',
     outBuffer: '',
+    val: null,
+
+    init: function (val) {
+        this.val = val
+    },
 
     /**
      * Determine if encryption is required or not
@@ -61,8 +67,18 @@ MimeEncrypt.prototype = {
      * @return {Boolean}:  true if the message should be encrypted, false otherwiese
      */
     requiresCryptoEncapsulation: function (msgIdentity, msgCompFields) {
-        DEBUG('mimeEncrypt.jsm: requiresCryptoEncapsulation()\n')
-        return true
+        DEBUG_LOG('mimeEncrypt.jsm: requiresCryptoEncapsulation()\n')
+
+        //if ('securityInfo' in msgCompFields) {
+        //    try {
+        //        // TB < 64 holds the relevant data in securityInfo.
+        //        let secInfo = msgCompFields.securityInfo.wrappedJSObject
+        //        this.sampleValue = secInfo.sampleValue
+        //    } catch (ex) {
+        //        return false
+        //    }
+        //}
+        return this.val === 42
     },
 
     /**
@@ -86,12 +102,12 @@ MimeEncrypt.prototype = {
         sendReport,
         isDraft
     ) {
-        DEBUG('mimeEncrypt.jsm: beginCryptoEncapsulation()\n')
+        DEBUG_LOG('mimeEncrypt.jsm: beginCryptoEncapsulation()\n')
 
         this.outStream = outStream
-        this.outStreamString = Cc[
-            '@mozilla.org/io/string-input-stream;1'
-        ].createInstance(Ci.nsIStringInputStream)
+        this.outStringStream = Cc['@mozilla.org/io/string-input-stream;1'].createInstance(
+            Ci.nsIStringInputStream
+        )
 
         this.recipientList = recipientList
         this.msgCompFields = msgCompFields
@@ -99,24 +115,21 @@ MimeEncrypt.prototype = {
         this.sendReport = sendReport
         this.isDraft = isDraft
 
-        const boundary = '--foo'
         const headers = {
             Subject: `${msgCompFields.subject}`,
             To: `${recipientList}`,
             From: `${msgIdentity.email}`,
             'MIME-Version': '1.0',
-            'Content-Type': `multipart/encrypted; protocol="application/irmaseal-encrypted"; boundary=${boundary}`,
+            'Content-Type': `multipart/encrypted; protocol="application/irmaseal-encrypted"; boundary=${BOUNDARY}`,
         }
 
         var headerStr = ''
-        for (const [k, v] in Object.entries(headers)) {
+        for (const [k, v] of Object.entries(headers)) {
             headerStr += `${k}: ${v}\r\n`
         }
         headerStr += '\r\n'
 
-        DEBUG(
-            `mimeEncrypt.jsm: beginCryptoEncapsulation(): writing headers: ${headerStr}`
-        )
+        DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): writing headers:\n${headerStr}\n`)
         this.writeOut(headerStr)
     },
 
@@ -131,10 +144,9 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     mimeCryptoWriteBlock: function (buffer, length) {
-        if (gDebugLogLevel > 4)
-            DEBUG(`mimeEncrypt.jsm: mimeCryptoWriteBlock(): ${length}\n`)
+        DEBUG_LOG(`mimeEncrypt.jsm: mimeCryptoWriteBlock(): ${length}\n`)
 
-        this.inBuffer += buffer.substr(0, length)
+        this.outBuffer += buffer.substr(0, length)
         return null
     },
 
@@ -148,25 +160,32 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     finishCryptoEncapsulation: function (abort, sendReport) {
-        DEBUG('mimeEncrypt.jsm: finishCryptoEncapsulation()\n')
+        DEBUG_LOG('mimeEncrypt.jsm: finishCryptoEncapsulation()\n')
+        const encryptedData = this.encryptData()
 
-        let encryptedData = this.encryptData() + '\r\n'
-        this.writeOut(encryptedData)
+        var content = 'This is an IRMAseal/MIME encrypted message.\r\n'
+        content += `--${BOUNDARY}\r\n`
+        content += 'Content-Type: application/irmaseal-encrypted\r\n'
+        content += 'Version: 1\r\n'
+        content += `--${BOUNDARY}\r\n`
+        content += 'Content-Type: application/octet-stream\r\n'
+        content += `${encryptedData}\r\n`
+        content += `--${BOUNDARY}--\r\n`
+
+        DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation: writing content:\n${content}`)
+        this.writeOut(content)
     },
 
     encryptData: function () {
         // replace with IRMAseal encryption.
-        return `encrypted(${this.outBuffer})`
+        return btoa(this.outBuffer)
     },
 
     writeOut: function (str) {
         this.outStringStream.setData(str, str.length)
-        var writeCount = this.outStream.writeFrom(
-            this.outStringStream,
-            str.length
-        )
+        var writeCount = this.outStream.writeFrom(this.outStringStream, str.length)
         if (writeCount < str.length) {
-            DEBUG(
+            DEBUG_LOG(
                 `mimeEncrypt.jsm: writeOut: wrote ${writeCount} instead of  ${str.length} bytes\n`
             )
         }
@@ -205,14 +224,6 @@ class Factory {
     }
 }
 
-function DEBUG(str) {
-    if (gDebugLogLevel > 0) {
-        try {
-            Services.console.logStringMessage(str)
-        } catch (x) {}
-    }
-}
-
 // Exported API that will register and unregister the class Factory
 
 var IRMAsealMimeEncrypt = {
@@ -226,5 +237,3 @@ var IRMAsealMimeEncrypt = {
         }
     },
 }
-
-var EXPORTED_SYMBOLS = ['IRMAsealMimeEncrypt']

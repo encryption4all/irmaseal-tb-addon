@@ -46,11 +46,11 @@ module.exports = [
     {
         name: 'experiment',
         mode: defaultMode,
-        entry: './src/experiments/msgHdr-impl.ts',
+        entry: './src/experiments/irmaseal4tb-impl.ts',
         output: {
-            filename: 'msgHdr-impl.js',
+            filename: 'irmaseal4tb-impl.js',
             path: outputPath,
-            library: 'msgHdr',
+            library: 'irmaseal4tb',
             libraryExport: 'default',
         },
         module: { rules: tsLoaderRules },

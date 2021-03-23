@@ -3,6 +3,13 @@
     "name": "IRMASeal",
     "version": "0.1",
     "description": "IRMASeal IBE encryption addon for thunderbird",
+    "applications": {
+        "gecko": {
+            "id": "irmaseal4tb@e4a.org",
+            "strict_min_version": "78.0",
+            "strict_max_version": "78.*"
+        }
+    },
     "icons": {
         "48": "icons/irma.ico"
     },
@@ -10,25 +17,22 @@
         "scripts": ["background.js"]
     },
     "experiment_apis": {
-        "msgHdr": {
-            "schema": "msgHdr-schema.json",
+        "irmaseal4tb": {
+            "schema": "irmaseal4tb-schema.json",
             "parent": {
                 "scopes": ["addon_parent"],
-                "paths": [["msgHdr"]],
-                "script": "msgHdr-impl.js"
+                "paths": [["irmaseal4tb"]],
+                "script": "irmaseal4tb-impl.js",
+                "events": ["startup"]
             }
         }
     },
     "compose_action": {
-        "default_area": "maintoolbar",
-        "default_icon": "icons/encrypt-icon.png",
-        "default_popup": "sealCompose.html"
+        "default_area": "maintoolbar"
     },
     "message_display_action": {
-        "default_area": "maintoolbar",
-        "default_icon": "icons/decrypt-icon.png",
-        "default_popup": "sealDecrypt.html"
+        "default_area": "maintoolbar"
     },
-    "permissions": ["activeTab", "messagesRead", "accountsRead"],
+    "permissions": ["activeTab", "messagesRead", "accountsRead", "compose"],
     "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
 }

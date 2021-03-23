@@ -1,0 +1,22 @@
+[
+    {
+        "namespace": "irmaseal4tb",
+        "functions": [
+            {
+                "name": "setSecurityInfo",
+                "type": "function",
+                "async": true,
+                "parameters": [
+                    {
+                        "name": "windowId",
+                        "type": "integer"
+                    },
+                    {
+                        "name": "value",
+                        "type": "integer"
+                    }
+                ]
+            }
+        ]
+    }
+]

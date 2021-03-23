@@ -63,11 +63,7 @@ module.exports = (grunt) => {
             },
         },
         eslint: {
-            target: [
-                srcDir + '/**/*.ts',
-                srcDir + '/**/*.js',
-                '!src/**/libs/**/*.js',
-            ],
+            target: [srcDir + '/**/*.ts', srcDir + '/**/*.js', '!src/**/libs/**/*.js'],
         },
         watch: {
             scripts: {
@@ -96,19 +92,7 @@ module.exports = (grunt) => {
     grunt.loadNpmTasks('grunt-contrib-watch')
 
     // Default task(s).
-    grunt.registerTask('default', [
-        'clean',
-        'copy',
-        'webpack:dev',
-        'compress',
-        'eslint',
-    ])
+    grunt.registerTask('default', ['clean', 'copy', 'webpack:dev', 'compress', 'eslint'])
 
-    grunt.registerTask('release', [
-        'clean',
-        'copy',
-        'webpack:release',
-        'compress',
-        'eslint',
-    ])
+    grunt.registerTask('release', ['clean', 'copy', 'webpack:release', 'compress', 'eslint'])
 }
