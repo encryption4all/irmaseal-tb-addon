@@ -8,7 +8,7 @@
  *  Adapted from: https://gitlab.com/pbrunschwig/thunderbird-encryption-example
  */
 
-/* global Components: false */
+/* global Components: false, ChromeUtils: false */
 
 'use strict'
 
@@ -19,12 +19,13 @@ const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr, manager: Cm } = Com
 Cm.QueryInterface(Ci.nsIComponentRegistrar)
 
 const Services = Cu.import('resource://gre/modules/Services.jsm').Services
+var { ExtensionCommon } = ChromeUtils.import('resource://gre/modules/ExtensionCommon.jsm')
 
 // contract IDs
 const IRMASEAL_ENCRYPT_CONTRACTID = '@e4a/irmaseal/compose-encrypted;1'
 const IRMASEAL_JS_ENCRYPT_CID = Components.ID('{2b7a8e39-88d6-4ed2-91ec-f2aaf964be95}')
 
-const DEBUG_LOG = (str) => Services.console.logStringMessage(`[EXPERIMENT]: ${str}`)
+const DEBUG_LOG = (str) => Services.console.logStringMessage(`[experiment]: ${str}`)
 const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.stack}`)
 const BOUNDARY = 'foo'
 
@@ -78,7 +79,7 @@ MimeEncrypt.prototype = {
         //        return false
         //    }
         //}
-        return this.val === 42
+        return this.val != null
     },
 
     /**
@@ -117,10 +118,11 @@ MimeEncrypt.prototype = {
 
         const headers = {
             Subject: `${msgCompFields.subject}`,
-            To: `${recipientList}`,
+            // This is duplicated somehow if left in here..
+            // To: `${recipientList}`,
             From: `${msgIdentity.email}`,
             'MIME-Version': '1.0',
-            'Content-Type': `multipart/encrypted; protocol="application/irmaseal-encrypted"; boundary=${BOUNDARY}`,
+            'Content-Type': `multipart/encrypted; protocol="application/irmaseal"; boundary=${BOUNDARY}`,
         }
 
         var headerStr = ''
@@ -161,32 +163,26 @@ MimeEncrypt.prototype = {
      */
     finishCryptoEncapsulation: function (abort, sendReport) {
         DEBUG_LOG('mimeEncrypt.jsm: finishCryptoEncapsulation()\n')
-        const encryptedData = this.encryptData()
+        const encryptedData = this.val
 
         var content = 'This is an IRMAseal/MIME encrypted message.\r\n'
         content += `--${BOUNDARY}\r\n`
-        content += 'Content-Type: application/irmaseal-encrypted\r\n'
+        content += 'Content-Type: application/irmaseal\r\n\r\n'
         content += 'Version: 1\r\n'
         content += `--${BOUNDARY}\r\n`
-        content += 'Content-Type: application/octet-stream\r\n'
+        content += 'Content-Type: application/octet-stream\r\n\r\n'
         content += `${encryptedData}\r\n`
         content += `--${BOUNDARY}--\r\n`
 
         DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation: writing content:\n${content}`)
         this.writeOut(content)
     },
-
-    encryptData: function () {
-        // replace with IRMAseal encryption.
-        return btoa(this.outBuffer)
-    },
-
-    writeOut: function (str) {
-        this.outStringStream.setData(str, str.length)
-        var writeCount = this.outStream.writeFrom(this.outStringStream, str.length)
-        if (writeCount < str.length) {
+    writeOut: function (content) {
+        this.outStringStream.setData(content, content.length)
+        var writeCount = this.outStream.writeFrom(this.outStringStream, content.length)
+        if (writeCount < content.length) {
             DEBUG_LOG(
-                `mimeEncrypt.jsm: writeOut: wrote ${writeCount} instead of  ${str.length} bytes\n`
+                `mimeEncrypt.jsm: writeOut: wrote ${writeCount} instead of  ${content.length} bytes\n`
             )
         }
     },

@@ -23,12 +23,14 @@ const Services = Cu.import('resource://gre/modules/Services.jsm').Services
 const MIME_JS_DECRYPTOR_CONTRACTID = '@mozilla.org/mime/pgp-mime-js-decrypt;1'
 const MIME_JS_DECRYPTOR_CID = Components.ID('{f3a50b87-b198-42c0-86d9-116aca7180b3}')
 
-const DEBUG_LOG = (str) => Services.console.logStringMessage(`[EXPERIMENT]: ${str}`)
+const DEBUG_LOG = (str) => Services.console.logStringMessage(`[experiment]: ${str}`)
 const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.stack}`)
+
+const BOUNDARY = 'foo'
 
 function MimeDecryptHandler() {
     DEBUG_LOG('mimeDecrypt.jsm: new MimeDecryptHandler()\n')
-    this.mimeSvc = null
+    this.mimeProxy = null
     this.dataBuffer = ''
 }
 
@@ -46,7 +48,7 @@ MimeDecryptHandler.prototype = {
     onStartRequest: function (request, uri) {
         DEBUG_LOG('mimeDecrypt.jsm: onStartRequest()\n')
 
-        this.mimeSvc = request.QueryInterface(Ci.nsIPgpMimeProxy)
+        this.mimeProxy = request.QueryInterface(Ci.nsIPgpMimeProxy)
     },
 
     onDataAvailable: function (req, stream, offset, count) {
@@ -58,23 +60,42 @@ MimeDecryptHandler.prototype = {
 
     onStopRequest: function (request, status) {
         let decryptedData = this.decryptData()
-        this.mimeSvc.outputDecryptedData(decryptedData, decryptedData.length)
+        this.mimeProxy.outputDecryptedData(decryptedData, decryptedData.length)
     },
 
     decryptData: function () {
-        DEBUG_LOG(`dataBuffer: ${this.dataBuffer.toString()}\r\n`)
-        const dataRegExp = /^(?<plain>[\s\S]*)\n--foo\n(?<info>[\s\S]*)\n--foo\n(?<bytes>[\s\S]*)\n--foo--$/g
-        let match = this.dataBuffer.match(dataRegExp)
-        let { plain, info, bytes } = match.groups
+        DEBUG_LOG(`decrypting dataBuffer:\n${this.dataBuffer}`)
 
-        DEBUG_LOG(`plain: ${plain},\n info: ${info},\n bytes: ${bytes}`)
+        const [section1, section2, section3] = this.dataBuffer.split(`--${BOUNDARY}`).slice(0, -1)
 
-        let msg = atob(bytes.replace(/[\r\n]/g, ''))
+        const sec1RegExp = /(.*)\r?\n--foo/
+        const sec2RegExp = /Content-Type: application\/irmaseal\r?\nVersion: (.*)\r?\n/
+        const sec3RegExp = /Content-Type: application\/octet-stream\r?\n(.*)\r?\n/
 
-        // we need to wrap the result into a multipart/mixed message, otherwise
-        // some functions like Edit As New or Forward don't work in Thunderbird
+        const plain = section1.replace(sec1RegExp, '$1')
+        const version = section2.replace(sec2RegExp, '$1')
+        const bytes = section3.replace(sec3RegExp, '$1')
 
-        return `Content-Type: multipart/mixed; boundary="example-boundary"\r\n\r\n--example-boundary\r\n${msg}--example-boundary--\r\n`
+        // TODO: error handling in case of no match
+        //if (!section2.match(sec2RegExp)) {
+        //    DEBUG_LOG('not an IRMAseal message')
+        //    return
+        //}
+
+        DEBUG_LOG(`plain: ${plain},\n info: ${version},\n bytes: ${bytes}`)
+
+        const msg = bytes //atob(bytes.replace(/[\r\n]/g, ''))
+
+        // We need to wrap the result into a multipart/mixed message
+        // TODO: can add more here
+        let output = ''
+        output += `Content-Type: multipart/mixed; boundary="${BOUNDARY}"\r\n\r\n`
+        output += `--${BOUNDARY}\r\n`
+        output += `${msg}\r\n`
+        output += `--${BOUNDARY}--\r\n`
+
+        DEBUG_LOG(output)
+        return output
     },
 }
 
@@ -118,15 +139,15 @@ var IRMAsealMimeDecrypt = {
             // re-use the PGP/MIME handler for our own purposes
             // only required if you want to decrypt something else than Content-Type: multipart/encrypted
 
-            // let reg = Components.manager.QueryInterface(Ci.nsIComponentRegistrar)
-            // let pgpMimeClass = Components.classes['@mozilla.org/mimecth;1?type=multipart/encrypted']
+            //let reg = Components.manager.QueryInterface(Ci.nsIComponentRegistrar)
+            //let pgpMimeClass = Components.classes['@mozilla.org/mimecth;1?type=multipart/encrypted']
 
-            // reg.registerFactory(
-            //     pgpMimeClass,
-            //     'Sample Decryption Module',
-            //     '@mozilla.org/mimecth;1?type=multipart/thunderbird-sample',
-            //     null
-            // )
+            //reg.registerFactory(
+            //    pgpMimeClass,
+            //    'Sample Decryption Module',
+            //    '@mozilla.org/mimecth;1?type=multipart/irmaseal-encrypted',
+            //    null
+            //)
         } catch (ex) {
             DEBUG_LOG(ex.message)
         }

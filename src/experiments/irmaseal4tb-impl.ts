@@ -26,7 +26,7 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
                 /**
                  * setSecurityInfo
                  */
-                setSecurityInfo: function (windowId: number, value: number) {
+                setSecurityInfo: function (windowId: number, value: string) {
                     DEBUG_LOG('irmaseal4tb.js: setSecurityInfo()\n')
                     let compSec = Cc['@e4a/irmaseal/compose-encrypted;1'].createInstance(
                         Components.interfaces.nsIMsgComposeSecure
@@ -52,23 +52,19 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
                     return Promise.resolve()
                 },
 
-                /* Event that is triggered once the experiment intercepts MIME data
-                 * UNUSED for now
-                 * */
+                /* Event that is triggered once the experiment intercepts MIME data */
                 //onMimeData: new ExtensionCommon.EventManager({
                 //    context,
                 //    name: 'irmaseal4tb.onMimeData',
-                //    // In this function we add listeners for any events we want to listen to, and return a
-                //    // function that removes those listeners. To have the event fire in your extension,
-                //    // call fire.async.
                 //    register(fire: any) {
-                //        function callback(event, id, x, y) {
-                //            return fire.async(id, x, y)
+                //        function callback(event: any, data: any) {
+                //            return fire.async(data)
                 //        }
 
-                //        windowListener.add(callback)
+                //        const { IRMAsealMimeEncrypt } = loadJsm('mimeEncrypt.jsm')
+                //        IRMAsealMimeEncrypt.add(callback)
                 //        return function () {
-                //            windowListener.remove(callback)
+                //            IRMAsealMimeEncrypt.remove(callback)
                 //        }
                 //    },
                 //}).api(),
@@ -82,9 +78,10 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
 
             const { IRMAsealMimeEncrypt } = loadJsm('mimeEncrypt.jsm')
             //            const { SampleOverlays } = loadJsm('sampleOverlays.jsm')
-            const { IRMAsealMimeDecrypt } = loadJsm('mimeDecrypt.jsm')
 
             IRMAsealMimeEncrypt.startup()
+
+            const { IRMAsealMimeDecrypt } = loadJsm('mimeDecrypt.jsm')
             IRMAsealMimeDecrypt.startup()
 
             // DEBUG_LOG('starting overlay')
@@ -108,12 +105,13 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
             const { IRMAsealMimeEncrypt } = loadJsm('mimeEncrypt.jsm')
             //          const { SampleOverlays } = loadJsm('sampleOverlays.jsm')
 
-            const { IRMAsealMimeDecrypt } = loadJsm('mimeDecrypt.jsm')
             IRMAsealMimeEncrypt.shutdown()
-            IRMAsealMimeDecrypt.shutdown()
             //         SampleOverlays.shutdown()
 
             unloadJsm('mimeEncrypt.jsm')
+            const { IRMAsealMimeDecrypt } = loadJsm('mimeDecrypt.jsm')
+
+            IRMAsealMimeDecrypt.shutdown()
             unloadJsm('mimeDecrypt.jsm')
             //        unloadJsm('sampleOverlays.jsm')
 

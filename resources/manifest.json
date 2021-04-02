@@ -7,7 +7,7 @@
         "gecko": {
             "id": "irmaseal4tb@e4a.org",
             "strict_min_version": "78.0",
-            "strict_max_version": "78.*"
+            "strict_max_version": "88.*"
         }
     },
     "icons": {
@@ -31,8 +31,10 @@
         "default_area": "maintoolbar"
     },
     "message_display_action": {
-        "default_area": "maintoolbar"
+        "default_area": "maintoolbar",
+        "default_popup": "sealDecrypt.html",
+        "default_icon": "icons/decrypt-icon.png"
     },
-    "permissions": ["activeTab", "messagesRead", "accountsRead", "compose"],
+    "permissions": ["activeTab", "messagesRead", "accountsRead", "compose", "messagesModify"],
     "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
 }

@@ -12,6 +12,7 @@ const tsLoaderRules = [
         exclude: /node_modules/,
     },
 ]
+
 const extensions = ['.tsx', '.ts', '.js']
 
 module.exports = [
