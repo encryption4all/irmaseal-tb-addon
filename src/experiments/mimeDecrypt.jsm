@@ -82,8 +82,9 @@ MimeDecryptHandler.prototype = {
         //    return
         //}
 
-        DEBUG_LOG(`plain: ${plain},\n info: ${version},\n bytes: ${bytes}`)
+        //DEBUG_LOG(`plain: ${plain},\n info: ${version},\n bytes: ${bytes}`)
 
+        // For now, just pass the ciphertext bytes to the frontend
         const msg = bytes //atob(bytes.replace(/[\r\n]/g, ''))
 
         // We need to wrap the result into a multipart/mixed message
@@ -91,10 +92,11 @@ MimeDecryptHandler.prototype = {
         let output = ''
         output += `Content-Type: multipart/mixed; boundary="${BOUNDARY}"\r\n\r\n`
         output += `--${BOUNDARY}\r\n`
+        output += `Content-Type: text/plain\r\n\r\n`
         output += `${msg}\r\n`
         output += `--${BOUNDARY}--\r\n`
 
-        DEBUG_LOG(output)
+        //DEBUG_LOG(output)
         return output
     },
 }

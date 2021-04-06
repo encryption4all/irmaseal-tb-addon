@@ -117,10 +117,10 @@ MimeEncrypt.prototype = {
         this.isDraft = isDraft
 
         const headers = {
-            Subject: `${msgCompFields.subject}`,
             // This is duplicated somehow if left in here..
+            // Subject: `${msgCompFields.subject}`,
             // To: `${recipientList}`,
-            From: `${msgIdentity.email}`,
+            // From: `${msgIdentity.email}`,
             'MIME-Version': '1.0',
             'Content-Type': `multipart/encrypted; protocol="application/irmaseal"; boundary=${BOUNDARY}`,
         }
@@ -163,15 +163,15 @@ MimeEncrypt.prototype = {
      */
     finishCryptoEncapsulation: function (abort, sendReport) {
         DEBUG_LOG('mimeEncrypt.jsm: finishCryptoEncapsulation()\n')
-        const encryptedData = this.val
+        const encryptedData = this.val.replace(/(.{80})/g, '$1\n')
 
-        var content = 'This is an IRMAseal/MIME encrypted message.\r\n'
+        var content = 'This is an IRMAseal/MIME encrypted message.\r\n\r\n'
         content += `--${BOUNDARY}\r\n`
         content += 'Content-Type: application/irmaseal\r\n\r\n'
-        content += 'Version: 1\r\n'
+        content += 'Version: 1\r\n\r\n'
         content += `--${BOUNDARY}\r\n`
         content += 'Content-Type: application/octet-stream\r\n\r\n'
-        content += `${encryptedData}\r\n`
+        content += `${encryptedData}\r\n\r\n`
         content += `--${BOUNDARY}--\r\n`
 
         DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation: writing content:\n${content}`)

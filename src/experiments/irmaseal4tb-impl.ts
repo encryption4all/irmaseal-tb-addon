@@ -51,23 +51,6 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
                     DEBUG_LOG('irmaseal4tb.js: setSecurityInfo() complete\n')
                     return Promise.resolve()
                 },
-
-                /* Event that is triggered once the experiment intercepts MIME data */
-                //onMimeData: new ExtensionCommon.EventManager({
-                //    context,
-                //    name: 'irmaseal4tb.onMimeData',
-                //    register(fire: any) {
-                //        function callback(event: any, data: any) {
-                //            return fire.async(data)
-                //        }
-
-                //        const { IRMAsealMimeEncrypt } = loadJsm('mimeEncrypt.jsm')
-                //        IRMAsealMimeEncrypt.add(callback)
-                //        return function () {
-                //            IRMAsealMimeEncrypt.remove(callback)
-                //        }
-                //    },
-                //}).api(),
             },
         }
     }
@@ -77,15 +60,11 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
             DEBUG_LOG('starting experiment')
 
             const { IRMAsealMimeEncrypt } = loadJsm('mimeEncrypt.jsm')
-            //            const { SampleOverlays } = loadJsm('sampleOverlays.jsm')
 
             IRMAsealMimeEncrypt.startup()
 
             const { IRMAsealMimeDecrypt } = loadJsm('mimeDecrypt.jsm')
             IRMAsealMimeDecrypt.startup()
-
-            // DEBUG_LOG('starting overlay')
-            //           SampleOverlays.startup()
 
             DEBUG_LOG('all modules loaded')
         } catch (ex) {
@@ -103,17 +82,14 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
             DEBUG_LOG('unloading modules')
 
             const { IRMAsealMimeEncrypt } = loadJsm('mimeEncrypt.jsm')
-            //          const { SampleOverlays } = loadJsm('sampleOverlays.jsm')
 
             IRMAsealMimeEncrypt.shutdown()
-            //         SampleOverlays.shutdown()
 
             unloadJsm('mimeEncrypt.jsm')
             const { IRMAsealMimeDecrypt } = loadJsm('mimeDecrypt.jsm')
 
             IRMAsealMimeDecrypt.shutdown()
             unloadJsm('mimeDecrypt.jsm')
-            //        unloadJsm('sampleOverlays.jsm')
 
             DEBUG_LOG('invalidating startup cache')
             Services.obs.notifyObservers(null, 'startupcache-invalidate', null)

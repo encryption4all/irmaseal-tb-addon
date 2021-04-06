@@ -3,6 +3,8 @@ import { Buffer } from 'buffer'
 
 // TODO: find a way to use these
 // import { faToggleOn, faToggleOff } from '@fortawesome/free-solid-svg-icons'
+// console.log(faToggleOn, faToggleOff)
+
 const client: Client = await Client.build('https://qrona.info/pkg')
 
 declare const browser: any
@@ -20,7 +22,6 @@ async function setIcon(tabId: number) {
 }
 
 console.log('[background]: irmaseal-tb started.')
-//console.log(faToggleOn, faToggleOff)
 
 // Keep track of all the compose tabs created
 browser.tabs.onCreated.addListener(async (tab: any) => {
