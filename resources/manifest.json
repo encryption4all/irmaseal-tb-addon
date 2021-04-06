@@ -35,6 +35,13 @@
         "default_popup": "sealDecrypt.html",
         "default_icon": "icons/decrypt-icon.png"
     },
-    "permissions": ["activeTab", "messagesRead", "accountsRead", "compose", "messagesModify"],
+    "permissions": [
+        "activeTab",
+        "messagesRead",
+        "accountsRead",
+        "compose",
+        "messagesModify",
+        "storage"
+    ],
     "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
 }
