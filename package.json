@@ -12,7 +12,6 @@
     "author": "Leon Botros (l.botros@cs.ru.nl)",
     "license": "GPL-3.0-or-later",
     "devDependencies": {
-        "@e4a/irmaseal-client": "^0.0.2",
         "@fortawesome/free-solid-svg-icons": "^5.15.3",
         "@typescript-eslint/eslint-plugin": "^4.16.1",
         "@typescript-eslint/parser": "^4.16.1",
@@ -36,7 +35,9 @@
         "typescript": "^4.2.2",
         "webpack": "^5.24.2"
     },
-    "dependencies": {},
+    "dependencies": {
+        "@e4a/irmaseal-client": "^0.0.3"
+    },
     "scripts": {
         "build": "yarn run grunt"
     }

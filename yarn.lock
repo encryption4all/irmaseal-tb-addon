@@ -23,12 +23,18 @@
     chalk "^2.0.0"
     js-tokens "^4.0.0"
 
-"@e4a/irmaseal-client@^0.0.2":
-  version "0.0.2"
-  resolved "https://registry.npmjs.org/@e4a/irmaseal-client/-/irmaseal-client-0.0.2.tgz#2574d7f160e7f67941affdf6b305a838476448c2"
-  integrity sha512-05hpG/2GfO4q3fyG+KpcyiRMdDipi8KRma27bdFdcqHVYjlmjP6aV+P4hg90kqgxYVQJjPaB/SvAFOp37w8T1Q==
+"@e4a/irmaseal-client@^0.0.3":
+  version "0.0.3"
+  resolved "https://registry.npmjs.org/@e4a/irmaseal-client/-/irmaseal-client-0.0.3.tgz#556e1f0b23753d247c31be67cc7fa1b4fabcbbb1"
+  integrity sha512-srngIGEDnl7GgH8OPcBDyWXfcnsqpCezIDTNxoUfM+hOOyycOBgB0RHdCUZs/VR7zKhbdv/cU5XQhvE4WLvPkg==
   dependencies:
+    "@e4a/irmaseal-wasm-bindings" "^0.0.5"
     "@privacybydesign/irma-frontend" "^0.1.5"
+
+"@e4a/irmaseal-wasm-bindings@^0.0.5":
+  version "0.0.5"
+  resolved "https://registry.npmjs.org/@e4a/irmaseal-wasm-bindings/-/irmaseal-wasm-bindings-0.0.5.tgz#6d51e2968f0d4f27dc5697f211d07a1d540579b7"
+  integrity sha512-x8coSbXYcJbRjJynoGV9eMPCuXqhjTg/fdMnhfSWfJmDrbtB9TEyO8UFe8FXFKPrt6BglcYJjDx+xrX8ZJgTcg==
 
 "@eslint/eslintrc@^0.3.0":
   version "0.3.0"
