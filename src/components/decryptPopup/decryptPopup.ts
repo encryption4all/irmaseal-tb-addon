@@ -1,7 +1,5 @@
-import { Client } from '@e4a/irmaseal-client'
+import { Client, Attribute } from '@e4a/irmaseal-client'
 import { Buffer } from 'buffer'
-
-type Attribute = { attributeType: string; attributeValue: string }
 
 // TODO: get all types from comm-central or something..
 declare const browser: any
@@ -25,35 +23,7 @@ function getCiphertextFromMime(mime: any): string | undefined {
     }
 }
 
-const client: Client = await Client.build('https://qrona.info/pkg')
-
-async function getCachedToken(attr: Attribute): Promise<string> {
-    let token
-    const serializedAttr: string = JSON.stringify(attr)
-    const cached = (await browser.storage.local.get(serializedAttr))[serializedAttr]
-    console.log(cached)
-
-    if (
-        Object.keys(cached).length === 0 ||
-        (cached.validUntil && Date.now() >= cached.validUntil)
-    ) {
-        console.log(
-            'Cache miss or token not valid anymore.\nRequesting fresh token for: ',
-            identity.email
-        )
-        token = await client.requestToken(attribute)
-        const t: Date = new Date(Date.now())
-        const validUntil = t.setSeconds(t.getSeconds() + JSON.parse(client.params).max_age)
-        await browser.storage.local.set({
-            [serializedAttr]: { token: token, validUntil: validUntil },
-        })
-    } else {
-        console.log('Cache hit: ', cached)
-        console.log(Date.now(), cached.validUntil)
-        token = cached.token
-    }
-    return token
-}
+const client: Client = await Client.build('https://qrona.info/pkg', true, browser.storage.local)
 
 const mailTabs = await browser.tabs.query({
     lastFocusedWindow: true,
@@ -88,18 +58,17 @@ const bytes = Buffer.from(b64encoded, 'base64')
 
 console.log('ct bytes: ', bytes)
 
-const ts = client.extractTimestamp(bytes)
-if (ts === -1) throw new Error('NO_TIMESTAMP')
+const id = client.extractIdentity(bytes)
+console.log('identity in bytestream:', id)
 
 const attribute: Attribute = {
-    attributeType: 'pbdf.sidn-pbdf.email.email',
-    attributeValue: identity.email,
+    type: 'pbdf.sidn-pbdf.email.email',
+    value: identity.email,
 }
 
-const token = await getCachedToken(attribute)
-
 client
-    .requestKey(token, ts)
+    .requestToken(attribute)
+    .then((token) => client.requestKey(token, id.timestamp))
     .then(async (usk) => {
         const mail = client.decrypt(usk, bytes)
         console.log(mail)

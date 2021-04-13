@@ -1,11 +1,11 @@
-import { Client } from '@e4a/irmaseal-client'
+import { Attribute, Client } from '@e4a/irmaseal-client'
 import { Buffer } from 'buffer'
 
 // TODO: find a way to use these
 // import { faToggleOn, faToggleOff } from '@fortawesome/free-solid-svg-icons'
 // console.log(faToggleOn, faToggleOff)
 
-const client: Client = await Client.build('https://qrona.info/pkg')
+const client: Client = await Client.build('https://qrona.info/pkg', browser.storage.local)
 
 declare const browser: any
 const WIN_TYPE_COMPOSE = 'messageCompose'
@@ -61,9 +61,9 @@ browser.compose.onBeforeSend.addListener(async (tab: any, details: any) => {
     if (composeTabs[tab.id]) {
         const plaintext = details.plainTextBody.replace('\n', '')
         console.log(plaintext)
-        const identity = {
-            attributeType: 'pbdf.sidn-pbdf.email.email',
-            attributeValue: details.to[0],
+        const identity: Attribute = {
+            type: 'pbdf.sidn-pbdf.email.email',
+            value: details.to[0],
         }
         console.log('encrypting for identity: ', identity)
 
