@@ -1,6 +1,6 @@
 const path = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
-const CspHtmlWebpackPlugin = require('csp-html-webpack-plugin');
+const CspHtmlWebpackPlugin = require('csp-html-webpack-plugin')
 
 const defaultMode = 'development'
 const outputPath = path.resolve(__dirname, './dist/release')
@@ -12,6 +12,7 @@ const tsLoaderRules = [
         exclude: /node_modules/,
     },
 ]
+
 const extensions = ['.tsx', '.ts', '.js']
 
 module.exports = [
@@ -32,25 +33,25 @@ module.exports = [
                 title: 'IRMAseal compose',
                 template: './src/components/composePopup/sealCompose.html',
                 filename: 'sealCompose.html',
-                chunks: ['sealCompose']
+                chunks: ['sealCompose'],
             }),
             new HtmlWebpackPlugin({
                 title: 'IRMAseal decrypt',
                 template: './src/components/decryptPopup/decryptPopup.html',
                 filename: 'sealDecrypt.html',
-                chunks: ['sealDecrypt']
+                chunks: ['sealDecrypt'],
             }),
-            new CspHtmlWebpackPlugin()
+            new CspHtmlWebpackPlugin(),
         ],
     },
     {
         name: 'experiment',
         mode: defaultMode,
-        entry: './src/experiments/msgHdr-impl.ts',
+        entry: './src/experiments/irmaseal4tb-impl.ts',
         output: {
-            filename: 'msgHdr-impl.js',
+            filename: 'irmaseal4tb-impl.js',
             path: outputPath,
-            library: 'msgHdr',
+            library: 'irmaseal4tb',
             libraryExport: 'default',
         },
         module: { rules: tsLoaderRules },

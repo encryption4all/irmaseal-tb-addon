@@ -1,9 +1,29 @@
-import { Client } from '@e4a/irmaseal-client'
+import { Client, Attribute } from '@e4a/irmaseal-client'
+import { Buffer } from 'buffer'
 
 // TODO: get all types from comm-central or something..
 declare const browser: any
 
-const client: Client = await Client.build('https://qrona.info/pkg')
+function getCiphertextFromMime(mime: any): string | undefined {
+    console.log('mime :', mime)
+    try {
+        const mimeparts = mime.parts
+        const multiparts = mimeparts.find((part: any) => part.contentType === 'multipart/encrypted')
+            .parts
+        const fakeparts = multiparts.find(
+            (part2: any) => part2.contentType === 'multipart/fake-container'
+        ).parts
+        const b64encoded = fakeparts
+            .find((part3: any) => part3.contentType === 'text/plain')
+            .body.replace('\n', '')
+        return b64encoded
+    } catch (e) {
+        console.log('failed to get ciphertext from mime parts')
+        return
+    }
+}
+
+const client: Client = await Client.build('https://qrona.info/pkg', true, browser.storage.local)
 
 const mailTabs = await browser.tabs.query({
     lastFocusedWindow: true,
@@ -13,7 +33,7 @@ const mailTabs = await browser.tabs.query({
 })
 
 if (mailTabs.length != 1) {
-    console.log('more than one email tab')
+    throw new Error('more than one email tab')
 }
 
 const mailTab = mailTabs[0]
@@ -29,22 +49,34 @@ const identity = await browser.accounts.getDefaultIdentity(accountId)
 
 console.log('current identity: ', identity)
 
-// TODO: get raw IRMAseal bytestream from mime encrypted MIME
-// const ts = client.extractTimestamp(irmasealBytestream)
+const mime = await browser.messages.getFull(currentMsg.id)
+const b64encoded: string | undefined = getCiphertextFromMime(mime)
+if (!b64encoded) throw new Error('MIME part not found')
 
-// Request token for the indentity to which this email was sent
-console.log('requesting token for: ', identity.email)
+console.log('b64 encoded: ', b64encoded)
+const bytes = Buffer.from(b64encoded, 'base64')
+
+console.log('ct bytes: ', bytes)
+
+const id = client.extractIdentity(bytes)
+console.log('identity in bytestream:', id)
+
+const attribute: Attribute = {
+    type: 'pbdf.sidn-pbdf.email.email',
+    value: identity.email,
+}
+
 client
-    .requestToken({
-        attributeType: 'pbdf.sidn-pbdf.email.email',
-        attributeValue: identity.email,
-    })
-    .then((token) => {
-        console.log('token: ', token)
+    .requestToken(attribute)
+    .then((token) => client.requestKey(token, id.timestamp))
+    .then(async (usk) => {
+        const mail = client.decrypt(usk, bytes)
+        console.log(mail)
+        await browser.messageDisplayScripts.register({
+            js: [{ code: `document.body.textContent = "${mail.body}";` }, { file: 'display.js' }],
+        })
     })
     .catch((err) => {
         console.log('error: ', err)
     })
     .finally(() => window.close())
-
-// TODO: send mail body to background such that the background can alter the mailcontent currenty displaying
