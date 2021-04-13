@@ -1,6 +1,14 @@
 import { Client, Attribute } from '@e4a/irmaseal-client'
 import { Buffer } from 'buffer'
 
+// TODO: currently this is not very efficient.
+// We are using two clients and we load the WASM twice.
+// Instead, we could do all WASM module operations in the background.
+// I.e.,
+// The background retrieves the identity and sends this back to the popup.
+// The popup uses his client/irma-frontend-packages to ask for a token/key.
+// The key is sent to the background for decryption.
+
 // TODO: get all types from comm-central or something..
 declare const browser: any
 
