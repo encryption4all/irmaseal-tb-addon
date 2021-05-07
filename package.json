@@ -36,7 +36,8 @@
         "webpack": "^5.24.2"
     },
     "dependencies": {
-        "@e4a/irmaseal-client": "^0.0.3"
+        "@e4a/irmaseal-client": "^0.0.3",
+        "web-streams-polyfill": "^3.0.3"
     },
     "scripts": {
         "build": "yarn run grunt"

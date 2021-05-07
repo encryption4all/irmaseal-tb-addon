@@ -1,4 +1,6 @@
-import { Attribute, Client } from '@e4a/irmaseal-client'
+import 'web-streams-polyfill'
+
+import { Attribute, Client, symcrypt, MetadataCreateResult } from '@e4a/irmaseal-client'
 import { Buffer } from 'buffer'
 
 // TODO: find a way to use these
@@ -67,10 +69,18 @@ browser.compose.onBeforeSend.addListener(async (tab: any, details: any) => {
         }
         console.log('encrypting for identity: ', identity)
 
-        const cipherbytes = client.encrypt(identity, { body: plaintext })
-        console.log('ciphertext bytes: ', cipherbytes)
+        const res: MetadataCreateResult = client.createMetadata(identity)
+        const metadata = res.metadata.to_json()
+        const plainBytes: Uint8Array = new TextEncoder().encode(plaintext)
+        const cipherbytes: Uint8Array = await symcrypt(
+            res.keys,
+            metadata.iv,
+            res.header,
+            plainBytes
+        )
 
-        const b64encoded = new Buffer(cipherbytes).toString('base64')
+        console.log('ciphertext bytes: ', cipherbytes)
+        const b64encoded = Buffer.from(cipherbytes).toString('base64')
         console.log('ciphertext b64: ', b64encoded)
 
         console.log('[background]: setting SecurityInfo')

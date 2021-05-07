@@ -1,4 +1,12 @@
-import { Client, Attribute } from '@e4a/irmaseal-client'
+import 'web-streams-polyfill'
+import {
+    Client,
+    MetadataReaderResult,
+    createUint8ArrayReadable,
+    symcrypt,
+    KeySet,
+    Metadata,
+} from '@e4a/irmaseal-client'
 import { Buffer } from 'buffer'
 
 // TODO: currently this is not very efficient.
@@ -62,29 +70,35 @@ const b64encoded: string | undefined = getCiphertextFromMime(mime)
 if (!b64encoded) throw new Error('MIME part not found')
 
 console.log('b64 encoded: ', b64encoded)
-const bytes = Buffer.from(b64encoded, 'base64')
+const sealBytes: Uint8Array = new Uint8Array(Buffer.from(b64encoded, 'base64'))
 
-console.log('ct bytes: ', bytes)
+console.log('seal bytes: ', sealBytes)
 
-const id = client.extractIdentity(bytes)
-console.log('identity in bytestream:', id)
+const readable: ReadableStream = createUint8ArrayReadable(sealBytes)
+const res: MetadataReaderResult = await client.extractMetadata(readable)
 
-const attribute: Attribute = {
-    type: 'pbdf.sidn-pbdf.email.email',
-    value: identity.email,
-}
+const metadata: Metadata = res.metadata
+const metadata_json = metadata.to_json()
+console.log('metadata_json: ', metadata_json)
 
 client
-    .requestToken(attribute)
-    .then((token) => client.requestKey(token, id.timestamp))
-    .then(async (usk) => {
-        const mail = client.decrypt(usk, bytes)
-        console.log(mail)
+    .requestToken(metadata_json.identity.attribute)
+    .then((token: string) => client.requestKey(token, metadata_json.identity.timestamp))
+    .then(async (usk: string) => {
+        const keys: KeySet = metadata.derive_keys(usk)
+        const plainBytes: Uint8Array = await symcrypt(
+            keys,
+            metadata_json.iv,
+            res.header,
+            sealBytes,
+            true
+        )
+        const mail: string = new TextDecoder().decode(plainBytes)
         await browser.messageDisplayScripts.register({
-            js: [{ code: `document.body.textContent = "${mail.body}";` }, { file: 'display.js' }],
+            js: [{ code: `document.body.textContent = "${mail}";` }, { file: 'display.js' }],
         })
     })
-    .catch((err) => {
+    .catch((err: Error) => {
         console.log('error: ', err)
     })
     .finally(() => window.close())
