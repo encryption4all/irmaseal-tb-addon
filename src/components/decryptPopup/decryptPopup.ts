@@ -39,7 +39,7 @@ function getCiphertextFromMime(mime: any): string | undefined {
     }
 }
 
-const client: Client = await Client.build('https://qrona.info/pkg', true, browser.storage.local)
+const client: Client = await Client.build('https://irmacrypt.nl/pkg', true, browser.storage.local)
 
 const mailTabs = await browser.tabs.query({
     lastFocusedWindow: true,
