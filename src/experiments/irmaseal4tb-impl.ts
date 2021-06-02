@@ -23,9 +23,6 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
     public getAPI(context: any): any {
         return {
             irmaseal4tb: {
-                /**
-                 * setSecurityInfo
-                 */
                 setSecurityInfo: function (windowId: number, value: string) {
                     DEBUG_LOG('irmaseal4tb.js: setSecurityInfo()\n')
                     let compSec = Cc['@e4a/irmaseal/compose-encrypted;1'].createInstance(
@@ -49,6 +46,24 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
                         }
                     }
                     DEBUG_LOG('irmaseal4tb.js: setSecurityInfo() complete\n')
+                    return Promise.resolve()
+                },
+                getSecurityInfo: function (windowId: number) {
+                    DEBUG_LOG('irmaseal4tb.js: getSecurityInfo()\n')
+
+                    const windowObject = context.extension.windowManager.get(windowId)
+                    const win = windowObject.window
+
+                    return Promise.resolve(win.gMsgCompose.compFields.composeSecure)
+                },
+                getMsgHdr: (messageId: string, key: string) => {
+                    const realMsg = context.extension.messageManager.get(messageId)
+                    const value = realMsg.getStringProperty(key)
+                    return Promise.resolve(value)
+                },
+                setMsgHdr: (messageId: string, key: string, value: string) => {
+                    const realMsg = context.extension.messageManager.get(messageId)
+                    realMsg.setStringProperty(key, value)
                     return Promise.resolve()
                 },
             },

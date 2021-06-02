@@ -8,6 +8,7 @@ import {
     Metadata,
 } from '@e4a/irmaseal-client'
 import { Buffer } from 'buffer'
+import { getCiphertextFromMime } from './../../util'
 
 // TODO: currently this is not very efficient.
 // We are using two clients and we load the WASM twice.
@@ -20,26 +21,7 @@ import { Buffer } from 'buffer'
 // TODO: get all types from comm-central or something..
 declare const browser: any
 
-function getCiphertextFromMime(mime: any): string | undefined {
-    console.log('mime :', mime)
-    try {
-        const mimeparts = mime.parts
-        const multiparts = mimeparts.find((part: any) => part.contentType === 'multipart/encrypted')
-            .parts
-        const fakeparts = multiparts.find(
-            (part2: any) => part2.contentType === 'multipart/fake-container'
-        ).parts
-        const b64encoded = fakeparts
-            .find((part3: any) => part3.contentType === 'text/plain')
-            .body.replace('\n', '')
-        return b64encoded
-    } catch (e) {
-        console.log('failed to get ciphertext from mime parts')
-        return
-    }
-}
-
-const client: Client = await Client.build('https://irmacrypt.nl/pkg', true, browser.storage.local)
+const client: Client = await Client.build('https://irmacrypt.nl/pkg')
 
 const mailTabs = await browser.tabs.query({
     lastFocusedWindow: true,
@@ -86,13 +68,7 @@ client
     .then((token: string) => client.requestKey(token, metadata_json.identity.timestamp))
     .then(async (usk: string) => {
         const keys: KeySet = metadata.derive_keys(usk)
-        const plainBytes: Uint8Array = await symcrypt(
-            keys,
-            metadata_json.iv,
-            res.header,
-            sealBytes,
-            true
-        )
+        const plainBytes: Uint8Array = await symcrypt(keys, metadata_json.iv, res.header, sealBytes)
         const mail: string = new TextDecoder().decode(plainBytes)
         await browser.messageDisplayScripts.register({
             js: [{ code: `document.body.textContent = "${mail}";` }, { file: 'display.js' }],

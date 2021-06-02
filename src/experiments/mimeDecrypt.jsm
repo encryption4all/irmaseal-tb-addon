@@ -31,6 +31,8 @@ const BOUNDARY = 'foo'
 function MimeDecryptHandler() {
     DEBUG_LOG('mimeDecrypt.jsm: new MimeDecryptHandler()\n')
     this.mimeProxy = null
+    this.uri = null
+    this.msgHdr = null
     this.dataBuffer = ''
 }
 
@@ -45,10 +47,11 @@ MimeDecryptHandler.prototype = {
     ),
 
     // the MIME handler needs to implement the nsIStreamListener API
-    onStartRequest: function (request, uri) {
-        DEBUG_LOG('mimeDecrypt.jsm: onStartRequest()\n')
+    onStartRequest: function (request) {
+        DEBUG_LOG(`mimeDecrypt.jsm: onStartRequest()\n`)
 
         this.mimeProxy = request.QueryInterface(Ci.nsIPgpMimeProxy)
+        this.uri = this.mimeProxy.messageURI
     },
 
     onDataAvailable: function (req, stream, offset, count) {
@@ -59,6 +62,15 @@ MimeDecryptHandler.prototype = {
     },
 
     onStopRequest: function (request, status) {
+        if (this.uri) {
+            this.msgHdr = this.uri.QueryInterface(Ci.nsIMsgMessageUrl).messageHeader
+            DEBUG_LOG(
+                `mimeDecrypt.jsm: onStopRequest: folder="${this.msgHdr.folder.name}", key=${this.msgHdr.messageKey}`
+            )
+            this.msgHdr.setStringProperty('sealed', true)
+            DEBUG_LOG(`${this.msgHdr.getStringProperty('sealed')}`)
+        }
+
         let decryptedData = this.decryptData()
         this.mimeProxy.outputDecryptedData(decryptedData, decryptedData.length)
     },
@@ -69,26 +81,24 @@ MimeDecryptHandler.prototype = {
         const [section1, section2, section3] = this.dataBuffer.split(`--${BOUNDARY}`).slice(0, -1)
 
         const sec1RegExp = /(.*)\r?\n--foo/
-        const sec2RegExp = /Content-Type: application\/irmaseal\r?\nVersion: (.*)\r?\n/
-        const sec3RegExp = /Content-Type: application\/octet-stream\r?\n(.*)\r?\n/
+        const sec2RegExp = /Content-Type: application\/irmaseal\r?\n\r?\n?Version: (.*)\r?\n\r?\n?/
+        const sec3RegExp = /Content-Type: application\/octet-stream\r?\n(.*)\r?\n\r?\n?/
 
         const plain = section1.replace(sec1RegExp, '$1')
         const version = section2.replace(sec2RegExp, '$1')
         const bytes = section3.replace(sec3RegExp, '$1')
 
-        // TODO: error handling in case of no match
-        //if (!section2.match(sec2RegExp)) {
-        //    DEBUG_LOG('not an IRMAseal message')
-        //    return
-        //}
+        if (!section2.match(sec2RegExp)) {
+            DEBUG_LOG('not an IRMAseal message')
+            return
+        }
 
         //DEBUG_LOG(`plain: ${plain},\n info: ${version},\n bytes: ${bytes}`)
 
         // For now, just pass the ciphertext bytes to the frontend
-        const msg = bytes //atob(bytes.replace(/[\r\n]/g, ''))
+        const msg = bytes
 
-        // We need to wrap the result into a multipart/mixed message
-        // TODO: can add more here
+        // We need to wrap the result into a multipart/mixed message and return it
         let output = ''
         output += `Content-Type: multipart/mixed; boundary="${BOUNDARY}"\r\n\r\n`
         output += `--${BOUNDARY}\r\n`
@@ -96,7 +106,6 @@ MimeDecryptHandler.prototype = {
         output += `${msg}\r\n`
         output += `--${BOUNDARY}--\r\n`
 
-        //DEBUG_LOG(output)
         return output
     },
 }

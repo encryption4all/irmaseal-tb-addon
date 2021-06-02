@@ -13,6 +13,7 @@
     "license": "GPL-3.0-or-later",
     "devDependencies": {
         "@fortawesome/free-solid-svg-icons": "^5.15.3",
+        "@types/qrcode": "^1.4.0",
         "@typescript-eslint/eslint-plugin": "^4.16.1",
         "@typescript-eslint/parser": "^4.16.1",
         "@wasm-tool/wasm-pack-plugin": "^1.4.0",
@@ -37,6 +38,7 @@
     },
     "dependencies": {
         "@e4a/irmaseal-client": "^0.0.3",
+        "qrcode": "^1.4.4",
         "web-streams-polyfill": "^3.0.3"
     },
     "scripts": {

@@ -9,5 +9,7 @@
     ],
     "rules": {
         "prettier/prettier": "error"
-    }
+    },
+    "env": { "browser": true },
+    "globals": { "browser": true, "chromeUtils": true, "components": true }
 }
