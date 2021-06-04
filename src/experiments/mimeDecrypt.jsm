@@ -68,7 +68,6 @@ MimeDecryptHandler.prototype = {
                 `mimeDecrypt.jsm: onStopRequest: folder="${this.msgHdr.folder.name}", key=${this.msgHdr.messageKey}`
             )
             this.msgHdr.setStringProperty('sealed', true)
-            DEBUG_LOG(`${this.msgHdr.getStringProperty('sealed')}`)
         }
 
         let decryptedData = this.decryptData()

@@ -18,15 +18,25 @@ import { toDataURL } from 'qrcode'
 // import { faToggleOn, faToggleOff } from '@fortawesome/free-solid-svg-icons'
 // console.log(faToggleOn, faToggleOff)
 
-const client: Client = await Client.build('https://irmacrypt.nl/pkg')
-
 declare const browser: any
 const WIN_TYPE_COMPOSE = 'messageCompose'
 
 console.log('[background]: irmaseal-tb started.')
+const client: Client = await Client.build('https://irmacrypt.nl/pkg')
 
 // Keeps track of which tabs (messageCompose type) should use encryption
-const composeTabs: { [id: number]: boolean } = {}
+const composeTabs: { [tabId: number]: boolean } = {}
+
+// Keeps track of encryption data and session details per message
+const store: {
+    [messageId: number]: {
+        bytes: Uint8Array
+        res: MetadataReaderResult
+        identity: Attribute
+        timestamp: number
+        token?: string
+    }
+} = {}
 
 async function setIcon(tabId: number) {
     await browser.composeAction.setIcon({
@@ -65,6 +75,7 @@ browser.composeAction.onClicked.addListener(async (tab: any) => {
     )
     composeTabs[id] = !composeTabs[id]
     console.log('composeTabs: ', composeTabs)
+
     await setIcon(id)
 })
 
@@ -73,22 +84,17 @@ browser.compose.onBeforeSend.addListener(async (tab: any, details: any) => {
     if (!composeTabs[tab.id]) return
 
     const plaintext = details.plainTextBody.replace('\n', '')
-    console.log(plaintext)
 
     const identity: Attribute = {
         type: 'pbdf.sidn-pbdf.email.email',
         value: details.to[0],
     }
-    console.log('encrypting for identity: ', identity)
 
     const res: MetadataCreateResult = client.createMetadata(identity)
     const metadata = res.metadata.to_json()
     const plainBytes: Uint8Array = new TextEncoder().encode(plaintext)
     const cipherbytes: Uint8Array = await symcrypt(res.keys, metadata.iv, res.header, plainBytes)
-
-    console.log('ciphertext bytes: ', cipherbytes)
     const b64encoded = Buffer.from(cipherbytes).toString('base64')
-    console.log('ciphertext b64: ', b64encoded)
 
     console.log('[background]: setting SecurityInfo')
     await browser.irmaseal4tb.setSecurityInfo(tab.windowId, b64encoded)
@@ -101,16 +107,6 @@ await browser.messageDisplayScripts.register({
     css: [{ file: 'message-content-styles.css' }],
 })
 
-const store: {
-    [id: number]: {
-        bytes: Uint8Array
-        res: MetadataReaderResult
-        identity: Attribute
-        timestamp: number
-        token?: string
-    }
-} = {}
-
 async function handleMessage(message: any, sender: any, sendResponse: any) {
     console.log('[background]: received message: ', message, sender, sendResponse)
     if (message && 'command' in message) {
@@ -119,8 +115,6 @@ async function handleMessage(message: any, sender: any, sendResponse: any) {
         } = sender
         switch (message.command) {
             case 'queryMailDetails': {
-                console.log('Got queryMailDetails command')
-
                 const currentMsg = await browser.messageDisplay.getDisplayedMessage(tabId)
                 const sealed = await browser.irmaseal4tb.getMsgHdr(currentMsg.id, 'sealed')
                 if (sealed !== 'true') return { sealed: false }
@@ -150,9 +144,7 @@ async function handleMessage(message: any, sender: any, sendResponse: any) {
                 }
             }
             case 'startSession': {
-                console.log('Got startSession command with args: ', message.args)
                 const { identity } = store[message.args.messageId]
-
                 const resp = await fetch(client.url + '/v1/request', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -165,11 +157,9 @@ async function handleMessage(message: any, sender: any, sendResponse: any) {
 
                 store[message.args.messageId].token = response.token
 
-                return { token: response.token, qrData: dataURL }
+                return { qrData: dataURL }
             }
             case 'waitForSessionFinishedAndDecrypt': {
-                console.log('Got waitForSessionFinishedAndDecrypt with args: ', message.args)
-
                 const {
                     res: { metadata, header },
                     bytes,
@@ -183,14 +173,14 @@ async function handleMessage(message: any, sender: any, sendResponse: any) {
                         `${client.url}/v1/request/${token}/${timestamp?.toString()}`
                     )
                     const resp = await rawResp.json()
-                    console.log('Polling got: ', resp)
                     await new Promise((r) => setTimeout(r, 500))
                     switch (resp.status) {
                         case 'INITIALIZED':
                         case 'CONNECTED':
                             continue
-                        case 'TIMEDOUT':
+                        case 'TIMEOUT':
                         case 'CANCELLED':
+                            retval = ''
                             break
                         case 'DONE_VALID': {
                             const usk = resp.key
