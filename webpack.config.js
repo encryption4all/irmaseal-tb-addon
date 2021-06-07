@@ -27,7 +27,10 @@ module.exports = [
         experiments: { syncWebAssembly: true, topLevelAwait: true },
         output: { path: outputPath },
         module: { rules: tsLoaderRules },
-        resolve: { extensions: extensions },
+        resolve: {
+            extensions: extensions,
+            fallback: { http: false, https: false, url: false, util: false },
+        },
         plugins: [
             new HtmlWebpackPlugin({
                 title: 'IRMAseal compose',

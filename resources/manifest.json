@@ -7,7 +7,7 @@
         "gecko": {
             "id": "irmaseal4tb@e4a.org",
             "strict_min_version": "88.0",
-            "strict_max_version": "89.*"
+            "strict_max_version": "*"
         }
     },
     "icons": {

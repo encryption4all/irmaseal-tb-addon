@@ -14,9 +14,8 @@ import { Buffer } from 'buffer'
 import { getCiphertextFromMime } from './../util'
 import { toDataURL } from 'qrcode'
 
-// TODO: find a way to use these
-// import { faToggleOn, faToggleOff } from '@fortawesome/free-solid-svg-icons'
-// console.log(faToggleOn, faToggleOff)
+import * as IrmaCore from '@privacybydesign/irma-core'
+import * as IrmaClient from '@privacybydesign/irma-client'
 
 declare const browser: any
 const WIN_TYPE_COMPOSE = 'messageCompose'
@@ -42,6 +41,10 @@ async function setIcon(tabId: number) {
     await browser.composeAction.setIcon({
         tabId: tabId,
         path: composeTabs[tabId] ? 'icons/toggle-on.png' : 'icons/toggle-off.png',
+    })
+
+    await browser.composeAction.setTitle({
+        title: `Encryption ${composeTabs[tabId] ? ' ON' : 'OFF'}`,
     })
 }
 
@@ -107,15 +110,24 @@ await browser.messageDisplayScripts.register({
     css: [{ file: 'message-content-styles.css' }],
 })
 
-async function handleMessage(message: any, sender: any, sendResponse: any) {
-    console.log('[background]: received message: ', message, sender, sendResponse)
-    if (message && 'command' in message) {
+// communicate with message display script
+await browser.runtime.onConnect.addListener((port) => {
+    console.log('[background]: got connection: ', port)
+    port.onMessage.addListener(async (message, sender) => {
+        console.log('[background]: received message: ', message, sender)
+        if (!message || !('command' in message)) return
         const {
-            tab: { id: tabId },
+            sender: {
+                tab: { id: tabId },
+            },
         } = sender
         switch (message.command) {
             case 'queryMailDetails': {
+                console.log('tabId: ', tabId)
                 const currentMsg = await browser.messageDisplay.getDisplayedMessage(tabId)
+                // TODO: somehow this is null sometimes when it shouldn't
+                //                if (!currentMsg) return { sealed: false }
+
                 const sealed = await browser.irmaseal4tb.getMsgHdr(currentMsg.id, 'sealed')
                 if (sealed !== 'true') return { sealed: false }
 
@@ -136,74 +148,83 @@ async function handleMessage(message: any, sender: any, sendResponse: any) {
                     timestamp: metadata_json.identity.timestamp,
                 }
 
-                return {
-                    sealed: true,
-                    messageId: currentMsg.id,
-                    sender: currentMsg.author,
-                    identity: metadata_json.identity.attribute,
-                }
+                port.postMessage({
+                    command: 'mailDetails',
+                    args: {
+                        sealed: true,
+                        messageId: currentMsg.id,
+                        sender: currentMsg.author,
+                        identity: metadata_json.identity.attribute,
+                    },
+                })
+                break
             }
             case 'startSession': {
-                const { identity } = store[message.args.messageId]
-                const resp = await fetch(client.url + '/v1/request', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        attribute: identity,
-                    }),
-                })
-                const response = await resp.json()
-                const dataURL = await toDataURL(response.qr)
-
-                store[message.args.messageId].token = response.token
-
-                return { qrData: dataURL }
-            }
-            case 'waitForSessionFinishedAndDecrypt': {
                 const {
+                    identity,
                     res: { metadata, header },
                     bytes,
-                    token,
                     timestamp,
                 } = store[message.args.messageId]
 
-                let retval = undefined
-                while (!retval) {
-                    const rawResp = await fetch(
-                        `${client.url}/v1/request/${token}/${timestamp?.toString()}`
-                    )
-                    const resp = await rawResp.json()
-                    await new Promise((r) => setTimeout(r, 500))
-                    switch (resp.status) {
-                        case 'INITIALIZED':
-                        case 'CONNECTED':
-                            continue
-                        case 'TIMEOUT':
-                        case 'CANCELLED':
-                            retval = ''
-                            break
-                        case 'DONE_VALID': {
-                            const usk = resp.key
-                            const keys: KeySet = metadata.derive_keys(usk)
-                            const plainBytes: Uint8Array = await symcrypt(
-                                keys,
-                                metadata.to_json().iv,
-                                header,
-                                bytes,
-                                true
-                            )
-                            const mail: string = new TextDecoder().decode(plainBytes)
-                            retval = mail
-                            break
-                        }
-                    }
-                }
+                const irma = new IrmaCore({
+                    debugging: true,
+                    session: {
+                        url: client.url,
+                        start: {
+                            url: (o) => `${o.url}/v1/request`,
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                attribute: identity,
+                            }),
+                        },
+                        mapping: {
+                            sessionPtr: (r) => {
+                                toDataURL(r.qr).then((dataURL) => {
+                                    port.postMessage({
+                                        command: 'showQr',
+                                        args: { qrData: dataURL },
+                                    })
+                                })
 
-                return retval
+                                return JSON.parse(r.qr)
+                            },
+                        },
+                        result: {
+                            url: (o, { sessionToken: token }) =>
+                                `${o.url}/v1/request/${token}/${timestamp?.toString()}`,
+                        },
+                    },
+                })
+
+                irma.use(IrmaClient)
+                irma.start()
+                    .then((r) => {
+                        const usk = r.key
+                        const keys: KeySet = metadata.derive_keys(usk)
+                        symcrypt(keys, metadata.to_json().iv, header, bytes, true).then(
+                            (plainBytes) => {
+                                const mail: string = new TextDecoder().decode(plainBytes)
+                                port.postMessage({
+                                    command: 'showDecryption',
+                                    args: { mail: mail },
+                                })
+                            }
+                        )
+                    })
+                    .catch((err) => {
+                        console.log('Error during decryption: ', err)
+                    })
+
+                break
+            }
+            case 'cancelSession': {
+                console.log('[background]: received cancel command')
+                // TODO: Either cancel the session or store it for later
+                break
             }
         }
-    }
-    return null
-}
-
-browser.runtime.onMessage.addListener(handleMessage)
+        return null
+    })
+})
