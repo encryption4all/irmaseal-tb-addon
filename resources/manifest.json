@@ -30,11 +30,6 @@
     "compose_action": {
         "default_area": "maintoolbar"
     },
-    "message_display_action": {
-        "default_area": "maintoolbar",
-        "default_popup": "sealDecrypt.html",
-        "default_icon": "icons/decrypt-icon.png"
-    },
     "permissions": [
         "activeTab",
         "messagesRead",
