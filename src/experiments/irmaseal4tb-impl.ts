@@ -4,7 +4,7 @@
 
 /* global Components: false */
 
-declare const Components: any
+declare const Components
 const { classes: Cc, interfaces: Ci, utils: Cu } = Components
 
 const { ExtensionCommon } = Cu.import('resource://gre/modules/ExtensionCommon.jsm')
@@ -17,16 +17,16 @@ const loadJsm = (path: string) => Cu.import(extension.rootURI.resolve(path))
 const unloadJsm = (path: string) => Cu.unload(extension.rootURI.resolve(path))
 
 const DEBUG_LOG = (str: string) => Services.console.logStringMessage(`[EXPERIMENT]: ${str}`)
-const ERROR_LOG = (ex: any) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.stack}`)
+const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.stack}`)
 
 export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
-    public getAPI(context: any): any {
+    public getAPI(context) {
         return {
             irmaseal4tb: {
                 setSecurityInfo: function (windowId: number, value: string) {
                     DEBUG_LOG('irmaseal4tb.js: setSecurityInfo()\n')
                     let compSec = Cc['@e4a/irmaseal/compose-encrypted;1'].createInstance(
-                        Components.interfaces.nsIMsgComposeSecure
+                        Ci.nsIMsgComposeSecure
                     )
 
                     compSec = compSec.wrappedJSObject
@@ -70,7 +70,7 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
         }
     }
 
-    public onStartup(): any {
+    public onStartup(): void {
         try {
             DEBUG_LOG('starting experiment')
 
@@ -87,7 +87,7 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
         }
     }
 
-    public onShutdown(isAppShutdown: boolean): any {
+    public onShutdown(isAppShutdown: boolean): void {
         if (isAppShutdown) {
             DEBUG_LOG('shutting down experiment')
             return

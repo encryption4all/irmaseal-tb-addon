@@ -19,7 +19,7 @@ import { getCiphertextFromMime } from './../../util'
 // The key is sent to the background for decryption.
 
 // TODO: get all types from comm-central or something..
-declare const browser: any
+declare const browser
 
 const client: Client = await Client.build('https://irmacrypt.nl/pkg')
 

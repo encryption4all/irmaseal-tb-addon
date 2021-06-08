@@ -17,7 +17,7 @@ import { toDataURL } from 'qrcode'
 import * as IrmaCore from '@privacybydesign/irma-core'
 import * as IrmaClient from '@privacybydesign/irma-client'
 
-declare const browser: any
+declare const browser
 const WIN_TYPE_COMPOSE = 'messageCompose'
 
 console.log('[background]: irmaseal-tb started.')
@@ -44,12 +44,12 @@ async function setIcon(tabId: number) {
     })
 
     await browser.composeAction.setTitle({
-        title: `Encryption ${composeTabs[tabId] ? ' ON' : 'OFF'}`,
+        title: `Encryption ${composeTabs[tabId] ? 'ON' : 'OFF'}`,
     })
 }
 
 // Keep track of all the compose tabs created
-browser.tabs.onCreated.addListener(async (tab: any) => {
+browser.tabs.onCreated.addListener(async (tab) => {
     console.log('[background]: tab opened: ', tab)
 
     // Check the windowType of the tab
@@ -71,7 +71,7 @@ browser.tabs.onRemoved.addListener((tabId: number) => {
     console.log('composeTabs: ', composeTabs)
 })
 
-browser.composeAction.onClicked.addListener(async (tab: any) => {
+browser.composeAction.onClicked.addListener(async (tab) => {
     const id = tab.id
     console.log(
         `[background]: toggleEncryption for tab ${id}: ${composeTabs[id]} => ${!composeTabs[id]}`
@@ -82,11 +82,14 @@ browser.composeAction.onClicked.addListener(async (tab: any) => {
     await setIcon(id)
 })
 
-browser.compose.onBeforeSend.addListener(async (tab: any, details: any) => {
+browser.compose.onBeforeSend.addListener(async (tab, details) => {
     console.log('[background]: onBeforeSend: ', tab, details)
     if (!composeTabs[tab.id]) return
 
-    const plaintext = details.plainTextBody.replace('\n', '')
+    // This represenatation has no formatting
+    // An alternative is details.body which contains the mail in html format
+    const plaintext = details.plainTextBody
+    console.log('[background]: onBeforeSend: plaintext: ', plaintext)
 
     const identity: Attribute = {
         type: 'pbdf.sidn-pbdf.email.email',

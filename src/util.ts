@@ -1,12 +1,13 @@
-export function getCiphertextFromMime(mime: any): string | undefined {
+export function getCiphertextFromMime(mime): string | undefined {
     try {
         const mimeparts = mime.parts
-        const multiparts = mimeparts.find((part: any) => part.contentType === 'multipart/encrypted')
-            .parts
-        const fakeparts = multiparts.find(
-            (part2: any) => part2.contentType === 'multipart/fake-container'
+        const multiparts = mimeparts.find(
+            (part) => part.contentType === 'multipart/encrypted'
         ).parts
-        const b64encoded = fakeparts.find((part3: any) => part3.contentType === 'text/plain')
+        const fakeparts = multiparts.find(
+            (part2) => part2.contentType === 'multipart/fake-container'
+        ).parts
+        const b64encoded = fakeparts.find((part3) => part3.contentType === 'text/plain')
         const body = b64encoded.body
         return body.replace('\n', '')
     } catch (e) {
