@@ -48,10 +48,16 @@ const showSealedLayout = async () => {
                 envelope.className = 'envelope'
                 header.className = 'header'
                 envelopeText.className = 'envelopeText'
-                envelopeText.innerText = `This message has been encrypted with IRMAseal.\nYou have received a locked message by:\n\n${sender}.\n\nTo open this email, you have to prove that you have the following identity loaded in your IRMA app:\n\n${identity.type}: ${identity.value}.\n`
+                envelopeText.innerText = `${browser.i18n.getMessage(
+                    'displayMessageTitle',
+                    sender
+                )}.\n${browser.i18n.getMessage(
+                    'displayMessageHeading'
+                )}\n\n${browser.i18n.getMessage(identity.type)}: ${identity.value}.\n`
+
                 qr.src = qrData
                 help.className = 'help'
-                help.innerText = "Don't have IRMA yet?"
+                help.innerText = browser.i18n.getMessage('displayMessageIrmaHelp')
 
                 envelope.appendChild(header)
                 envelope.appendChild(envelopeText)

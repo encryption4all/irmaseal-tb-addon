@@ -1,0 +1,31 @@
+{
+    "pbdf.sidn-pbdf.email.email": {
+        "message": "email",
+        "description": ""
+    },
+    "pbdf.pbdf.mobilenumber.mobilenumber": {
+        "message": "mobile number",
+        "description": ""
+    },
+    "displayMessageTitle": {
+        "message": "Encrypted message from $SENDER$",
+        "description": "",
+        "placeholders": {
+            "sender": {
+                "content": "$1"
+            }
+        }
+    },
+    "displayMessageHeading": {
+        "message": "Decrypt the message by disclosing the following personal data from your IRMA app:",
+        "description": ""
+    },
+    "displayMessageQrPrefix": {
+        "message": "Use your IRMA app to scan the QR code:",
+        "description": ""
+    },
+    "displayMessageIrmaHelp": {
+        "message": "Not yet downloaded the IRMA-app?",
+        "description": ""
+    }
+}
