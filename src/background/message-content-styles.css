@@ -1,17 +1,95 @@
-.envelope {
-    margin: auto;
-    width: 50%;
-    background-color: white;
-    color: black;
-    font-weight: 400;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    border-radius: 15px;
-    border: 2px solid #73ad21;
-    padding: 20px;
+body {
+    background: #ededed;
+    font-family: 'Karla', sans-serif;
+    font-weight: 300;
+    font-size: 14px;
 }
 
-.envelopeText {
-    flex-grow: 1;
+div,
+p {
+    margin: 0px;
+}
+
+.bg {
+    width: 516px;
+    height: 600px;
+    background: #ffffff;
+}
+
+.center {
+    display: flex;
+    justify-content: center;
+}
+
+#idlock_svg {
+    margin-top: 16px;
+}
+
+#idlock_txt {
+    margin-top: 4px;
+    font-weight: 700;
+    font-size: 14px;
+    color: #004c92;
+}
+
+#info_message {
+    margin-top: 16px;
+    text-align: center;
+    font-size: 21px;
+}
+
+.blue {
+    color: #0074df;
+}
+
+.smaller {
+    font-size: 12px;
+}
+
+.gray {
+    color: #808080;
+    margin-top: 4px;
+}
+
+.instructions_container {
+    width: 424px;
+    display: flex;
+    margin-left: 46px;
+    margin-top: 20px;
+    height: 125px;
+}
+
+.left {
+    width: 50px;
+    height: 40px;
+}
+.right {
+    width: 364px;
+    height: 40px;
+}
+
+#logo {
+    width: 40px;
+}
+
+#attributes {
+    margin-top: 16px;
+}
+
+#qr_instruction {
+    margin-top: 16px;
+}
+
+#qr_img {
+    margin-top: 16px;
+    width: 118px;
+}
+
+#download_irma {
+    margin-top: 12px;
+}
+
+#download_irma img {
+    height: 30px;
+    margin-top: 12px;
 }

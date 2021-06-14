@@ -1,9 +1,71 @@
-const showSealedLayout = async () => {
-    const text = document.getElementsByClassName('moz-text-plain')[0]
-    const display = text.style.display
+const html = (sender, identity) => `
+<body class="center">
+    <div class="bg">
+        <div class="center">
+            <div id="idlock_svg">
+                <img src="${browser.runtime.getURL('images/idlock.svg')}" />
+            </div>
+        </div>
+        <div class="center">
+            <p id="idlock_txt">${browser.i18n.getMessage('appName')}</p>
+        </div>
+        <div id="info_message">
+            <p>${browser.i18n.getMessage('displayMessageTitle')}</p>
+            <p class="blue">${sender}</p>
+            <!-- <p class="smaller gray" disabled>Expires on June 15, 2021</p> -->
+        </div>
+        <div class="instructions_container">
+            <div class="left">
+                <img src="${browser.runtime.getURL('images/irma_logo.svg')}" id="logo" />
+            </div>
+            <div class="right">
+                <div>
+                    <p>${browser.i18n.getMessage('displayMessageHeading')}</p>
+                </div>
+                <div id="attributes">
+                    <table class="smaller">
+                        <tr>
+                            <td>${browser.i18n.getMessage(identity.type)}:</td>
+                            <td class="blue">${identity.value}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div id="qr_instruction">
+                    <p>${browser.i18n.getMessage('displayMessageQrPrefix')}</p>
+                </div>
+            </div>
+        </div>
+        <div class="center">
+            <img id="qr_img" />
+        </div>
+        <div class="instructions_container">
+            <div class="left"></div>
+            <div class="right">
+                <div id="download_irma">
+                    <p>${browser.i18n.getMessage('displayMessageIrmaHelp')}</p>
+                    <a
+                        href="https://play.google.com/store/apps/details?id=org.irmacard.cardemu&hl=en&gl=US&pcampaignid=pcampaignidMKT-Other-global-all-co-prtnr-py-PartBadge-Mar2515-1"
+                        ><img alt="Get it on Google Play" src="${browser.runtime.getURL(
+                            'images/google-play-badge.png'
+                        )}"
+                    /></a>
+                    <a
+                        href="https://apps.apple.com/us/app/irma-authentication/id1294092994?itsct=apps_box_badge&amp;itscg=30200"
+                        ><img src="${browser.runtime.getURL(
+                            'images/appstore_badge.svg'
+                        )}")" alt="Download on the App Store"
+                    /></a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+`
 
-    var envelope, header, envelopeText, qr, help
+const showSealedLayout = async () => {
     var sealed, sender, identity, messageId
+
+    const text = document.getElementsByClassName('moz-text-plain')[0]
 
     // Connect to the background script
     const port = browser.runtime.connect({ name: 'message-display-script' })
@@ -22,12 +84,16 @@ const showSealedLayout = async () => {
                 ;({ sealed, sender, identity, messageId } = message.args)
 
                 if (!sealed) {
-                    // TODO: remove the listener
+                    // TODO: remove the listener ?
                     return
                 }
 
                 // Hide the ciphertext
                 text.style.display = 'none'
+
+                // show the layout
+                document.body.className = 'center'
+                document.body.innerHTML = html(sender, identity)
 
                 port.postMessage({ command: 'startSession', args: { messageId: messageId } })
                 break
@@ -36,34 +102,7 @@ const showSealedLayout = async () => {
                 const { qrData } = message.args
 
                 console.log('[content-script]: qrData:', qrData)
-
-                // Build the layout
-
-                envelope = document.createElement('div')
-                header = document.createElement('div')
-                envelopeText = document.createElement('div')
-                qr = document.createElement('img')
-                help = document.createElement('div')
-
-                envelope.className = 'envelope'
-                header.className = 'header'
-                envelopeText.className = 'envelopeText'
-                envelopeText.innerText = `${browser.i18n.getMessage(
-                    'displayMessageTitle',
-                    sender
-                )}.\n${browser.i18n.getMessage(
-                    'displayMessageHeading'
-                )}\n\n${browser.i18n.getMessage(identity.type)}: ${identity.value}.\n`
-
-                qr.src = qrData
-                help.className = 'help'
-                help.innerText = browser.i18n.getMessage('displayMessageIrmaHelp')
-
-                envelope.appendChild(header)
-                envelope.appendChild(envelopeText)
-                envelope.appendChild(qr)
-                envelope.appendChild(help)
-                document.body.insertBefore(envelope, document.body.firstChild)
+                document.getElementById('qr_img').src = qrData
 
                 break
             }
@@ -73,9 +112,7 @@ const showSealedLayout = async () => {
                 console.log('[content-script]: decrypted mail: ', mail)
 
                 if (mail) {
-                    envelope.remove()
-                    text.innerText = mail
-                    text.style.display = display
+                    document.body.innerHTML = mail
                 }
 
                 break

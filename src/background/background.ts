@@ -86,9 +86,10 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     console.log('[background]: onBeforeSend: ', tab, details)
     if (!composeTabs[tab.id]) return
 
-    // This represenatation has no formatting
-    // An alternative is details.body which contains the mail in html format
-    const plaintext = details.plainTextBody
+    // details.plainTextBody = mail in plaintext
+    // details.body = mail in html format
+    const plaintext = details.body
+
     console.log('[background]: onBeforeSend: plaintext: ', plaintext)
 
     const identity: Attribute = {
