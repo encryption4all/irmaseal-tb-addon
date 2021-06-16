@@ -88,7 +88,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     // details.plainTextBody = mail in plaintext
     // details.body = mail in html format
-    const plaintext = details.body
+    const plaintext = details.plainTextBody
 
     console.log('[background]: onBeforeSend: plaintext: ', plaintext)
 
@@ -127,7 +127,6 @@ await browser.runtime.onConnect.addListener((port) => {
         } = sender
         switch (message.command) {
             case 'queryMailDetails': {
-                console.log('tabId: ', tabId)
                 const currentMsg = await browser.messageDisplay.getDisplayedMessage(tabId)
                 // TODO: somehow this is null sometimes when it shouldn't
                 //                if (!currentMsg) return { sealed: false }

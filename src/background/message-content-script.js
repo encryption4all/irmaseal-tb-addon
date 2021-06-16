@@ -1,69 +1,65 @@
 const html = (sender, identity) => `
-<body class="center">
-    <div class="bg">
-        <div class="center">
-            <div id="idlock_svg">
-                <img src="${browser.runtime.getURL('images/idlock.svg')}" />
-            </div>
+<div class="center">
+    <div id="idlock_svg">
+        <img src="${browser.runtime.getURL('images/idlock.svg')}" />
+    </div>
+</div>
+<div class="center">
+    <p id="idlock_txt">${browser.i18n.getMessage('appName')}</p>
+</div>
+<div id="info_message">
+    <p>${browser.i18n.getMessage('displayMessageTitle')}</p>
+    <p class="blue">${sender}</p>
+    <!-- <p class="smaller gray" disabled>Expires on June 15, 2021</p> -->
+</div>
+<div class="instructions_container">
+    <div class="left">
+        <img src="${browser.runtime.getURL('images/irma_logo.svg')}" id="logo" />
+    </div>
+    <div class="right">
+        <div>
+            <p>${browser.i18n.getMessage('displayMessageHeading')}</p>
         </div>
-        <div class="center">
-            <p id="idlock_txt">${browser.i18n.getMessage('appName')}</p>
+        <div id="attributes">
+            <table class="smaller">
+                <tr>
+                    <td>${browser.i18n.getMessage(identity.type)}:</td>
+                    <td class="blue">${identity.value}</td>
+                </tr>
+            </table>
         </div>
-        <div id="info_message">
-            <p>${browser.i18n.getMessage('displayMessageTitle')}</p>
-            <p class="blue">${sender}</p>
-            <!-- <p class="smaller gray" disabled>Expires on June 15, 2021</p> -->
-        </div>
-        <div class="instructions_container">
-            <div class="left">
-                <img src="${browser.runtime.getURL('images/irma_logo.svg')}" id="logo" />
-            </div>
-            <div class="right">
-                <div>
-                    <p>${browser.i18n.getMessage('displayMessageHeading')}</p>
-                </div>
-                <div id="attributes">
-                    <table class="smaller">
-                        <tr>
-                            <td>${browser.i18n.getMessage(identity.type)}:</td>
-                            <td class="blue">${identity.value}</td>
-                        </tr>
-                    </table>
-                </div>
-                <div id="qr_instruction">
-                    <p>${browser.i18n.getMessage('displayMessageQrPrefix')}</p>
-                </div>
-            </div>
-        </div>
-        <div class="center">
-            <img id="qr_img" />
-        </div>
-        <div class="instructions_container">
-            <div class="left"></div>
-            <div class="right">
-                <div id="download_irma">
-                    <p>${browser.i18n.getMessage('displayMessageIrmaHelp')}</p>
-                    <a
-                        href="https://play.google.com/store/apps/details?id=org.irmacard.cardemu&hl=en&gl=US&pcampaignid=pcampaignidMKT-Other-global-all-co-prtnr-py-PartBadge-Mar2515-1"
-                        ><img alt="Get it on Google Play" src="${browser.runtime.getURL(
-                            'images/google-play-badge.png'
-                        )}"
-                    /></a>
-                    <a
-                        href="https://apps.apple.com/us/app/irma-authentication/id1294092994?itsct=apps_box_badge&amp;itscg=30200"
-                        ><img src="${browser.runtime.getURL(
-                            'images/appstore_badge.svg'
-                        )}")" alt="Download on the App Store"
-                    /></a>
-                </div>
-            </div>
+        <div id="qr_instruction">
+            <p>${browser.i18n.getMessage('displayMessageQrPrefix')}</p>
         </div>
     </div>
-</body>
+</div>
+<div class="center">
+    <img id="qr_img" />
+</div>
+<div class="instructions_container">
+    <div class="left"></div>
+    <div class="right">
+        <div id="download_irma">
+            <p>${browser.i18n.getMessage('displayMessageIrmaHelp')}</p>
+            <a
+                href="https://play.google.com/store/apps/details?id=org.irmacard.cardemu&hl=en&gl=US&pcampaignid=pcampaignidMKT-Other-global-all-co-prtnr-py-PartBadge-Mar2515-1"
+                ><img alt="Get it on Google Play" src="${browser.runtime.getURL(
+                    'images/google-play-badge.png'
+                )}"
+            /></a>
+            <a
+                href="https://apps.apple.com/us/app/irma-authentication/id1294092994?itsct=apps_box_badge&amp;itscg=30200"
+                ><img src="${browser.runtime.getURL(
+                    'images/appstore_badge.svg'
+                )}")" alt="Download on the App Store"
+            /></a>
+        </div>
+    </div>
+</div>
 `
 
 const showSealedLayout = async () => {
-    var sealed, sender, identity, messageId
+    var sealed, sender, identity, messageId, layout
 
     const text = document.getElementsByClassName('moz-text-plain')[0]
 
@@ -92,16 +88,17 @@ const showSealedLayout = async () => {
                 text.style.display = 'none'
 
                 // show the layout
-                document.body.className = 'center'
-                document.body.innerHTML = html(sender, identity)
+                layout = document.createElement('div')
+                layout.className = 'bg'
+                layout.innerHTML = html(sender, identity)
+                document.body.insertBefore(layout, document.body.firstChild)
+                document.body.className = 'center encrypted'
 
                 port.postMessage({ command: 'startSession', args: { messageId: messageId } })
                 break
             }
             case 'showQr': {
                 const { qrData } = message.args
-
-                console.log('[content-script]: qrData:', qrData)
                 document.getElementById('qr_img').src = qrData
 
                 break
@@ -109,10 +106,16 @@ const showSealedLayout = async () => {
             case 'showDecryption': {
                 const { mail } = message.args
 
-                console.log('[content-script]: decrypted mail: ', mail)
-
                 if (mail) {
-                    document.body.innerHTML = mail
+                    layout.remove()
+                    document.body.className = ''
+
+                    // If the HTML format was encrypted just change the body
+                    // document.body.innerHTML = mail
+
+                    // Otherwise use plainTextBody mode
+                    text.style.display = 'block'
+                    text.innerText = mail
                 }
 
                 break
