@@ -1,3 +1,4 @@
+const webpack = require('webpack')
 const path = require('path')
 
 const defaultMode = 'development'
@@ -25,8 +26,19 @@ module.exports = [
         module: { rules: tsLoaderRules },
         resolve: {
             extensions: extensions,
-            fallback: { http: false, https: false, url: false, util: false },
+            fallback: {
+                http: false,
+                https: false,
+                url: false,
+                util: false,
+                buffer: require.resolve('buffer/'),
+            },
         },
+        plugins: [
+            new webpack.ProvidePlugin({
+                Buffer: ['buffer', 'Buffer'],
+            }),
+        ],
     },
     {
         name: 'experiment',
