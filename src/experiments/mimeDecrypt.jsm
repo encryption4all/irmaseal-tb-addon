@@ -26,8 +26,6 @@ const MIME_JS_DECRYPTOR_CID = Components.ID('{f3a50b87-b198-42c0-86d9-116aca7180
 const DEBUG_LOG = (str) => Services.console.logStringMessage(`[experiment]: ${str}`)
 const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.stack}`)
 
-const BOUNDARY = 'foo'
-
 function MimeDecryptHandler() {
     DEBUG_LOG('mimeDecrypt.jsm: new MimeDecryptHandler()\n')
     this.mimeProxy = null
@@ -70,42 +68,9 @@ MimeDecryptHandler.prototype = {
             this.msgHdr.setStringProperty('sealed', true)
         }
 
-        let decryptedData = this.decryptData()
-        this.mimeProxy.outputDecryptedData(decryptedData, decryptedData.length)
-    },
-
-    decryptData: function () {
-        DEBUG_LOG(`decrypting dataBuffer:\n${this.dataBuffer}`)
-
-        const [section1, section2, section3] = this.dataBuffer.split(`--${BOUNDARY}`).slice(0, -1)
-
-        const sec1RegExp = /(.*)\r?\n--foo/
-        const sec2RegExp = /Content-Type: application\/irmaseal\r?\n\r?\n?Version: (.*)\r?\n\r?\n?/
-        const sec3RegExp = /Content-Type: application\/octet-stream\r?\n(.*)\r?\n\r?\n?/
-
-        const plain = section1.replace(sec1RegExp, '$1')
-        const version = section2.replace(sec2RegExp, '$1')
-        const bytes = section3.replace(sec3RegExp, '$1')
-
-        if (!section2.match(sec2RegExp)) {
-            DEBUG_LOG('not an IRMAseal message')
-            return
-        }
-
-        //DEBUG_LOG(`plain: ${plain},\n info: ${version},\n bytes: ${bytes}`)
-
-        // For now, just pass the ciphertext bytes to the frontend
-        const msg = bytes
-
-        // We need to wrap the result into a multipart/mixed message and return it
-        let output = ''
-        output += `Content-Type: multipart/mixed; boundary="${BOUNDARY}"\r\n\r\n`
-        output += `--${BOUNDARY}\r\n`
-        output += `Content-Type: text/plain\r\n\r\n`
-        output += `${msg}\r\n`
-        output += `--${BOUNDARY}--\r\n`
-
-        return output
+        // just return the complete databuffer to the frontend
+        // this is probably inefficient for big mails with attachments
+        this.mimeProxy.outputDecryptedData(this.dataBuffer, this.dataBuffer.length)
     },
 }
 
@@ -145,7 +110,6 @@ var IRMAsealMimeDecrypt = {
     startup: function (reason) {
         try {
             this.factory = new Factory(MimeDecryptHandler)
-
             // re-use the PGP/MIME handler for our own purposes
             // only required if you want to decrypt something else than Content-Type: multipart/encrypted
 

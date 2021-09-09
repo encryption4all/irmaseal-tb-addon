@@ -52,10 +52,14 @@ MimeEncrypt.prototype = {
     outStream: null,
     outStringStream: null,
     outBuffer: '',
-    val: null,
 
-    init: function (val) {
-        this.val = val
+    // Mime header/body retrieved from frontend
+    header: null,
+    body: null,
+
+    init: function (header, body) {
+        this.header = header
+        this.body = body
     },
 
     /**
@@ -69,17 +73,7 @@ MimeEncrypt.prototype = {
      */
     requiresCryptoEncapsulation: function (msgIdentity, msgCompFields) {
         DEBUG_LOG('mimeEncrypt.jsm: requiresCryptoEncapsulation()\n')
-
-        //if ('securityInfo' in msgCompFields) {
-        //    try {
-        //        // TB < 64 holds the relevant data in securityInfo.
-        //        let secInfo = msgCompFields.securityInfo.wrappedJSObject
-        //        this.sampleValue = secInfo.sampleValue
-        //    } catch (ex) {
-        //        return false
-        //    }
-        //}
-        return this.val != null
+        return this.header != null && this.body != null
     },
 
     /**
@@ -116,23 +110,10 @@ MimeEncrypt.prototype = {
         this.sendReport = sendReport
         this.isDraft = isDraft
 
-        const headers = {
-            // This is duplicated somehow if left in here..
-            // Subject: `${msgCompFields.subject}`,
-            // To: `${recipientList}`,
-            // From: `${msgIdentity.email}`,
-            'MIME-Version': '1.0',
-            'Content-Type': `multipart/encrypted; protocol="application/irmaseal"; boundary=${BOUNDARY}`,
-        }
+        DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): writing headers:\n${this.header}\n`)
 
-        var headerStr = ''
-        for (const [k, v] of Object.entries(headers)) {
-            headerStr += `${k}: ${v}\r\n`
-        }
-        headerStr += '\r\n'
-
-        DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): writing headers:\n${headerStr}\n`)
-        this.writeOut(headerStr)
+        // Write the headers we got through CompSec.init()
+        this.writeOut(this.header)
     },
 
     /**
@@ -146,9 +127,10 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     mimeCryptoWriteBlock: function (buffer, length) {
-        DEBUG_LOG(`mimeEncrypt.jsm: mimeCryptoWriteBlock(): ${length}\n`)
+        // DEBUG_LOG(`mimeEncrypt.jsm: mimeCryptoWriteBlock(): ${length}\n`)
 
-        this.outBuffer += buffer.substr(0, length)
+        // ignore everything that gets written here
+        // this.outBuffer += buffer.substr(0, length)
         return null
     },
 
@@ -162,20 +144,10 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     finishCryptoEncapsulation: function (abort, sendReport) {
-        DEBUG_LOG('mimeEncrypt.jsm: finishCryptoEncapsulation()\n')
-        const encryptedData = this.val.replace(/(.{80})/g, '$1\n')
+        DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation: writing content:\n${this.body}`)
 
-        var content = 'This is an IRMAseal/MIME encrypted message.\r\n\r\n'
-        content += `--${BOUNDARY}\r\n`
-        content += 'Content-Type: application/irmaseal\r\n\r\n'
-        content += 'Version: 1\r\n\r\n'
-        content += `--${BOUNDARY}\r\n`
-        content += 'Content-Type: application/octet-stream\r\n\r\n'
-        content += `${encryptedData}\r\n\r\n`
-        content += `--${BOUNDARY}--\r\n`
-
-        DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation: writing content:\n${content}`)
-        this.writeOut(content)
+        // Write the mime body we got through CompSec.init()
+        this.writeOut(this.body)
     },
     writeOut: function (content) {
         this.outStringStream.setData(content, content.length)

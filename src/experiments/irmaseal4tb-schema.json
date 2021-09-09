@@ -12,10 +12,14 @@
                         "type": "integer"
                     },
                     {
-                        "name": "value",
+                        "name": "header",
+                        "type": "string"
+                    },
+                    {
+                        "name": "body",
                         "type": "string"
                     }
-                ]
+                 ]
             },
             {
                 "name": "getSecurityInfo",

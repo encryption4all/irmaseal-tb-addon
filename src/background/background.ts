@@ -4,15 +4,13 @@ import {
     KeySet,
     Attribute,
     Client,
-    symcrypt,
     Metadata,
     MetadataCreateResult,
     MetadataReaderResult,
-    createUint8ArrayReadable,
 } from '@e4a/irmaseal-client'
-import { Buffer } from 'buffer'
-import { getCiphertextFromMime } from './../util'
 import { toDataURL } from 'qrcode'
+
+import { ComposeMail, ReadMail } from 'irmaseal-mail-utils'
 
 import * as IrmaCore from '@privacybydesign/irma-core'
 import * as IrmaClient from '@privacybydesign/irma-client'
@@ -100,11 +98,26 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     const res: MetadataCreateResult = client.createMetadata(identity)
     const metadata = res.metadata.to_json()
     const plainBytes: Uint8Array = new TextEncoder().encode(plaintext)
-    const cipherbytes: Uint8Array = await symcrypt(res.keys, metadata.iv, res.header, plainBytes)
-    const b64encoded = Buffer.from(cipherbytes).toString('base64')
+    const cipherbytes: Uint8Array = await client.symcrypt({
+        keys: res.keys,
+        iv: metadata.iv,
+        header: res.header,
+        input: plainBytes,
+    })
+
+    const compose = new ComposeMail()
+    compose.setSender(details.from)
+    //compose.addRecipient(details.to[0])
+    compose.setCiphertext(cipherbytes)
+    compose.setSubject(details.subject)
+    compose.setVersion('1')
 
     console.log('[background]: setting SecurityInfo')
-    await browser.irmaseal4tb.setSecurityInfo(tab.windowId, b64encoded)
+    await browser.irmaseal4tb.setSecurityInfo(
+        tab.windowId,
+        compose.getMimeHeader(),
+        compose.getMimeBody()
+    )
     console.log('[background]: securityInfo set')
 })
 
@@ -134,18 +147,19 @@ await browser.runtime.onConnect.addListener((port) => {
                 const sealed = await browser.irmaseal4tb.getMsgHdr(currentMsg.id, 'sealed')
                 if (sealed !== 'true') return { sealed: false }
 
-                const mime = await browser.messages.getFull(currentMsg.id)
-                const b64encoded: string | undefined = getCiphertextFromMime(mime)
-                if (!b64encoded) return { sealed: false }
+                const mime = await browser.messages.getRaw(currentMsg.id)
+                const readMail = new ReadMail()
+                readMail.parseMail(mime)
+                const ct = readMail.getCiphertext()
+                const version = readMail.getVersion()
 
-                const sealBytes: Uint8Array = new Uint8Array(Buffer.from(b64encoded, 'base64'))
-                const readable: ReadableStream = createUint8ArrayReadable(sealBytes)
+                const readable: ReadableStream = client.createUint8ArrayReadable(ct)
                 const res: MetadataReaderResult = await client.extractMetadata(readable)
                 const metadata: Metadata = res.metadata
                 const metadata_json = metadata.to_json()
 
                 store[currentMsg.id] = {
-                    bytes: sealBytes,
+                    bytes: ct,
                     res: res,
                     identity: metadata_json.identity.attribute,
                     timestamp: metadata_json.identity.timestamp,
@@ -206,15 +220,21 @@ await browser.runtime.onConnect.addListener((port) => {
                     .then((r) => {
                         const usk = r.key
                         const keys: KeySet = metadata.derive_keys(usk)
-                        symcrypt(keys, metadata.to_json().iv, header, bytes, true).then(
-                            (plainBytes) => {
+                        client
+                            .symcrypt({
+                                keys: keys,
+                                iv: metadata.to_json().iv,
+                                header,
+                                input: bytes,
+                                decrypt: true,
+                            })
+                            .then((plainBytes) => {
                                 const mail: string = new TextDecoder().decode(plainBytes)
                                 port.postMessage({
                                     command: 'showDecryption',
                                     args: { mail: mail },
                                 })
-                            }
-                        )
+                            })
                     })
                     .catch((err) => {
                         console.log('Error during decryption: ', err)
