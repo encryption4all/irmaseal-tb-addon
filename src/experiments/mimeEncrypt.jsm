@@ -53,13 +53,10 @@ MimeEncrypt.prototype = {
     outStringStream: null,
     outBuffer: '',
 
-    // Mime header/body retrieved from frontend
-    header: null,
-    body: null,
+    // Mime retrieved from frontend
 
-    init: function (header, body) {
-        this.header = header
-        this.body = body
+    init: function (mime) {
+        this.mime = mime
     },
 
     /**
@@ -73,7 +70,7 @@ MimeEncrypt.prototype = {
      */
     requiresCryptoEncapsulation: function (msgIdentity, msgCompFields) {
         DEBUG_LOG('mimeEncrypt.jsm: requiresCryptoEncapsulation()\n')
-        return this.header != null && this.body != null
+        return this.mime != null
     },
 
     /**
@@ -97,7 +94,7 @@ MimeEncrypt.prototype = {
         sendReport,
         isDraft
     ) {
-        DEBUG_LOG('mimeEncrypt.jsm: beginCryptoEncapsulation()\n')
+        //DEBUG_LOG('mimeEncrypt.jsm: beginCryptoEncapsulation()\n')
 
         this.outStream = outStream
         this.outStringStream = Cc['@mozilla.org/io/string-input-stream;1'].createInstance(
@@ -110,10 +107,8 @@ MimeEncrypt.prototype = {
         this.sendReport = sendReport
         this.isDraft = isDraft
 
-        DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): writing headers:\n${this.header}\n`)
-
-        // Write the headers we got through CompSec.init()
-        this.writeOut(this.header)
+        //DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): writing headers:\n${this.header}\n`)
+        //this.writeOut(this.header)
     },
 
     /**
@@ -128,7 +123,6 @@ MimeEncrypt.prototype = {
      */
     mimeCryptoWriteBlock: function (buffer, length) {
         // DEBUG_LOG(`mimeEncrypt.jsm: mimeCryptoWriteBlock(): ${length}\n`)
-
         // ignore everything that gets written here
         // this.outBuffer += buffer.substr(0, length)
         return null
@@ -144,11 +138,11 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     finishCryptoEncapsulation: function (abort, sendReport) {
-        DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation: writing content:\n${this.body}`)
-
-        // Write the mime body we got through CompSec.init()
-        this.writeOut(this.body)
+        // DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation: writing mime:\n${this.mime}`)
+        // Write the mime we got through CompSec.init()
+        this.writeOut(this.mime)
     },
+
     writeOut: function (content) {
         this.outStringStream.setData(content, content.length)
         var writeCount = this.outStream.writeFrom(this.outStringStream, content.length)

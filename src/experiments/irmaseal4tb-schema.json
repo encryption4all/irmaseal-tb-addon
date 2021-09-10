@@ -12,58 +12,7 @@
                         "type": "integer"
                     },
                     {
-                        "name": "header",
-                        "type": "string"
-                    },
-                    {
-                        "name": "body",
-                        "type": "string"
-                    }
-                 ]
-            },
-            {
-                "name": "getSecurityInfo",
-                "type": "function",
-                "async": true,
-                "parameters": [
-                    {
-                        "name": "windowId",
-                        "type": "integer"
-                    }
-                ]
-            },
-            {
-                "name": "getMsgHdr",
-                "description": "Returns nsIMsgDBHdr properties",
-                "type": "function",
-                "async": true,
-                "parameters": [
-                    {
-                        "name": "messageId",
-                        "type": "integer"
-                    },
-                    {
-                        "name": "key",
-                        "type": "string"
-                    }
-                ]
-            },
-            {
-                "name": "setMsgHdr",
-                "description": "Sets nsIMsgDBHdr properties",
-                "type": "function",
-                "async": true,
-                "parameters": [
-                    {
-                        "name": "messageId",
-                        "type": "integer"
-                    },
-                    {
-                        "name": "key",
-                        "type": "string"
-                    },
-                    {
-                        "name": "value",
+                        "name": "mime",
                         "type": "string"
                     }
                 ]

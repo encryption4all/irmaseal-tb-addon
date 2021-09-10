@@ -23,14 +23,14 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
     public getAPI(context) {
         return {
             irmaseal4tb: {
-                setSecurityInfo: function (windowId: number, header: string, body: string) {
+                setSecurityInfo: function (windowId: number, mime: string) {
                     DEBUG_LOG('irmaseal4tb.js: setSecurityInfo()\n')
                     let compSec = Cc['@e4a/irmaseal/compose-encrypted;1'].createInstance(
                         Ci.nsIMsgComposeSecure
                     )
 
                     compSec = compSec.wrappedJSObject
-                    compSec.init(header, body)
+                    compSec.init(mime)
 
                     // Get window by windowId
                     const windowObject = context.extension.windowManager.get(windowId)
@@ -48,24 +48,6 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
                     DEBUG_LOG('irmaseal4tb.js: setSecurityInfo() complete\n')
                     return Promise.resolve()
                 },
-                getSecurityInfo: function (windowId: number) {
-                    DEBUG_LOG('irmaseal4tb.js: getSecurityInfo()\n')
-
-                    const windowObject = context.extension.windowManager.get(windowId)
-                    const win = windowObject.window
-
-                    return Promise.resolve(win.gMsgCompose.compFields.composeSecure)
-                },
-                getMsgHdr: (messageId: string, key: string) => {
-                    const realMsg = context.extension.messageManager.get(messageId)
-                    const value = realMsg.getStringProperty(key)
-                    return Promise.resolve(value)
-                },
-                setMsgHdr: (messageId: string, key: string, value: string) => {
-                    const realMsg = context.extension.messageManager.get(messageId)
-                    realMsg.setStringProperty(key, value)
-                    return Promise.resolve()
-                },
             },
         }
     }
@@ -73,14 +55,8 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
     public onStartup(): void {
         try {
             DEBUG_LOG('starting experiment')
-
             const { IRMAsealMimeEncrypt } = loadJsm('mimeEncrypt.jsm')
-
             IRMAsealMimeEncrypt.startup()
-
-            const { IRMAsealMimeDecrypt } = loadJsm('mimeDecrypt.jsm')
-            IRMAsealMimeDecrypt.startup()
-
             DEBUG_LOG('all modules loaded')
         } catch (ex) {
             ERROR_LOG(ex)
@@ -95,20 +71,11 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
 
         try {
             DEBUG_LOG('unloading modules')
-
             const { IRMAsealMimeEncrypt } = loadJsm('mimeEncrypt.jsm')
-
             IRMAsealMimeEncrypt.shutdown()
-
             unloadJsm('mimeEncrypt.jsm')
-            const { IRMAsealMimeDecrypt } = loadJsm('mimeDecrypt.jsm')
-
-            IRMAsealMimeDecrypt.shutdown()
-            unloadJsm('mimeDecrypt.jsm')
-
             DEBUG_LOG('invalidating startup cache')
             Services.obs.notifyObservers(null, 'startupcache-invalidate', null)
-
             DEBUG_LOG('succesfully shutdown experiment')
         } catch (ex) {
             ERROR_LOG(ex)

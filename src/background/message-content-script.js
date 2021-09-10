@@ -61,7 +61,9 @@ const html = (sender, identity) => `
 const showSealedLayout = async () => {
     var sealed, sender, identity, messageId, layout
 
-    const text = document.getElementsByClassName('moz-text-plain')[0]
+    const textPlain = document.getElementsByClassName('moz-text-plain')[0]
+    const textHtml = document.getElementsByClassName('moz-text-html')[0]
+    const text = textPlain ? textPlain : (textHtml ? textHtml : null)
 
     // Connect to the background script
     const port = browser.runtime.connect({ name: 'message-display-script' })
@@ -80,7 +82,7 @@ const showSealedLayout = async () => {
                 ;({ sealed, sender, identity, messageId } = message.args)
 
                 if (!sealed) {
-                    // TODO: remove the listener ?
+                    // TODO: remove the listener?
                     return
                 }
 

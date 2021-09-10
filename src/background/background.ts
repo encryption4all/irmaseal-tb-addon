@@ -106,18 +106,12 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     })
 
     const compose = new ComposeMail()
-    compose.setSender(details.from)
-    //compose.addRecipient(details.to[0])
     compose.setCiphertext(cipherbytes)
-    compose.setSubject(details.subject)
     compose.setVersion('1')
+    const mime: string = compose.getMimeMail(false)
 
     console.log('[background]: setting SecurityInfo')
-    await browser.irmaseal4tb.setSecurityInfo(
-        tab.windowId,
-        compose.getMimeHeader(),
-        compose.getMimeBody()
-    )
+    await browser.irmaseal4tb.setSecurityInfo(tab.windowId, mime)
     console.log('[background]: securityInfo set')
 })
 
@@ -142,16 +136,21 @@ await browser.runtime.onConnect.addListener((port) => {
             case 'queryMailDetails': {
                 const currentMsg = await browser.messageDisplay.getDisplayedMessage(tabId)
                 // TODO: somehow this is null sometimes when it shouldn't
-                //                if (!currentMsg) return { sealed: false }
+                // if (!currentMsg) return { sealed: false }
 
-                const sealed = await browser.irmaseal4tb.getMsgHdr(currentMsg.id, 'sealed')
-                if (sealed !== 'true') return { sealed: false }
+                // Check if the message is irmaseal encrypted
+                const parsedParts = await browser.messages.getFull(currentMsg.id)
+                const sealed =
+                    parsedParts?.headers['content-type']?.[0]?.includes('application/irmaseal') ??
+                    false
+
+                if (!sealed) return { sealed: false }
 
                 const mime = await browser.messages.getRaw(currentMsg.id)
                 const readMail = new ReadMail()
                 readMail.parseMail(mime)
                 const ct = readMail.getCiphertext()
-                const version = readMail.getVersion()
+                // const version = readMail.getVersion()
 
                 const readable: ReadableStream = client.createUint8ArrayReadable(ct)
                 const res: MetadataReaderResult = await client.extractMetadata(readable)
