@@ -8,6 +8,8 @@
         "plugin:@typescript-eslint/recommended"
     ],
     "rules": {
-        "prettier/prettier": "error"
-    }
+        "@typescript-eslint/no-extra-semi": "off"
+    },
+    "env": { "browser": true },
+    "globals": { "browser": true, "chromeUtils": true, "components": true }
 }

@@ -6,13 +6,14 @@
     "applications": {
         "gecko": {
             "id": "irmaseal4tb@e4a.org",
-            "strict_min_version": "78.0",
-            "strict_max_version": "88.*"
+            "strict_min_version": "88.0",
+            "strict_max_version": "*"
         }
     },
     "icons": {
         "48": "icons/irma.ico"
     },
+    "default_locale": "en",
     "background": {
         "scripts": ["background.js"]
     },
@@ -30,11 +31,6 @@
     "compose_action": {
         "default_area": "maintoolbar"
     },
-    "message_display_action": {
-        "default_area": "maintoolbar",
-        "default_popup": "sealDecrypt.html",
-        "default_icon": "icons/decrypt-icon.png"
-    },
     "permissions": [
         "activeTab",
         "messagesRead",
@@ -43,5 +39,6 @@
         "messagesModify",
         "storage"
     ],
+    "web_accessible_resources": ["images/*"],
     "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
 }
