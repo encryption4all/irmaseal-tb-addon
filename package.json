@@ -33,6 +33,7 @@
     },
     "dependencies": {
         "@e4a/irmaseal-client": "^0.0.6",
+        "@e4a/irmaseal-mail-utils": "0.0.2",
         "@privacybydesign/irma-client": "^0.3.3",
         "@privacybydesign/irma-core": "^0.3.3",
         "qrcode": "^1.4.4",

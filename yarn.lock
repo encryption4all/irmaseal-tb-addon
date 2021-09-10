@@ -43,6 +43,11 @@
     jsbi "^3.1.6"
     util "^0.12.4"
 
+"@e4a/irmaseal-mail-utils@0.0.2":
+  version "0.0.2"
+  resolved "https://registry.npmjs.org/@e4a/irmaseal-mail-utils/-/irmaseal-mail-utils-0.0.2.tgz#3d5d14e834890a29a2fb1ba135a3d3ff58a796de"
+  integrity sha512-sWfMTD7JaO3LGtDYtiS76ls8mES0/uv6CZZMPIPHooiTlRnMXlX6h6xIRiGwmy2NO0QqtOp7N2ckDMl7SFivsw==
+
 "@e4a/irmaseal-wasm-bindings@^0.0.6":
   version "0.0.6"
   resolved "https://registry.yarnpkg.com/@e4a/irmaseal-wasm-bindings/-/irmaseal-wasm-bindings-0.0.6.tgz#7a78a089ecb3a26b086435a4e554f7889fa657a7"

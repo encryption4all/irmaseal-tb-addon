@@ -10,7 +10,7 @@ import {
 } from '@e4a/irmaseal-client'
 import { toDataURL } from 'qrcode'
 
-import { ComposeMail, ReadMail } from 'irmaseal-mail-utils'
+import { ComposeMail, ReadMail } from '@e4a/irmaseal-mail-utils'
 
 import * as IrmaCore from '@privacybydesign/irma-core'
 import * as IrmaClient from '@privacybydesign/irma-client'
