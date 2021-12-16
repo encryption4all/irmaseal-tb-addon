@@ -1,63 +1,3 @@
-const html = (sender, identity) => `
-<div class="center">
-    <div id="idlock_svg">
-        <img src="${browser.runtime.getURL('images/idlock.svg')}" />
-    </div>
-</div>
-<div class="center">
-    <p id="idlock_txt">${browser.i18n.getMessage('appName')}</p>
-</div>
-<div id="info_message">
-    <p>${browser.i18n.getMessage('displayMessageTitle')}</p>
-    <p class="blue">${sender}</p>
-    <!-- <p class="smaller gray" disabled>Expires on June 15, 2021</p> -->
-</div>
-<div class="instructions_container">
-    <div class="left">
-        <img src="${browser.runtime.getURL('images/irma_logo.svg')}" id="logo" />
-    </div>
-    <div class="right">
-        <div>
-            <p>${browser.i18n.getMessage('displayMessageHeading')}</p>
-        </div>
-        <div id="attributes">
-            <table class="smaller">
-                <tr>
-                    <td>${browser.i18n.getMessage(identity.type)}:</td>
-                    <td class="blue">${identity.value}</td>
-                </tr>
-            </table>
-        </div>
-        <div id="qr_instruction">
-            <p>${browser.i18n.getMessage('displayMessageQrPrefix')}</p>
-        </div>
-    </div>
-</div>
-<div class="center">
-    <img id="qr_img" />
-</div>
-<div class="instructions_container">
-    <div class="left"></div>
-    <div class="right">
-        <div id="download_irma">
-            <p>${browser.i18n.getMessage('displayMessageIrmaHelp')}</p>
-            <a
-                href="https://play.google.com/store/apps/details?id=org.irmacard.cardemu&hl=en&gl=US&pcampaignid=pcampaignidMKT-Other-global-all-co-prtnr-py-PartBadge-Mar2515-1"
-                ><img alt="Get it on Google Play" src="${browser.runtime.getURL(
-                    'images/google-play-badge.png'
-                )}"
-            /></a>
-            <a
-                href="https://apps.apple.com/us/app/irma-authentication/id1294092994?itsct=apps_box_badge&amp;itscg=30200"
-                ><img src="${browser.runtime.getURL(
-                    'images/appstore_badge.svg'
-                )}")" alt="Download on the App Store"
-            /></a>
-        </div>
-    </div>
-</div>
-`
-
 const showSealedLayout = async () => {
     var sealed, sender, identity, messageId, layout
 
@@ -127,3 +67,63 @@ const showSealedLayout = async () => {
 }
 
 showSealedLayout()
+
+const html = (sender, identity) => `
+<div class="center">
+    <div id="idlock_svg">
+        <img src="${browser.runtime.getURL('images/idlock.svg')}" />
+    </div>
+</div>
+<div class="center">
+    <p id="idlock_txt">${browser.i18n.getMessage('appName')}</p>
+</div>
+<div id="info_message">
+    <p>${browser.i18n.getMessage('displayMessageTitle')}</p>
+    <p class="blue">${sender}</p>
+    <!-- <p class="smaller gray" disabled>Expires on June 15, 2021</p> -->
+</div>
+<div class="instructions_container">
+    <div class="left">
+        <img src="${browser.runtime.getURL('images/irma_logo.svg')}" id="logo" />
+    </div>
+    <div class="right">
+        <div>
+            <p>${browser.i18n.getMessage('displayMessageHeading')}</p>
+        </div>
+        <div id="attributes">
+            <table class="smaller">
+                <tr>
+                    <td>${browser.i18n.getMessage(identity.type)}:</td>
+                    <td class="blue">${identity.value}</td>
+                </tr>
+            </table>
+        </div>
+        <div id="qr_instruction">
+            <p>${browser.i18n.getMessage('displayMessageQrPrefix')}</p>
+        </div>
+    </div>
+</div>
+<div class="center">
+    <img id="qr_img" />
+</div>
+<div class="instructions_container">
+    <div class="left"></div>
+    <div class="right">
+        <div id="download_irma">
+            <p>${browser.i18n.getMessage('displayMessageIrmaHelp')}</p>
+            <a
+                href="https://play.google.com/store/apps/details?id=org.irmacard.cardemu&hl=en&gl=US&pcampaignid=pcampaignidMKT-Other-global-all-co-prtnr-py-PartBadge-Mar2515-1"
+                ><img alt="Get it on Google Play" src="${browser.runtime.getURL(
+                    'images/google-play-badge.png'
+                )}"
+            /></a>
+            <a
+                href="https://apps.apple.com/us/app/irma-authentication/id1294092994?itsct=apps_box_badge&amp;itscg=30200"
+                ><img src="${browser.runtime.getURL(
+                    'images/appstore_badge.svg'
+                )}")" alt="Download on the App Store"
+            /></a>
+        </div>
+    </div>
+</div>
+`
