@@ -54,7 +54,6 @@ MimeEncrypt.prototype = {
     outBuffer: '',
 
     // Mime retrieved from frontend
-
     init: function (mime) {
         this.mime = mime
     },
@@ -138,8 +137,6 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     finishCryptoEncapsulation: function (abort, sendReport) {
-        // DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation: writing mime:\n${this.mime}`)
-        // Write the mime we got through CompSec.init()
         this.writeOut(this.mime)
     },
 
