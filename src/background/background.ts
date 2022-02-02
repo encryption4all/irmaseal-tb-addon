@@ -4,7 +4,7 @@ import { ComposeMail, ReadMail } from '@e4a/irmaseal-mail-utils'
 import * as IrmaCore from '@privacybydesign/irma-core'
 import * as IrmaClient from '@privacybydesign/irma-client'
 
-import { new_readable_byte_stream_from_array, new_recording_writable_stream } from './utils'
+import { new_readable_byte_stream_from_array } from './utils'
 
 declare const browser
 
@@ -17,7 +17,7 @@ console.log('[background]: loading wasm module and retrieving master public key.
 
 const pk_promise: Promise<string> = fetch(`${hostname}/v2/parameters`)
     .then((resp) => resp.json().then((o) => o.public_key))
-    .catch((e) => console.log(`failed to retrieve public key: {e.toString()}`))
+    .catch((e) => console.log(`failed to retrieve public key: ${e.toString()}`))
 
 const mod_promise = import('@e4a/irmaseal-wasm-bindings')
 
@@ -103,7 +103,13 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     const plainBytes: Uint8Array = new TextEncoder().encode(plaintext)
     const readable = new_readable_byte_stream_from_array(plainBytes)
 
-    const { writable, ct } = new_recording_writable_stream()
+    let ct = new Uint8Array(0)
+    const writable = new WritableStream({
+        write(chunk) {
+            ct = new Uint8Array([...ct, ...chunk])
+        },
+    })
+
     await mod.seal(pk, policies, readable, writable)
     console.log('ct: ', ct)
 
@@ -164,9 +170,6 @@ await browser.runtime.onConnect.addListener((port) => {
                 readMail.parseMail(mime)
                 const ct = readMail.getCiphertext()
 
-                console.log('ct: ', ct)
-                // const version = readMail.getVersion()
-                //
                 const accountId = currentMsg.folder.accountId
                 console.log('accountId: ', accountId)
                 const defaultIdentity = await browser.identities.getDefault(accountId)
@@ -241,10 +244,17 @@ await browser.runtime.onConnect.addListener((port) => {
                 irma.start()
                     .then(async (r) => {
                         const usk = r.key
-                        const { writable, plain } = new_recording_writable_stream()
+
+                        let plain = new Uint8Array(0)
+                        const writable = new WritableStream({
+                            write(chunk) {
+                                plain = new Uint8Array([...plain, ...chunk])
+                            },
+                        })
 
                         await unsealer.unseal(id, usk, writable)
                         const mail: string = new TextDecoder().decode(plain)
+
                         port.postMessage({
                             command: 'showDecryption',
                             args: { mail: mail },

@@ -15,12 +15,3 @@ export function new_readable_byte_stream_from_array(array) {
 	})
 }
 
-export function new_recording_writable_stream() {
-	let written = new Uint8Array(0)
-	const stream = new WritableStream({
-		write(chunk) {
-			written = new Uint8Array([...written, ...chunk])
-		},
-	})
-	return { stream, written }
-}
