@@ -8,16 +8,16 @@ import { new_readable_byte_stream_from_array } from './utils'
 
 declare const browser, messenger
 
-const i18n = (key: string) => browser.i18n.getMessage(key)
-
 const WIN_TYPE_COMPOSE = 'messageCompose'
-const hostname = 'http://localhost:8087'
-const email_attribute = 'pbdf.sidn-pbdf.email.email'
+const HOSTNAME = 'http://localhost:8087'
+const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
+
+const i18n = (key: string) => browser.i18n.getMessage(key)
 
 console.log('[background]: irmaseal-tb started.')
 console.log('[background]: loading wasm module and retrieving master public key.')
 
-const pk_promise: Promise<string> = fetch(`${hostname}/v2/parameters`)
+const pk_promise: Promise<string> = fetch(`${HOSTNAME}/v2/parameters`)
     .then((resp) => resp.json().then((o) => o.public_key))
     .catch((e) => console.log(`failed to retrieve public key: ${e.toString()}`))
 
@@ -57,8 +57,10 @@ const createNotification = async (tabId: string | number): Promise<number> => {
             ? messenger.notificationbar.PRIORITY_INFO_LOW
             : messenger.notificationbar.PRIORITY_CRITICAL_HIGH,
         style: {
-            color: enabled ? 'white' : 'black',
-            'background-color': enabled ? '#5DCCAB' : '#eed202',
+            'color-enabled': 'white',
+            'color-disabled': 'black',
+            'background-color-enabled': '#5DCCAB',
+            'background-color-disabled': '#EED202',
         },
         buttons: [
             {
@@ -72,17 +74,15 @@ const createNotification = async (tabId: string | number): Promise<number> => {
 
 // Listen for notificationbar switch button clicks.
 messenger.notificationbar.onButtonClicked.addListener(
-    async (windowId, notificationId, buttonId) => {
+    async (windowId: number, notificationId: number, buttonId: string, enabled: boolean) => {
         if (['btn-switch'].includes(buttonId)) {
             const tabId = Object.keys(composeTabs).find(
                 (key) => composeTabs[key]?.notificationId === notificationId
             )
             if (tabId) {
-                composeTabs[tabId].encrypt = !composeTabs[tabId].encrypt
-                const newId = await createNotification(tabId)
-                composeTabs[tabId].notificationId = newId
+                composeTabs[tabId].encrypt = enabled
             }
-            /* close the original notification */
+            return { close: false }
         }
     }
 )
@@ -97,7 +97,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
         // Register the tab
         composeTabs[tab.id] = { encrypt: true, notificationId: undefined, tab }
 
-        // Create a notification in the notificationbar.
+        // Create a switch bar.
         const notificationId = await createNotification(tab.id)
 
         // Update tab with the newly created notification
@@ -129,14 +129,14 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         const recipient_id = toEmail(recipient)
         total[recipient_id] = {
             t: timestamp,
-            c: [{ t: email_attribute, v: recipient_id }],
+            c: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
         }
         return total
     }, {})
 
     // Also encrypt for the sender, such that the sender can later decrypt as well.
     const from = toEmail(details.from)
-    policies[from] = { t: timestamp, c: [{ t: email_attribute, v: from }] }
+    policies[from] = { t: timestamp, c: [{ t: EMAIL_ATTRIBUTE_TYPE, v: from }] }
 
     console.log('Encrypting using the following policies: ', policies)
 
@@ -188,14 +188,10 @@ await browser.runtime.onConnect.addListener((port) => {
         switch (message.command) {
             case 'queryMailDetails': {
                 const currentMsg = await browser.messageDisplay.getDisplayedMessage(tabId)
-                console.log(currentMsg)
-                // TODO: somehow this is null sometimes when it shouldn't
-                // if (!currentMsg) return { sealed: false }
 
                 // Check if the message is irmaseal encrypted
                 const parsedParts = await browser.messages.getFull(currentMsg.id)
 
-                console.log(parsedParts)
                 const sealed =
                     parsedParts?.headers['content-type']?.[0]?.includes('application/irmaseal') ??
                     false
@@ -217,14 +213,15 @@ await browser.runtime.onConnect.addListener((port) => {
                 const unsealer = await new mod.Unsealer(readable)
 
                 const hidden = unsealer.get_hidden_policies()
-                console.log('hidden: ', hidden)
+                console.log('hidden policies: ', hidden)
+
                 const attribute = {
                     type: hidden[recipient_id].c[0].t,
                     value: hidden[recipient_id].c[0].v,
                 }
 
                 const guess = {
-                    con: [{ t: email_attribute, v: recipient_id }],
+                    con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
                 }
 
                 store[currentMsg.id] = {
@@ -251,7 +248,7 @@ await browser.runtime.onConnect.addListener((port) => {
                 const irma = new IrmaCore({
                     debugging: true,
                     session: {
-                        url: hostname,
+                        url: HOSTNAME,
                         start: {
                             url: (o) => `${o.url}/v2/request`,
                             method: 'POST',

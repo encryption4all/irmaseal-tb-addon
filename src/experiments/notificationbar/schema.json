@@ -80,7 +80,10 @@
             "type": "object",
             "additionalProperties": false,
             "patternProperties": {
-              "^color$": {
+              "^color-enabled$": {
+                "type": "string"
+              },
+              "^color-disabled$": {
                 "type": "string"
               },
               "^font-style$": {
@@ -95,7 +98,11 @@
                 "type": "string",
                 "pattern": "^(normal|bold(er)?|lighter|1000|([1-9]{1}[0-9]{0,2}))$"
               },
-              "^(background-)?color$": {
+              "^background-color-enabled$": {
+                "type": "string",
+                "pattern": "^((?!transparent)([a-z]{4,})|-moz-([a-zA-Z\\-]+)|#(?=[a-f0-9]*)(?:.{3}|.{6})|rgb\\s*\\(\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\)|rgb\\s*\\(\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*\\)|rgb\\s*\\(\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*\\))$"
+              },
+              "^background-color-disabled$": {
                 "type": "string",
                 "pattern": "^((?!transparent)([a-z]{4,})|-moz-([a-zA-Z\\-]+)|#(?=[a-f0-9]*)(?:.{3}|.{6})|rgb\\s*\\(\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\)|rgb\\s*\\(\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*\\)|rgb\\s*\\(\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*\\))$"
               },
@@ -188,6 +195,11 @@
             "type": "string",
             "name": "buttonId",
             "description": "The ID of the button clicked by the user."
+          },
+          {
+            "type": "boolean",
+            "name": "enabled",
+            "description": "The state of the switcheable bar."
           }
         ]
       },

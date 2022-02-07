@@ -3,6 +3,12 @@
 
 'use strict'
 
+/* NOTE:
+ * This experiment is adopted from: https://github.com/jobisoft/notificationbar-API.
+ * We remove many attributes of the notification and change the looks using CSS.
+ * In the long term it is better to refactor this to a switchable status bar API.
+ */
+
 var { EventEmitter, EventManager, ExtensionAPI } = ExtensionCommon
 var { Services } = ChromeUtils.import('resource://gre/modules/Services.jsm')
 
@@ -34,7 +40,7 @@ class Notification {
                 this.parent.emitter
                     .emit('buttonclicked', windowId, notificationId, id)
                     .then((rv) => {
-                        let keepOpen = rv.some((value) => value?.close === false)
+                        const keepOpen = rv.some((value) => value?.close === false)
                         if (!keepOpen) {
                             this.remove(/* closedByUser */ true)
                         }
@@ -82,66 +88,133 @@ class Notification {
             )
         }
 
-        let allowedCssPropNames = ['background', 'color', 'margin', 'padding', 'font']
+        const shadowroot = element.shadowRoot
+        const document = element.ownerDocument
 
         if (style) {
+            //            const allowedCssPropNames = ['background', 'color', 'margin', 'padding', 'font']
+            //            const sanitizedStyles = Object.keys(style).filter((cssPropertyName) => {
+            //                const parts = cssPropertyName.split('-')
+            //                return (
+            //                    // check if first part is in whitelist
+            //                    parts.length > 0 &&
+            //                    allowedCssPropNames.includes(parts[0]) &&
+            //                    // validate second part (if any) being a simple word
+            //                    (parts.length == 1 || (parts.length == 2 && /^[a-zA-Z0-9]+$/.test(parts[1])))
+            //                )
+            //            })
+
             element.removeAttribute('type')
             element.removeAttribute('message-bar-type')
             element.removeAttribute('dismissable')
 
             // swap the button and text
-            let shadowroot = element.shadowRoot
-            let message = shadowroot.querySelector('label.notification-message')
-            let buttonContainer = element.buttonContainer
+            const message = shadowroot.querySelector('label.notification-message')
+            const buttonContainer = element.buttonContainer
             message.parentNode.insertBefore(buttonContainer, message)
 
-//            let document = element.ownerDocument
-//            let input = document.createElement('input')
-//            input.setAttribute('type', 'checkbox')
-//
-//            let span = document.createElement('span')
-//            span.setAttribute('class', 'slider round')
-//            let button = buttonContainer.firstChild
-//
-//            console.log(button)
-//
-//            button.innerHTML = '<label class="switch"><input type="checkbox"></input><span class="slider round"></span></label>'
-      
+            // change the button to a switch
+            const label = document.createElement('label')
+            const input = document.createElement('input')
+            const span = document.createElement('span')
+            input.setAttribute('type', 'checkbox')
+            span.setAttribute('class', 'slider round')
+            label.setAttribute('class', 'switch')
+            label.replaceChildren(input, span)
+            buttonContainer.replaceChildren(label)
 
-            const sanitizedStyles = Object.keys(style).filter((cssPropertyName) => {
-                const parts = cssPropertyName.split('-')
-                return (
-                    // check if first part is in whitelist
-                    parts.length > 0 &&
-                    allowedCssPropNames.includes(parts[0]) &&
-                    // validate second part (if any) being a simple word
-                    (parts.length == 1 || (parts.length == 2 && /^[a-zA-Z0-9]+$/.test(parts[1])))
-                )
+            input.addEventListener('input', (e) => {
+                console.log('checkbox clicked: ', e)
+                console.log('checkbox is enabled', e.target.checked)
+
+                this.parent.emitter.emit('buttonclicked', windowId, notificationId, 'btn-switch', e.target.checked)
+
+                element.style['--message-bar-background-color'] = e.target.checked
+                    ? style['background-color-enabled']
+                    : style['background-color-disabled']
+
+                element.style['color'] = e.target.checked
+                    ? style['color-enabled']
+                    : style['color-disabled']
             })
 
-            for (let cssPropertyName of sanitizedStyles) {
-                element.style[cssPropertyName] = style[cssPropertyName]
-            }
+            element.style['background-color'] = style['background-color-enabled']
+            element.style['color'] = style['color-enabled']
             element.style.transition = 'none'
 
             var s = element.ownerDocument.createElement('style')
             s.innerHTML = `
-                :host { --message-bar-background-color: ${sanitizedStyles['background-color']};
-                        --message-bar-icon-url: url(${iconURL});
-                        --message-bar-text-color: ${sanitizedStyles.color};
-                        border-radius: 0px;
+                :host {
+                    --message-bar-background-color: ${style['background-color-enabled']};
+                    --message-bar-icon-url: url(${iconURL});
+                    --message-bar-text-color: ${style['color-enabled']};
+                    border-radius: 0px;
                 }
                 .container.infobar {
-                        padding: 3px;
+                    padding: 3px;
                 }
-                .switch{position:relative;display:inline-block;width:30px;height:17px}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;-webkit-transition:.4s;transition:.4s}.slider:before{position:absolute;content:"";height:13px;width:13px;left:2px;bottom:2px;background-color:#fff;-webkit-transition:.4s;transition:.4s}input:checked+.slider{background-color:#5dccab}input:focus+.slider{box-shadow:0 0 1px #2196f3}input:checked+.slider:before{-webkit-transform:translateX(13px);-ms-transform:translateX(13px);transform:translateX(13px)}.slider.round{border-radius:17px}.slider.round:before{border-radius:50%}
+                label.notification-message {
+                    margin-inline-start: 8px;
+                }
+                .switch {
+                    position: relative;
+                    display: inline-block;
+                    width: 34px;
+                    height: 20px;
+                }
+                .switch input {
+                    opacity: 0;
+                    width: 0;
+                    height: 0;
+                }
+                .slider {
+                    position: absolute;
+                    cursor: pointer;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-color: #ccc;
+                    -webkit-transition: .4s;
+                    transition: .4s;
+                }
+                .slider:before {
+                    position: absolute;
+                    content: "";
+                    height: 16px;
+                    width: 16px;
+                    left: 2px;
+                    bottom: 2px;
+                    background-color: white;
+                    -webkit-transition: .4s;
+                    transition: .4s;
+                }
+                input:checked + .slider {
+                    background-color: #69A597};
+                }
+                input:focus + .slider {
+                    box-shadow: 0 0 1px #2196F3;
+                }
+                input:checked + .slider:before {
+                    -webkit-transform: translateX(14px);
+                    -ms-transform: translateX(14px);
+                    transform: translateX(14px);
+                }
+                .slider.round {
+                    border-radius: 34px;
+                }
+                .slider.round:before {
+                    border-radius: 50%;
+                }
             `
+
+            // Add the styles to the shadow root.
             element.shadowRoot.appendChild(s)
         }
     }
 
     getThunderbirdVersion() {
-        let [major, minor, revision = 0] = Services.appinfo.version
+        const [major, minor, revision = 0] = Services.appinfo.version
             .split('.')
             .map((chunk) => parseInt(chunk, 10))
         return {
@@ -177,7 +250,7 @@ class Notification {
                 }
                 // if there is no default bottom box, use our own
                 if (!w.gExtensionNotificationBottomBox) {
-                    let statusbar = w.document.querySelector('[class~="statusbar"]')
+                    const statusbar = w.document.querySelector('[class~="statusbar"]')
                     w.gExtensionNotificationBottomBox = new w.MozElements.NotificationBox(
                         (element) => {
                             element.id = 'extension-notification-bottom-box'
@@ -252,15 +325,15 @@ var notificationbar = class extends ExtensionAPI {
 
     onShutdown() {
         Services.obs.removeObserver(this, 'domwindowclosed')
-        for (let notification of this.notificationsMap.values()) {
+        for (const notification of this.notificationsMap.values()) {
             notification.remove(/* closedByUser */ false)
         }
     }
 
     // Observer for the domwindowclosed notification, to remove
-    // obsolete notifications from the notificationsMap.
+    // obsoconste notifications from the notificationsMap.
     observe(aSubject, aTopic, aData) {
-        let win = this.context.extension.windowManager.convert(aSubject)
+        const win = this.context.extension.windowManager.convert(aSubject)
         this.notificationsMap.forEach((value, key) => {
             if (value.properties.windowId == win.id) {
                 this.notificationsMap.delete(key)
@@ -330,8 +403,8 @@ var notificationbar = class extends ExtensionAPI {
                     context,
                     name: 'notificationbar.onButtonClicked',
                     register: (fire) => {
-                        const listener = (event, windowId, notificationId, buttonId) =>
-                            fire.async(windowId, notificationId, buttonId)
+                        const listener = (event, windowId, notificationId, buttonId, checked) =>
+                            fire.async(windowId, notificationId, buttonId, checked)
 
                         this.emitter.on('buttonclicked', listener)
                         return () => {
