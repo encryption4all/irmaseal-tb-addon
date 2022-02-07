@@ -43,10 +43,10 @@ module.exports = [
     {
         name: 'experiment',
         mode: defaultMode,
-        entry: './src/experiments/irmaseal4tb-impl.ts',
+        entry: './src/experiments/irmaseal4tb/irmaseal4tb-impl.ts',
         output: {
             filename: 'irmaseal4tb-impl.js',
-            path: outputPath,
+            path: `${outputPath}/irmaseal4tb/`,
             library: 'irmaseal4tb',
             libraryExport: 'default',
         },

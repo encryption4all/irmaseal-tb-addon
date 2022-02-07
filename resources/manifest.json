@@ -19,17 +19,22 @@
     },
     "experiment_apis": {
         "irmaseal4tb": {
-            "schema": "irmaseal4tb-schema.json",
+            "schema": "irmaseal4tb/irmaseal4tb-schema.json",
             "parent": {
                 "scopes": ["addon_parent"],
                 "paths": [["irmaseal4tb"]],
-                "script": "irmaseal4tb-impl.js",
+                "script": "irmaseal4tb/irmaseal4tb-impl.js",
                 "events": ["startup"]
             }
+        },
+        "notificationbar": {
+            "schema": "notificationbar/schema.json",
+            "parent": {
+                "scopes": ["addon_parent"],
+                "paths": [["notificationbar"]],
+                "script": "notificationbar/implementation.js"
+            }
         }
-    },
-    "compose_action": {
-        "default_area": "maintoolbar"
     },
     "permissions": [
         "activeTab",

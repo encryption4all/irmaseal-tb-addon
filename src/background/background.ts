@@ -6,7 +6,9 @@ import * as IrmaClient from '@privacybydesign/irma-client'
 
 import { new_readable_byte_stream_from_array } from './utils'
 
-declare const browser
+declare const browser, messenger
+
+const i18n = (key: string) => browser.i18n.getMessage(key)
 
 const WIN_TYPE_COMPOSE = 'messageCompose'
 const hostname = 'http://localhost:8087'
@@ -24,7 +26,13 @@ const mod_promise = import('@e4a/irmaseal-wasm-bindings')
 const [pk, mod] = await Promise.all([pk_promise, mod_promise])
 
 // Keeps track of which tabs (messageCompose type) should use encryption.
-const composeTabs: { [tabId: number]: boolean } = {}
+const composeTabs: {
+    [tabId: number]: {
+        encrypt: boolean
+        notificationId: number | undefined
+        tab: any
+    }
+} = {}
 
 // Keeps track of encryption data and session details per message.
 const store: {
@@ -36,30 +44,70 @@ const store: {
     }
 } = {}
 
-// Sets the encryption icon.
-async function setIcon(tabId: number) {
-    await browser.composeAction.setIcon({
-        tabId: tabId,
-        path: composeTabs[tabId] ? 'icons/toggle-on.png' : 'icons/toggle-off.png',
-    })
+// Creates a notification in the tab.
+const createNotification = async (tabId: string | number): Promise<number> => {
+    const enabled = composeTabs[tabId].encrypt
 
-    await browser.composeAction.setTitle({
-        title: `Encryption ${composeTabs[tabId] ? 'ON' : 'OFF'}`,
+    return await messenger.notificationbar.create({
+        windowId: composeTabs[tabId].tab.windowId,
+        label: i18n(`composeNotification${enabled ? 'On' : 'Off'}`),
+        placement: 'top',
+        icon: 'chrome://messenger/skin/icons/privacy-security.svg',
+        priority: enabled
+            ? messenger.notificationbar.PRIORITY_INFO_LOW
+            : messenger.notificationbar.PRIORITY_CRITICAL_HIGH,
+        style: {
+            color: enabled ? 'white' : 'black',
+            'background-color': enabled ? '#5DCCAB' : '#eed202',
+        },
+        buttons: [
+            {
+                id: 'btn-switch',
+                label: i18n(`composeNotificationTurn${enabled ? 'Off' : 'On'}ButtonText`),
+                accesskey: 'o',
+            },
+        ],
     })
 }
+
+// Listen for notificationbar switch button clicks.
+messenger.notificationbar.onButtonClicked.addListener(
+    async (windowId, notificationId, buttonId) => {
+        if (['btn-switch'].includes(buttonId)) {
+            const tabId = Object.keys(composeTabs).find(
+                (key) => composeTabs[key]?.notificationId === notificationId
+            )
+            if (tabId) {
+                composeTabs[tabId].encrypt = !composeTabs[tabId].encrypt
+                const newId = await createNotification(tabId)
+                composeTabs[tabId].notificationId = newId
+            }
+            /* close the original notification */
+        }
+    }
+)
 
 // Keep track of all the compose tabs created.
 browser.tabs.onCreated.addListener(async (tab) => {
     console.log('[background]: tab opened: ', tab)
+    const win = await browser.windows.get(tab.windowId)
 
     // Check the windowType of the tab.
-    const win = await browser.windows.get(tab.windowId)
     if (win.type === WIN_TYPE_COMPOSE) {
-        composeTabs[tab.id] = true
+        // Register the tab
+        composeTabs[tab.id] = { encrypt: true, notificationId: undefined, tab }
+
+        // Create a notification in the notificationbar.
+        const notificationId = await createNotification(tab.id)
+
+        // Update tab with the newly created notification
+        composeTabs[tab.id].notificationId = notificationId
+
+        console.log(composeTabs)
     }
-    await setIcon(tab.id)
 })
 
+// Remove tab if it was closed.
 browser.tabs.onRemoved.addListener((tabId: number) => {
     console.log(`[background]: tab with id ${tabId} removed`)
     if (tabId in composeTabs) {
@@ -67,18 +115,10 @@ browser.tabs.onRemoved.addListener((tabId: number) => {
     }
 })
 
-browser.composeAction.onClicked.addListener(async (tab) => {
-    const id = tab.id
-    console.log(
-        `[background]: toggleEncryption for tab ${id}: ${composeTabs[id]} => ${!composeTabs[id]}`
-    )
-    composeTabs[id] = !composeTabs[id]
-    await setIcon(id)
-})
-
+// Watch for outgoing mails.
 browser.compose.onBeforeSend.addListener(async (tab, details) => {
     console.log('[background]: onBeforeSend: ', tab, details)
-    if (!composeTabs[tab.id]) return
+    if (!composeTabs[tab.id].encrypt) return
 
     // details.plainTextBody = mail in plaintext
     // details.body = mail in html format
@@ -89,7 +129,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         const recipient_id = toEmail(recipient)
         total[recipient_id] = {
             t: timestamp,
-            c: [{ t: 'pbdf.sidn-pbdf.email.email', v: recipient_id }],
+            c: [{ t: email_attribute, v: recipient_id }],
         }
         return total
     }, {})
@@ -111,14 +151,11 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     })
 
     await mod.seal(pk, policies, readable, writable)
-    console.log('ct: ', ct)
 
     const compose = new ComposeMail()
     compose.setCiphertext(ct)
     compose.setVersion('1')
     const mime: string = compose.getMimeMail(false)
-
-    console.log(mime)
 
     console.log('[background]: setting SecurityInfo')
     await browser.irmaseal4tb.setSecurityInfo(tab.windowId, mime)
