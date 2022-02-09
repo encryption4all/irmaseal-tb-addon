@@ -19,7 +19,7 @@ class SwitchBar {
         this.parent = parent
         this.notificationId = notificationId
 
-        const { buttonId, icon, label, style, windowId } = properties
+        const { buttonId, icon, labels, style, windowId } = properties
 
         var iconURL = null
         if (icon) {
@@ -47,7 +47,7 @@ class SwitchBar {
         let element
         if (this.getThunderbirdVersion().major < 94) {
             element = this.getNotificationBox().appendNotification(
-                label,
+                "",
                 `extension-notification-${notificationId}`,
                 iconURL,
                 0,
@@ -58,7 +58,7 @@ class SwitchBar {
             element = this.getNotificationBox().appendNotification(
                 `extension-notification-${notificationId}`,
                 {
-                    label,
+                    label: "",
                     image: iconURL,
                     priority: 0,
                 },
@@ -71,27 +71,27 @@ class SwitchBar {
         const document = element.ownerDocument
 
         if (style) {
-            //            const allowedCssPropNames = ['background', 'color', 'margin', 'padding', 'font']
-            //            const sanitizedStyles = Object.keys(style).filter((cssPropertyName) => {
-            //                const parts = cssPropertyName.split('-')
-            //                return (
-            //                    // check if first part is in whitelist
-            //                    parts.length > 0 &&
-            //                    allowedCssPropNames.includes(parts[0]) &&
-            //                    // validate second part (if any) being a simple word
-            //                    (parts.length == 1 || (parts.length == 2 && /^[a-zA-Z0-9]+$/.test(parts[1])))
-            //                )
-            //            })
+            //const allowedCssPropNames = ['background', 'color', 'margin', 'padding', 'font']
+            //const sanitizedStyles = Object.keys(style).filter((cssPropertyName) => {
+            //    const parts = cssPropertyName.split('-')
+            //    return (
+            //        // check if first part is in whitelist
+            //        parts.length > 0 &&
+            //        allowedCssPropNames.includes(parts[0]) &&
+            //        // validate second part (if any) being a simple word
+            //        (parts.length == 1 || (parts.length == 2 && /^[a-zA-Z0-9]+$/.test(parts[1])))
+            //    )
+            //})
 
             element.removeAttribute('type')
             element.removeAttribute('message-bar-type')
             element.removeAttribute('dismissable')
-            element.classList.add('enabled')
 
             // swap the button and text
             const message = shadowroot.querySelector('label.notification-message')
             const buttonContainer = element.buttonContainer
             message.parentNode.insertBefore(buttonContainer, message)
+            message.textContent = labels.enabled
 
             // change the button to a switch
             const label = document.createElement('label')
@@ -99,6 +99,7 @@ class SwitchBar {
             const span = document.createElement('span')
             input.setAttribute('type', 'checkbox')
             input.checked = true
+            element.classList.add('enabled')
             span.setAttribute('class', 'slider round')
             label.setAttribute('class', 'switch')
             label.replaceChildren(input, span)
@@ -107,8 +108,7 @@ class SwitchBar {
             const s = element.ownerDocument.createElement('style')
 
             input.addEventListener('input', (e) => {
-                console.log('checkbox clicked: ', e)
-                console.log('checkbox is enabled', e.target.checked)
+                const enabled = e.target.checked
 
                 this.parent.emitter.emit(
                     'buttonclicked',
@@ -118,8 +118,9 @@ class SwitchBar {
                     e.target.checked
                 )
 
-                element.classList.remove(e.target.checked ? 'disabled' : 'enabled')
-                element.classList.add(e.target.checked ? 'enabled' : 'disabled')
+                message.textContent = enabled ? labels.enabled : labels.disabled;
+                element.classList.remove(enabled ? 'disabled' : 'enabled')
+                element.classList.add(enabled ? 'enabled' : 'disabled')
             })
 
             element.style.transition = 'none'
@@ -163,7 +164,6 @@ class SwitchBar {
                     right: 0;
                     bottom: 0;
                     background-color: #ccc;
-                    -webkit-transition: .4s;
                     transition: .4s;
                 }
                 .slider:before {
@@ -174,7 +174,6 @@ class SwitchBar {
                     left: 2px;
                     bottom: 2px;
                     background-color: white;
-                    -webkit-transition: .4s;
                     transition: .4s;
                 }
                 input:checked + .slider {
@@ -184,8 +183,6 @@ class SwitchBar {
                     box-shadow: 0 0 1px #2196F3;
                 }
                 input:checked + .slider:before {
-                    -webkit-transform: translateX(14px);
-                    -ms-transform: translateX(14px);
                     transform: translateX(14px);
                 }
                 .slider.round {

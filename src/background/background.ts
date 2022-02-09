@@ -44,25 +44,6 @@ const store: {
     }
 } = {}
 
-// Creates a notification in the tab.
-const createNotification = async (tabId: string | number): Promise<number> => {
-    const enabled = composeTabs[tabId].encrypt
-
-    return await messenger.switchbar.create({
-        windowId: composeTabs[tabId].tab.windowId,
-        buttonId: 'btn-switch',
-        label: i18n(`composeNotification${enabled ? 'On' : 'Off'}`),
-        placement: 'top',
-        icon: 'chrome://messenger/skin/icons/privacy-security.svg',
-        style: {
-            'color-enabled': 'white',
-            'color-disabled': 'black',
-            'background-color-enabled': '#5DCCAB',
-            'background-color-disabled': '#EED202',
-        },
-    })
-}
-
 // Listen for notificationbar switch button clicks.
 messenger.switchbar.onButtonClicked.addListener(
     async (windowId: number, notificationId: number, buttonId: string, enabled: boolean) => {
@@ -85,16 +66,25 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
     // Check the windowType of the tab.
     if (win.type === WIN_TYPE_COMPOSE) {
+        const notificationId = await messenger.switchbar.create({
+            windowId: tab.windowId,
+            buttonId: 'btn-switch',
+            placement: 'top',
+            icon: 'chrome://messenger/skin/icons/privacy-security.svg',
+            labels: {
+                enabled: i18n('composeNotificationEnabled'),
+                disabled: i18n('composeNotificationDisabled'),
+            },
+            style: {
+                'color-enabled': 'white',
+                'color-disabled': 'black',
+                'background-color-enabled': '#5DCCAB',
+                'background-color-disabled': '#EED202',
+            },
+        })
+
         // Register the tab
-        composeTabs[tab.id] = { encrypt: true, notificationId: undefined, tab }
-
-        // Create a switch bar.
-        const notificationId = await createNotification(tab.id)
-
-        // Update tab with the newly created notification
-        composeTabs[tab.id].notificationId = notificationId
-
-        console.log(composeTabs)
+        composeTabs[tab.id] = { encrypt: true, notificationId, tab }
     }
 })
 

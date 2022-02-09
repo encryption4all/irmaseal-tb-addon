@@ -27,21 +27,12 @@
         "message": "Not yet downloaded the IRMA-app?",
         "description": ""
     },
-    "composeNotificationOn": {
+    "composeNotificationEnabled": {
         "message": "The contents, subject and attachment of this email will be encrypted.",
         "description": ""
     },
-    "composeNotificationOff": {
+    "composeNotificationDisabled": {
         "message": "The contents, subject and attachment of this email will not be encrypted.",
         "description": ""
-    },
-    "composeNotificationTurnOffButtonText": {
-        "message": "Turn off",
-        "description": ""
-    },
-    "composeNotificationTurnOnButtonText": {
-        "message": "Turn on",
-        "description": ""
     }
-
 }

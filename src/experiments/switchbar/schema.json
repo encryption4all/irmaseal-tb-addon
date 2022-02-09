@@ -10,9 +10,17 @@
                         "description": "ID of the window, where the bar should be added to.",
                         "type": "integer"
                     },
-                    "label": {
-                        "description": "Label of the bar.",
-                        "type": "string"
+                    "labels": {
+                        "description": "Labels of the bar (for both enabled and disabled).",
+                        "type": "object",
+                        "patternProperties": {
+                            "^enabled$": {
+                                "type": "string"
+                            },
+                            "^disabled$": {
+                                "type": "string"
+                            }
+                        }
                     },
                     "icon": {
                         "optional": true,
