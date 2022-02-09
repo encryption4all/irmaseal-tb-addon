@@ -1,0 +1,205 @@
+[
+    {
+        "namespace": "switchbar",
+        "types": [
+            {
+                "id": "BarProperties",
+                "type": "object",
+                "properties": {
+                    "windowId": {
+                        "description": "ID of the window, where the bar should be added to.",
+                        "type": "integer"
+                    },
+                    "label": {
+                        "description": "Label of the bar.",
+                        "type": "string"
+                    },
+                    "icon": {
+                        "optional": true,
+                        "description": "Path to an icon to appear on the bar, path must be relative to the extensions root folder. Default is an appropriate icon for the priority level is used.",
+                        "type": "string"
+                    },
+                    "buttons": {
+                        "optional": true,
+                        "default": [],
+                        "description": "Bar action buttons.",
+                        "type": "array",
+                        "items": { "$ref": "ButtonProperties" }
+                    },
+                    "placement": {
+                        "optional": true,
+                        "default": "top",
+                        "description": "The placement of the bar.",
+                        "type": "string",
+                        "enum": ["top", "bottom", "message"]
+                    },
+                    "style": {
+                        "optional": true,
+                        "description": "Additional CSS styles to apply to the bar. Supported CSS properties are 'color', 'background*', 'margin*', 'padding*' and 'font*'",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "patternProperties": {
+                            "^color-enabled$": {
+                                "type": "string"
+                            },
+                            "^color-disabled$": {
+                                "type": "string"
+                            },
+                            "^font-style$": {
+                                "type": "string",
+                                "pattern": "^(normal|italic|oblique(\\s+[0-9]*(.[0-9]+)?(deg|rad|turn|grad))?)$"
+                            },
+                            "^font-size$": {
+                                "type": "string",
+                                "pattern": "^([0-9]+(.[0-9]+)?(%|c(h|m)|mm|e(m|x)|i(c|n)|lh|p(c|t|x)|Q|r(em|lh)|v(b|h|i|max|min|w)))$"
+                            },
+                            "^font-weight$": {
+                                "type": "string",
+                                "pattern": "^(normal|bold(er)?|lighter|1000|([1-9]{1}[0-9]{0,2}))$"
+                            },
+                            "^background-color-enabled$": {
+                                "type": "string",
+                                "pattern": "^((?!transparent)([a-z]{4,})|-moz-([a-zA-Z\\-]+)|#(?=[a-f0-9]*)(?:.{3}|.{6})|rgb\\s*\\(\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\)|rgb\\s*\\(\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*\\)|rgb\\s*\\(\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*\\))$"
+                            },
+                            "^background-color-disabled$": {
+                                "type": "string",
+                                "pattern": "^((?!transparent)([a-z]{4,})|-moz-([a-zA-Z\\-]+)|#(?=[a-f0-9]*)(?:.{3}|.{6})|rgb\\s*\\(\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\)|rgb\\s*\\(\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*\\)|rgb\\s*\\(\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*\\))$"
+                            },
+                            "^background-image$": {
+                                "type": "string",
+                                "pattern": "/^url\\((?<delim>(\"|'))(moz-extension:\\/\\/[a-f0-9\\-]+\\/([a-zA-Z0-9._\\-\\/]+)|([a-zA-Z0-9\\/]+)\\.(jpg|jpeg|png))(?=<delim>)\\)$"
+                            },
+                            "^(padding|margin)(\\-(top|left|right|bottom|))?$": {
+                                "type": "string",
+                                "pattern": "^([\\+\\-]?[0-9]+(.[0-9]+)?(%|c(h|m)|mm|e(m|x)|i(c|n)|lh|p(c|t|x)|Q|r(em|lh)|v(b|h|i|max|min|w)))(\\s+([\\+\\-]?[0-9]+(.[0-9]+)?(%|c(h|m)|mm|e(m|x)|i(c|n)|lh|p(c|t|x)|Q|r(em|lh)|v(b|h|i|max|min|w)))){0,3}$"
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "id": "ButtonProperties",
+                "description": "A bar button.",
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "desciption": "The id of the button, which is sent to onButtonClicked events."
+                    },
+                    "label": {
+                        "type": "string",
+                        "desciption": "The label to appear on the button."
+                    },
+                    "accesskey": {
+                        "type": "string",
+                        "desciption": "The accesskey attribute set on the button.",
+                        "optional": true
+                    }
+                }
+            }
+        ],
+        "functions": [
+            {
+                "name": "create",
+                "description": "Create a bar.",
+                "type": "function",
+                "async": true,
+                "parameters": [
+                    {
+                        "name": "properties",
+                        "$ref": "BarProperties",
+                        "description": "Options of the bar."
+                    }
+                ]
+            },
+            {
+                "name": "clear",
+                "type": "function",
+                "description": "Removes an existing bar.",
+                "async": true,
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "name": "barId",
+                        "description": "The ID of the bar to be removed."
+                    }
+                ]
+            },
+            {
+                "name": "getAll",
+                "type": "function",
+                "description": "Retrieves all bars.",
+                "async": true,
+                "parameters": []
+            }
+        ],
+        "events": [
+            {
+                "name": "onButtonClicked",
+                "type": "function",
+                "description": "Fired when the user clicks on a button in a bar.",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "name": "windowId",
+                        "description": "The ID of the window containing the bar of the clicked button."
+                    },
+                    {
+                        "type": "integer",
+                        "name": "barId",
+                        "description": "The ID of the bar of the clicked button."
+                    },
+                    {
+                        "type": "string",
+                        "name": "buttonId",
+                        "description": "The ID of the button clicked by the user."
+                    },
+                    {
+                        "type": "boolean",
+                        "name": "enabled",
+                        "description": "The state of the switch in the bar."
+                    }
+                ]
+            },
+            {
+                "name": "onDismissed",
+                "type": "function",
+                "description": "Fired when a bar has been dismissed by the user.",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "name": "windowId",
+                        "description": "The ID of the window containing the dismissed bar."
+                    },
+                    {
+                        "type": "integer",
+                        "name": "barId",
+                        "description": "The ID of the dismissed bar."
+                    }
+                ]
+            },
+            {
+                "name": "onClosed",
+                "type": "function",
+                "description": "Fired when a bar has been closed (button, dismiss, or manually calling clear()).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "name": "windowId",
+                        "description": "The ID of the window containing the closed bar."
+                    },
+                    {
+                        "type": "integer",
+                        "name": "barId",
+                        "description": "The ID of the closed bar."
+                    },
+                    {
+                        "type": "boolean",
+                        "name": "byUser",
+                        "description": "The bar was closed by the user."
+                    }
+                ]
+            }
+        ]
+    }
+]

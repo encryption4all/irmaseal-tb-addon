@@ -48,14 +48,11 @@ const store: {
 const createNotification = async (tabId: string | number): Promise<number> => {
     const enabled = composeTabs[tabId].encrypt
 
-    return await messenger.notificationbar.create({
+    return await messenger.switchbar.create({
         windowId: composeTabs[tabId].tab.windowId,
         label: i18n(`composeNotification${enabled ? 'On' : 'Off'}`),
         placement: 'top',
         icon: 'chrome://messenger/skin/icons/privacy-security.svg',
-        priority: enabled
-            ? messenger.notificationbar.PRIORITY_INFO_LOW
-            : messenger.notificationbar.PRIORITY_CRITICAL_HIGH,
         style: {
             'color-enabled': 'white',
             'color-disabled': 'black',
@@ -73,7 +70,7 @@ const createNotification = async (tabId: string | number): Promise<number> => {
 }
 
 // Listen for notificationbar switch button clicks.
-messenger.notificationbar.onButtonClicked.addListener(
+messenger.switchbar.onButtonClicked.addListener(
     async (windowId: number, notificationId: number, buttonId: string, enabled: boolean) => {
         if (['btn-switch'].includes(buttonId)) {
             const tabId = Object.keys(composeTabs).find(

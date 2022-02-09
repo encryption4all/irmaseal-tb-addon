@@ -4,7 +4,7 @@
 'use strict'
 
 /* NOTE:
- * This experiment is adopted from: https://github.com/jobisoft/notificationbar-API.
+ * This experiment is adopted from: https://github.com/jobisoft/switchbar-API.
  * We remove many attributes of the notification and change the looks using CSS.
  * In the long term it is better to refactor this to a switchable status bar API.
  */
@@ -12,14 +12,14 @@
 var { EventEmitter, EventManager, ExtensionAPI } = ExtensionCommon
 var { Services } = ChromeUtils.import('resource://gre/modules/Services.jsm')
 
-class Notification {
+class SwitchBar {
     constructor(notificationId, properties, parent) {
         this.closedByUser = true
         this.properties = properties
         this.parent = parent
         this.notificationId = notificationId
 
-        const { buttons, icon, label, priority, style, windowId } = properties
+        const { buttons, icon, label, style, windowId } = properties
 
         var iconURL = null
         if (icon) {
@@ -30,28 +30,7 @@ class Notification {
             }
         }
 
-        const buttonSet = buttons.map(({ id, label, accesskey }) => ({
-            id,
-            label,
-            accesskey,
-            callback: () => {
-                // Fire the event and keep the notification open, decided to close it
-                // based on the return values later.
-                this.parent.emitter
-                    .emit('buttonclicked', windowId, notificationId, id)
-                    .then((rv) => {
-                        const keepOpen = rv.some((value) => value?.close === false)
-                        if (!keepOpen) {
-                            this.remove(/* closedByUser */ true)
-                        }
-                    })
-
-                // Keep the notification box open until we hear from the event
-                // handlers.
-                return true
-            },
-        }))
-
+        const buttonSet = new Map();
         const notificationBarCallback = (event) => {
             // Every dismissed notification will also generate a removed notification
             if (event === 'dismissed') {
@@ -71,7 +50,7 @@ class Notification {
                 label,
                 `extension-notification-${notificationId}`,
                 iconURL,
-                priority,
+                0,
                 buttonSet,
                 notificationBarCallback
             )
@@ -81,7 +60,7 @@ class Notification {
                 {
                     label,
                     image: iconURL,
-                    priority,
+                    priority: 0
                 },
                 buttonSet,
                 notificationBarCallback
@@ -122,6 +101,8 @@ class Notification {
             label.setAttribute('class', 'switch')
             label.replaceChildren(input, span)
             buttonContainer.replaceChildren(label)
+            
+            const s = element.ownerDocument.createElement('style')
 
             input.addEventListener('input', (e) => {
                 console.log('checkbox clicked: ', e)
@@ -129,11 +110,11 @@ class Notification {
 
                 this.parent.emitter.emit('buttonclicked', windowId, notificationId, 'btn-switch', e.target.checked)
 
-                element.style['--message-bar-background-color'] = e.target.checked
+                s['background-color'] = e.target.checked
                     ? style['background-color-enabled']
                     : style['background-color-disabled']
 
-                element.style['color'] = e.target.checked
+                s['color'] = e.target.checked
                     ? style['color-enabled']
                     : style['color-disabled']
             })
@@ -142,7 +123,6 @@ class Notification {
             element.style['color'] = style['color-enabled']
             element.style.transition = 'none'
 
-            var s = element.ownerDocument.createElement('style')
             s.innerHTML = `
                 :host {
                     --message-bar-background-color: ${style['background-color-enabled']};
@@ -314,7 +294,7 @@ class Notification {
     }
 }
 
-var notificationbar = class extends ExtensionAPI {
+var switchbar = class extends ExtensionAPI {
     constructor(extension) {
         super(extension)
         this.notificationsMap = new Map()
@@ -331,7 +311,7 @@ var notificationbar = class extends ExtensionAPI {
     }
 
     // Observer for the domwindowclosed notification, to remove
-    // obsoconste notifications from the notificationsMap.
+    // obsolete notifications from the notificationsMap.
     observe(aSubject, aTopic, aData) {
         const win = this.context.extension.windowManager.convert(aSubject)
         this.notificationsMap.forEach((value, key) => {
@@ -345,12 +325,12 @@ var notificationbar = class extends ExtensionAPI {
         this.context = context
 
         return {
-            notificationbar: {
+            switchbar: {
                 create: async (properties) => {
                     const notificationId = this.nextId++
                     this.notificationsMap.set(
                         notificationId,
-                        new Notification(notificationId, properties, this)
+                        new SwitchBar(notificationId, properties, this)
                     )
                     return notificationId
                 },
@@ -373,7 +353,7 @@ var notificationbar = class extends ExtensionAPI {
 
                 onDismissed: new EventManager({
                     context,
-                    name: 'notificationbar.onDismissed',
+                    name: 'switchbar.onDismissed',
                     register: (fire) => {
                         const listener = (event, windowId, notificationId) =>
                             fire.async(windowId, notificationId)
@@ -387,7 +367,7 @@ var notificationbar = class extends ExtensionAPI {
 
                 onClosed: new EventManager({
                     context,
-                    name: 'notificationbar.onClosed',
+                    name: 'switchbar.onClosed',
                     register: (fire) => {
                         const listener = (event, windowId, notificationId, closedByUser) =>
                             fire.async(windowId, notificationId, closedByUser)
@@ -401,7 +381,7 @@ var notificationbar = class extends ExtensionAPI {
 
                 onButtonClicked: new EventManager({
                     context,
-                    name: 'notificationbar.onButtonClicked',
+                    name: 'switchbar.onButtonClicked',
                     register: (fire) => {
                         const listener = (event, windowId, notificationId, buttonId, checked) =>
                             fire.async(windowId, notificationId, buttonId, checked)

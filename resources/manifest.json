@@ -27,12 +27,12 @@
                 "events": ["startup"]
             }
         },
-        "notificationbar": {
-            "schema": "notificationbar/schema.json",
+        "switchbar": {
+            "schema": "switchbar/schema.json",
             "parent": {
                 "scopes": ["addon_parent"],
-                "paths": [["notificationbar"]],
-                "script": "notificationbar/implementation.js"
+                "paths": [["switchbar"]],
+                "script": "switchbar/implementation.js"
             }
         }
     },
