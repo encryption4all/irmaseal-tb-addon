@@ -19,12 +19,11 @@
                         "description": "Path to an icon to appear on the bar, path must be relative to the extensions root folder. Default is an appropriate icon for the priority level is used.",
                         "type": "string"
                     },
-                    "buttons": {
+                    "buttonId": {
                         "optional": true,
-                        "default": [],
-                        "description": "Bar action buttons.",
-                        "type": "array",
-                        "items": { "$ref": "ButtonProperties" }
+                        "default": "btn-switch",
+                        "description": "ID of the switch button",
+                        "type": "string"
                     },
                     "placement": {
                         "optional": true,
@@ -74,26 +73,6 @@
                                 "pattern": "^([\\+\\-]?[0-9]+(.[0-9]+)?(%|c(h|m)|mm|e(m|x)|i(c|n)|lh|p(c|t|x)|Q|r(em|lh)|v(b|h|i|max|min|w)))(\\s+([\\+\\-]?[0-9]+(.[0-9]+)?(%|c(h|m)|mm|e(m|x)|i(c|n)|lh|p(c|t|x)|Q|r(em|lh)|v(b|h|i|max|min|w)))){0,3}$"
                             }
                         }
-                    }
-                }
-            },
-            {
-                "id": "ButtonProperties",
-                "description": "A bar button.",
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "desciption": "The id of the button, which is sent to onButtonClicked events."
-                    },
-                    "label": {
-                        "type": "string",
-                        "desciption": "The label to appear on the button."
-                    },
-                    "accesskey": {
-                        "type": "string",
-                        "desciption": "The accesskey attribute set on the button.",
-                        "optional": true
                     }
                 }
             }

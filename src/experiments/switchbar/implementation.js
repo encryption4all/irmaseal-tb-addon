@@ -19,7 +19,7 @@ class SwitchBar {
         this.parent = parent
         this.notificationId = notificationId
 
-        const { buttons, icon, label, style, windowId } = properties
+        const { buttonId, icon, label, style, windowId } = properties
 
         var iconURL = null
         if (icon) {
@@ -30,7 +30,7 @@ class SwitchBar {
             }
         }
 
-        const buttonSet = new Map();
+        const buttonSet = new Map()
         const notificationBarCallback = (event) => {
             // Every dismissed notification will also generate a removed notification
             if (event === 'dismissed') {
@@ -60,7 +60,7 @@ class SwitchBar {
                 {
                     label,
                     image: iconURL,
-                    priority: 0
+                    priority: 0,
                 },
                 buttonSet,
                 notificationBarCallback
@@ -86,6 +86,7 @@ class SwitchBar {
             element.removeAttribute('type')
             element.removeAttribute('message-bar-type')
             element.removeAttribute('dismissable')
+            element.classList.add('enabled')
 
             // swap the button and text
             const message = shadowroot.querySelector('label.notification-message')
@@ -97,40 +98,47 @@ class SwitchBar {
             const input = document.createElement('input')
             const span = document.createElement('span')
             input.setAttribute('type', 'checkbox')
+            input.checked = true
             span.setAttribute('class', 'slider round')
             label.setAttribute('class', 'switch')
             label.replaceChildren(input, span)
             buttonContainer.replaceChildren(label)
-            
+
             const s = element.ownerDocument.createElement('style')
 
             input.addEventListener('input', (e) => {
                 console.log('checkbox clicked: ', e)
                 console.log('checkbox is enabled', e.target.checked)
 
-                this.parent.emitter.emit('buttonclicked', windowId, notificationId, 'btn-switch', e.target.checked)
+                this.parent.emitter.emit(
+                    'buttonclicked',
+                    windowId,
+                    notificationId,
+                    buttonId,
+                    e.target.checked
+                )
 
-                s['background-color'] = e.target.checked
-                    ? style['background-color-enabled']
-                    : style['background-color-disabled']
-
-                s['color'] = e.target.checked
-                    ? style['color-enabled']
-                    : style['color-disabled']
+                element.classList.remove(e.target.checked ? 'disabled' : 'enabled')
+                element.classList.add(e.target.checked ? 'enabled' : 'disabled')
             })
 
-            element.style['background-color'] = style['background-color-enabled']
-            element.style['color'] = style['color-enabled']
             element.style.transition = 'none'
 
             s.innerHTML = `
-                :host {
+                :host(.enabled) {
                     --message-bar-background-color: ${style['background-color-enabled']};
                     --message-bar-icon-url: url(${iconURL});
                     --message-bar-text-color: ${style['color-enabled']};
                     border-radius: 0px;
                 }
+                :host(.disabled) {
+                    --message-bar-background-color: ${style['background-color-disabled']};
+                    --message-bar-icon-url: url(${iconURL});
+                    --message-bar-text-color: ${style['color-disabled']};
+                    border-radius: 0px;
+                }
                 .container.infobar {
+                    border-radius: 0;
                     padding: 3px;
                 }
                 label.notification-message {

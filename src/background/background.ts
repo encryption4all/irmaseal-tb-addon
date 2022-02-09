@@ -50,6 +50,7 @@ const createNotification = async (tabId: string | number): Promise<number> => {
 
     return await messenger.switchbar.create({
         windowId: composeTabs[tabId].tab.windowId,
+        buttonId: 'btn-switch',
         label: i18n(`composeNotification${enabled ? 'On' : 'Off'}`),
         placement: 'top',
         icon: 'chrome://messenger/skin/icons/privacy-security.svg',
@@ -59,13 +60,6 @@ const createNotification = async (tabId: string | number): Promise<number> => {
             'background-color-enabled': '#5DCCAB',
             'background-color-disabled': '#EED202',
         },
-        buttons: [
-            {
-                id: 'btn-switch',
-                label: i18n(`composeNotificationTurn${enabled ? 'Off' : 'On'}ButtonText`),
-                accesskey: 'o',
-            },
-        ],
     })
 }
 
