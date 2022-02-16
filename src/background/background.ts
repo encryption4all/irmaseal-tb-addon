@@ -1,4 +1,3 @@
-import 'web-streams-polyfill'
 import { toDataURL } from 'qrcode'
 import { ComposeMail, ReadMail } from '@e4a/irmaseal-mail-utils'
 import * as IrmaCore from '@privacybydesign/irma-core'
@@ -24,6 +23,80 @@ const pk_promise: Promise<string> = fetch(`${HOSTNAME}/v2/parameters`)
 const mod_promise = import('@e4a/irmaseal-wasm-bindings')
 
 const [pk, mod] = await Promise.all([pk_promise, mod_promise])
+
+messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
+    switch (msg.command) {
+        case 'init': {
+            console.log('[background]: received init: ', msg)
+            // TODO: create the secure headers
+            // TODO: create policies
+
+            const to = ['irmasealtest@gmail.com']
+            const timestamp = Math.round(Date.now() / 1000)
+            const policies = to.reduce((total, recipient) => {
+                const recipient_id = toEmail(recipient)
+                total[recipient_id] = {
+                    t: timestamp,
+                    c: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
+                }
+                return total
+            }, {})
+
+            // Listen for plaintext chunks.
+            console.log('[background]: adding listener for plaintext chunks')
+            let listener
+            const readable = new ReadableStream({
+                start: (controller) => {
+                    listener = messenger.NotifyTools.onNotifyBackground.addListener(
+                        async (msg2) => {
+                            switch (msg2.command) {
+                                case 'chunk': {
+                                    console.log('[background]: received plaintext chunk: ', msg2)
+                                    const encoded: Uint8Array = new TextEncoder().encode(msg2.data)
+                                    controller.enqueue(encoded)
+                                    break
+                                }
+                                case 'finalize': {
+                                    console.log('[background]: received finalize')
+                                    return controller.close()
+                                }
+                            }
+                        }
+                    )
+                },
+                cancel: () => {
+                    console.log('[background]: removing listener for plaintext chunks')
+                    messenger.NotifyTools.onNotifyBackground.removeListener(listener)
+                },
+            })
+
+            // Writer that responds with ciphertext chunks.
+            const writable = new WritableStream({
+                write: (chunk) => {
+                    //const decoded: string = new TextDecoder().decode(chunk)
+                    console.log('[background]: responding to chunk with: ', chunk)
+                    messenger.NotifyTools.notifyExperiment({
+                        command: 'ct',
+                        data: 'test dummy data', // TODO: encode to base64
+                    })
+                },
+            })
+
+            // Write the headers of the outer email.
+            const writer = writable.getWriter()
+            writer.write('headers')
+            writer.releaseLock()
+
+            try {
+                await mod.seal(pk, policies, readable, writable)
+                messenger.NotifyTools.notifyExperiment({ command: 'finished' })
+            } catch (e) {
+                console.log('something went wrong during sealing: ', e)
+                messenger.NotifyTools.notifyExperiment({ command: 'aborted', error: e })
+            }
+        }
+    }
+})
 
 // Keeps track of which tabs (messageCompose type) should use encryption.
 const composeTabs: {
@@ -103,43 +176,46 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     // details.plainTextBody = mail in plaintext
     // details.body = mail in html format
-    const plaintext = details.plainTextBody
 
-    const timestamp = Math.round(Date.now() / 1000)
-    const policies = details.to.reduce((total, recipient) => {
-        const recipient_id = toEmail(recipient)
-        total[recipient_id] = {
-            t: timestamp,
-            c: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
-        }
-        return total
-    }, {})
-
-    // Also encrypt for the sender, such that the sender can later decrypt as well.
-    const from = toEmail(details.from)
-    policies[from] = { t: timestamp, c: [{ t: EMAIL_ATTRIBUTE_TYPE, v: from }] }
-
-    console.log('Encrypting using the following policies: ', policies)
-
-    const plainBytes: Uint8Array = new TextEncoder().encode(plaintext)
-    const readable = new_readable_byte_stream_from_array(plainBytes)
-
-    let ct = new Uint8Array(0)
-    const writable = new WritableStream({
-        write(chunk) {
-            ct = new Uint8Array([...ct, ...chunk])
-        },
-    })
-
-    await mod.seal(pk, policies, readable, writable)
-
-    const compose = new ComposeMail()
-    compose.setCiphertext(ct)
-    compose.setVersion('1')
-    const mime: string = compose.getMimeMail(false)
-
+    //    const plaintext = details.plainTextBody
+    //
+    //    const timestamp = Math.round(Date.now() / 1000)
+    //    const policies = details.to.reduce((total, recipient) => {
+    //        const recipient_id = toEmail(recipient)
+    //        total[recipient_id] = {
+    //            t: timestamp,
+    //            c: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
+    //        }
+    //        return total
+    //    }, {})
+    //
+    //    // Also encrypt for the sender, such that the sender can later decrypt as well.
+    //    const from = toEmail(details.from)
+    //    policies[from] = { t: timestamp, c: [{ t: EMAIL_ATTRIBUTE_TYPE, v: from }] }
+    //
+    //    console.log('Encrypting using the following policies: ', policies)
+    //
+    //    const plainBytes: Uint8Array = new TextEncoder().encode(plaintext)
+    //    const readable = new_readable_byte_stream_from_array(plainBytes)
+    //
+    //    let ct = new Uint8Array(0)
+    //    const writable = new WritableStream({
+    //        write(chunk) {
+    //            ct = new Uint8Array([...ct, ...chunk])
+    //        },
+    //    })
+    //
+    //    await mod.seal(pk, policies, readable, writable)
+    //
+    //    console.log('ciphertext: ', ct)
+    //
+    //    const compose = new ComposeMail()
+    //    compose.setCiphertext(ct)
+    //    compose.setVersion('1')
+    //    const mime: string = compose.getMimeMail(false)
+    //
     console.log('[background]: setting SecurityInfo')
-    await browser.irmaseal4tb.setSecurityInfo(tab.windowId, mime)
+    await browser.irmaseal4tb.setSecurityInfo(tab.windowId)
     console.log('[background]: securityInfo set')
 })
 

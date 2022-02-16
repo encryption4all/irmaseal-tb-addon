@@ -8,7 +8,14 @@
         "plugin:@typescript-eslint/recommended"
     ],
     "rules": {
-        "@typescript-eslint/no-extra-semi": "off"
+        "@typescript-eslint/no-extra-semi": "off",
+        "@typescript-eslint/no-this-alias": [
+            "error",
+            {
+                "allowDestructuring": true,
+                "allowedNames": ["self"]
+            }
+        ]
     },
     "env": { "browser": true },
     "globals": { "browser": true, "chromeUtils": true, "components": true }

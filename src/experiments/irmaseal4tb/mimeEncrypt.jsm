@@ -8,7 +8,7 @@
  *  Adapted from: https://gitlab.com/pbrunschwig/thunderbird-encryption-example
  */
 
-/* global Components: false, ChromeUtils: false */
+/* global Components: false, ChromeUtils: false, NotifyTools: false */
 
 'use strict'
 
@@ -19,7 +19,11 @@ const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr, manager: Cm } = Com
 Cm.QueryInterface(Ci.nsIComponentRegistrar)
 
 const Services = Cu.import('resource://gre/modules/Services.jsm').Services
-var { ExtensionCommon } = ChromeUtils.import('resource://gre/modules/ExtensionCommon.jsm')
+const { ExtensionCommon } = ChromeUtils.import('resource://gre/modules/ExtensionCommon.jsm')
+const { ExtensionParent } = ChromeUtils.import('resource://gre/modules/ExtensionParent.jsm')
+
+const extension = ExtensionParent.GlobalManager.getExtension('irmaseal4tb@e4a.org')
+const { notifyTools } = Cu.import(extension.rootURI.resolve('irmaseal4tb/notifyTools.js'))
 
 // contract IDs
 const IRMASEAL_ENCRYPT_CONTRACTID = '@e4a/irmaseal/compose-encrypted;1'
@@ -27,7 +31,6 @@ const IRMASEAL_JS_ENCRYPT_CID = Components.ID('{2b7a8e39-88d6-4ed2-91ec-f2aaf964
 
 const DEBUG_LOG = (str) => Services.console.logStringMessage(`[experiment]: ${str}`)
 const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.stack}`)
-const BOUNDARY = 'foo'
 
 function MimeEncrypt() {
     this.wrappedJSObject = this
@@ -43,7 +46,7 @@ MimeEncrypt.prototype = {
 
     QueryInterface: ChromeUtils.generateQI(['nsIMsgComposeSecure']),
 
-    recicpientList: null,
+    recipientList: null,
     msgCompFields: null,
     msgIdentity: null,
     isDraft: null,
@@ -53,9 +56,22 @@ MimeEncrypt.prototype = {
     outStringStream: null,
     outBuffer: '',
 
-    // Mime retrieved from frontend
-    init: function (mime) {
-        this.mime = mime
+    block_on(promise) {
+        const inspector = Cc['@mozilla.org/jsinspector;1'].createInstance(Ci.nsIJSInspector)
+        let synchronous = null
+        promise
+            .then((result) => {
+                synchronous = result
+                inspector.exitNestedEventLoop()
+            })
+            .catch((error) => {
+                synchronous = error
+                inspector.exitNestedEventLoop()
+            })
+
+        inspector.enterNestedEventLoop(0)
+        if (synchronous instanceof Error) throw synchronous
+        return synchronous
     },
 
     /**
@@ -69,7 +85,7 @@ MimeEncrypt.prototype = {
      */
     requiresCryptoEncapsulation: function (msgIdentity, msgCompFields) {
         DEBUG_LOG('mimeEncrypt.jsm: requiresCryptoEncapsulation()\n')
-        return this.mime != null
+        return true
     },
 
     /**
@@ -93,7 +109,7 @@ MimeEncrypt.prototype = {
         sendReport,
         isDraft
     ) {
-        //DEBUG_LOG('mimeEncrypt.jsm: beginCryptoEncapsulation()\n')
+        DEBUG_LOG('mimeEncrypt.jsm: beginCryptoEncapsulation()\n')
 
         this.outStream = outStream
         this.outStringStream = Cc['@mozilla.org/io/string-input-stream;1'].createInstance(
@@ -106,8 +122,31 @@ MimeEncrypt.prototype = {
         this.sendReport = sendReport
         this.isDraft = isDraft
 
-        //DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): writing headers:\n${this.header}\n`)
-        //this.writeOut(this.header)
+        // Setup a listener waiting for incoming chunks
+        DEBUG_LOG(`mimeEncrypt.jsm: adding listener`)
+
+        this.finished = new Promise((resolve, reject) => {
+            this.chunkListener = notifyTools.addListener((msg) => {
+                switch (msg.command) {
+                    case 'headers':
+                    case 'ct':
+                        this.writeOut(msg.data)
+                        break
+                    case 'finished':
+                        resolve()
+                        break
+                    case 'aborted':
+                        reject(msg.error)
+                        break
+                }
+            })
+        })
+
+        const ready = this.block_on(notifyTools.notifyBackground({
+            command: 'init',
+        }))
+
+        DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): finish\n`)
     },
 
     /**
@@ -121,9 +160,10 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     mimeCryptoWriteBlock: function (buffer, length) {
-        // DEBUG_LOG(`mimeEncrypt.jsm: mimeCryptoWriteBlock(): ${length}\n`)
-        // ignore everything that gets written here
-        // this.outBuffer += buffer.substr(0, length)
+        DEBUG_LOG(`mimeEncrypt.jsm: mimeCryptoWriteBlock(): ${length}\n`)
+
+        notifyTools.notifyBackground({ command: 'chunk', data: buffer })
+
         return null
     },
 
@@ -137,10 +177,19 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     finishCryptoEncapsulation: function (abort, sendReport) {
-        this.writeOut(this.mime)
+        DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation()\n`)
+
+        // Notify background that no new chunks will be coming.
+        notifyTools.notifyBackground({ command: 'finalize' })
+
+        this.block_on(this.finished)
+
+        notifyTools.removeListener(this.chunkListener)
+        DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation(): done\n`)
     },
 
     writeOut: function (content) {
+        DEBUG_LOG(`mimeEncrypt.jsm: writeOut: wrote ${content.length} bytes\n`)
         this.outStringStream.setData(content, content.length)
         var writeCount = this.outStream.writeFrom(this.outStringStream, content.length)
         if (writeCount < content.length) {

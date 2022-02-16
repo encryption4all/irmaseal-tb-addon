@@ -34,6 +34,15 @@
                 "paths": [["switchbar"]],
                 "script": "switchbar/implementation.js"
             }
+        },
+        "NotifyTools": {
+            "schema": "NotifyTools/schema.json",
+            "parent": {
+                "scopes": ["addon_parent"],
+                "paths": [["NotifyTools"]],
+                "script": "NotifyTools/implementation.js",
+                "events": ["startup"]
+            }
         }
     },
     "permissions": [

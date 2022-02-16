@@ -37,6 +37,7 @@ module.exports = [
         plugins: [
             new webpack.ProvidePlugin({
                 Buffer: ['buffer', 'Buffer'],
+                WritableStream: ['web-streams-polyfill', 'WritableStream'],
             }),
         ],
     },

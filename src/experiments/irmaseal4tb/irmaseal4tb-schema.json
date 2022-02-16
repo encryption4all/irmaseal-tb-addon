@@ -10,10 +10,6 @@
                     {
                         "name": "windowId",
                         "type": "integer"
-                    },
-                    {
-                        "name": "mime",
-                        "type": "string"
                     }
                 ]
             }
