@@ -142,9 +142,9 @@ MimeEncrypt.prototype = {
             })
         })
 
-        const ready = this.block_on(notifyTools.notifyBackground({
+        notifyTools.notifyBackground({
             command: 'init',
-        }))
+        })
 
         DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): finish\n`)
     },

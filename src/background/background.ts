@@ -3,7 +3,7 @@ import { ComposeMail, ReadMail } from '@e4a/irmaseal-mail-utils'
 import * as IrmaCore from '@privacybydesign/irma-core'
 import * as IrmaClient from '@privacybydesign/irma-client'
 
-import { new_readable_byte_stream_from_array } from './utils'
+import { createBase64Transform, new_readable_stream_from_array } from './utils'
 
 declare const browser, messenger
 
@@ -23,6 +23,11 @@ const pk_promise: Promise<string> = fetch(`${HOSTNAME}/v2/parameters`)
 const mod_promise = import('@e4a/irmaseal-wasm-bindings')
 
 const [pk, mod] = await Promise.all([pk_promise, mod_promise])
+
+function withTransform(writable: WritableStream, transform: TransformStream): WritableStream {
+    transform.readable.pipeTo(writable)
+    return transform.writable
+}
 
 messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
     switch (msg.command) {
@@ -45,7 +50,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             // Listen for plaintext chunks.
             console.log('[background]: adding listener for plaintext chunks')
             let listener
-            const readable = new ReadableStream({
+            const readable = new ReadableStream<Uint8Array>({
                 start: (controller) => {
                     listener = messenger.NotifyTools.onNotifyBackground.addListener(
                         async (msg2) => {
@@ -71,13 +76,12 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             })
 
             // Writer that responds with ciphertext chunks.
-            const writable = new WritableStream({
-                write: (chunk) => {
-                    //const decoded: string = new TextDecoder().decode(chunk)
+            const writable = new WritableStream<string>({
+                write: (chunk: string) => {
                     console.log('[background]: responding to chunk with: ', chunk)
                     messenger.NotifyTools.notifyExperiment({
                         command: 'ct',
-                        data: 'test dummy data', // TODO: encode to base64
+                        data: chunk,
                     })
                 },
             })
@@ -88,7 +92,8 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             writer.releaseLock()
 
             try {
-                await mod.seal(pk, policies, readable, writable)
+                const b64transform = createBase64Transform()
+                await mod.seal(pk, policies, readable, withTransform(writable, b64transform))
                 messenger.NotifyTools.notifyExperiment({ command: 'finished' })
             } catch (e) {
                 console.log('something went wrong during sealing: ', e)
@@ -196,7 +201,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     //    console.log('Encrypting using the following policies: ', policies)
     //
     //    const plainBytes: Uint8Array = new TextEncoder().encode(plaintext)
-    //    const readable = new_readable_byte_stream_from_array(plainBytes)
+    //    const readable = new_readable_stream_from_array(plainBytes)
     //
     //    let ct = new Uint8Array(0)
     //    const writable = new WritableStream({
@@ -266,7 +271,7 @@ await browser.runtime.onConnect.addListener((port) => {
                 const recipient_id = toEmail(defaultIdentity.email)
                 console.log('recipient_id: ', recipient_id)
 
-                const readable: ReadableStream = new_readable_byte_stream_from_array(ct)
+                const readable: ReadableStream = new_readable_stream_from_array(ct)
                 const unsealer = await new mod.Unsealer(readable)
 
                 const hidden = unsealer.get_hidden_policies()
