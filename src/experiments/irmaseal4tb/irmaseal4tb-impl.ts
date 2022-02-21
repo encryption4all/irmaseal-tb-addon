@@ -23,13 +23,14 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
     public getAPI(context) {
         return {
             irmaseal4tb: {
-                setSecurityInfo: function (windowId: number) {
+                setSecurityInfo: function (windowId: number, tabId: number) {
                     DEBUG_LOG('irmaseal4tb.js: setSecurityInfo()\n')
                     let compSec = Cc['@e4a/irmaseal/compose-encrypted;1'].createInstance(
                         Ci.nsIMsgComposeSecure
                     )
 
                     compSec = compSec.wrappedJSObject
+                    compSec.init(windowId, tabId)
 
                     // Get window by windowId
                     const windowObject = context.extension.windowManager.get(windowId)

@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "outDir": "./build/compile/",
-        "target": "es2018",
+        "target": "es2019",
         "module": "esnext",
         "sourceMap": false,
         "allowJs": true,

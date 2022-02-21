@@ -56,6 +56,11 @@ MimeEncrypt.prototype = {
     outStringStream: null,
     outBuffer: '',
 
+    init(windowId, tabId) {
+        this.windowId = windowId
+        this.tabId = tabId
+    },
+
     block_on(promise) {
         const inspector = Cc['@mozilla.org/jsinspector;1'].createInstance(Ci.nsIJSInspector)
         let synchronous = null
@@ -139,12 +144,19 @@ MimeEncrypt.prototype = {
                         reject(msg.error)
                         break
                 }
+                return 
             })
         })
 
-        notifyTools.notifyBackground({
-            command: 'init',
-        })
+        this.block_on(
+            notifyTools.notifyBackground({
+                command: 'init',
+                tabId: this.tabId,
+            })
+        )
+
+        // Both sides are ready
+        notifyTools.notifyBackground({command: 'start', tabId: this.tabId})
 
         DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): finish\n`)
     },
@@ -159,10 +171,10 @@ MimeEncrypt.prototype = {
      *
      * (no return value)
      */
-    mimeCryptoWriteBlock: function (buffer, length) {
-        DEBUG_LOG(`mimeEncrypt.jsm: mimeCryptoWriteBlock(): ${length}\n`)
+    mimeCryptoWriteBlock: function (data, length) {
+        //DEBUG_LOG(`mimeEncrypt.jsm: mimeCryptoWriteBlock(): ${length}\n`)
 
-        notifyTools.notifyBackground({ command: 'chunk', data: buffer })
+        notifyTools.notifyBackground({ command: 'chunk', tabId: this.tabId, data })
 
         return null
     },
@@ -180,7 +192,7 @@ MimeEncrypt.prototype = {
         DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation()\n`)
 
         // Notify background that no new chunks will be coming.
-        notifyTools.notifyBackground({ command: 'finalize' })
+        notifyTools.notifyBackground({ command: 'finalize', tabId: this.tabId })
 
         this.block_on(this.finished)
 
