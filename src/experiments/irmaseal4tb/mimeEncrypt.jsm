@@ -24,6 +24,8 @@ const { ExtensionParent } = ChromeUtils.import('resource://gre/modules/Extension
 
 const extension = ExtensionParent.GlobalManager.getExtension('irmaseal4tb@e4a.org')
 const { notifyTools } = Cu.import(extension.rootURI.resolve('irmaseal4tb/notifyTools.js'))
+const { block_on } = Cu.import(extension.rootURI.resolve('irmaseal4tb/utils.jsm'))
+const { clearTimeout, setTimeout } = ChromeUtils.import('resource://gre/modules/Timer.jsm')
 
 // contract IDs
 const IRMASEAL_ENCRYPT_CONTRACTID = '@e4a/irmaseal/compose-encrypted;1'
@@ -34,7 +36,6 @@ const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.st
 
 function MimeEncrypt() {
     this.wrappedJSObject = this
-    this.sampleValue = null
 }
 
 MimeEncrypt.prototype = {
@@ -59,24 +60,6 @@ MimeEncrypt.prototype = {
     init(windowId, tabId) {
         this.windowId = windowId
         this.tabId = tabId
-    },
-
-    block_on(promise) {
-        const inspector = Cc['@mozilla.org/jsinspector;1'].createInstance(Ci.nsIJSInspector)
-        let synchronous = null
-        promise
-            .then((result) => {
-                synchronous = result
-                inspector.exitNestedEventLoop()
-            })
-            .catch((error) => {
-                synchronous = error
-                inspector.exitNestedEventLoop()
-            })
-
-        inspector.enterNestedEventLoop(0)
-        if (synchronous instanceof Error) throw synchronous
-        return synchronous
     },
 
     /**
@@ -130,33 +113,46 @@ MimeEncrypt.prototype = {
         // Setup a listener waiting for incoming chunks
         DEBUG_LOG(`mimeEncrypt.jsm: adding listener`)
 
+        // After 5 seconds of not receiving data this promise rejects.
+        // This is to make sure it never fully blocks.
         this.finished = new Promise((resolve, reject) => {
+            var timeout = setTimeout(() => reject('timeout'), 5000)
             this.chunkListener = notifyTools.addListener((msg) => {
                 switch (msg.command) {
-                    case 'headers':
-                    case 'ct':
+                    case 'enc_ct':
+                        clearTimeout(timeout)
+                        timeout = setTimeout(() => reject('timeout'), 5000)
+
                         this.writeOut(msg.data)
                         break
-                    case 'finished':
+                    case 'enc_finished':
                         resolve()
                         break
-                    case 'aborted':
+                    case 'enc_aborted':
                         reject(msg.error)
                         break
                 }
-                return 
+                return
             })
         })
 
-        this.block_on(
+        block_on(
             notifyTools.notifyBackground({
-                command: 'init',
+                command: 'enc_init',
                 tabId: this.tabId,
             })
         )
 
         // Both sides are ready
-        notifyTools.notifyBackground({command: 'start', tabId: this.tabId})
+        notifyTools.notifyBackground({ command: 'enc_start', tabId: this.tabId })
+
+        var headers = ''
+        headers += `From: ${msgCompFields.from}\r\n`
+        headers += `To: ${msgCompFields.to}\r\n`
+        headers += `Subject: ${msgCompFields.subject}\r\n`
+        headers += 'MIME-Version: 1\r\n'
+
+        notifyTools.notifyBackground({ command: 'enc_chunk', tabId: this.tabId, data: headers })
 
         DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): finish\n`)
     },
@@ -174,9 +170,7 @@ MimeEncrypt.prototype = {
     mimeCryptoWriteBlock: function (data, length) {
         //DEBUG_LOG(`mimeEncrypt.jsm: mimeCryptoWriteBlock(): ${length}\n`)
 
-        notifyTools.notifyBackground({ command: 'chunk', tabId: this.tabId, data })
-
-        return null
+        notifyTools.notifyBackground({ command: 'enc_chunk', tabId: this.tabId, data })
     },
 
     /**
@@ -192,9 +186,14 @@ MimeEncrypt.prototype = {
         DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation()\n`)
 
         // Notify background that no new chunks will be coming.
-        notifyTools.notifyBackground({ command: 'finalize', tabId: this.tabId })
+        notifyTools.notifyBackground({ command: 'enc_finalize', tabId: this.tabId })
 
-        this.block_on(this.finished)
+        try {
+            block_on(this.finished)
+        } catch (e) {
+            ERROR_LOG(e)
+            abort(e)
+        }
 
         notifyTools.removeListener(this.chunkListener)
         DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation(): done\n`)
@@ -212,10 +211,7 @@ MimeEncrypt.prototype = {
     },
 }
 
-/**
- * Factory used to register a component in Thunderbird
- */
-
+// Factory used to register a component in Thunderbird
 class Factory {
     constructor(component) {
         this.component = component
@@ -245,7 +241,6 @@ class Factory {
 }
 
 // Exported API that will register and unregister the class Factory
-
 var IRMAsealMimeEncrypt = {
     startup: function (reason) {
         this.factory = new Factory(MimeEncrypt)

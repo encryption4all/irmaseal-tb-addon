@@ -73,6 +73,14 @@
     eventsource "^1.0.7"
     isomorphic-fetch "^3.0.0"
 
+"@privacybydesign/irma-console@^0.3.3":
+  version "0.3.3"
+  resolved "https://registry.npmjs.org/@privacybydesign/irma-console/-/irma-console-0.3.3.tgz#3eabf813474aee3612550fcbc4e31721d306dfa2"
+  integrity sha512-BZ13R5Ech77BH1SzYsJPT5L4AWl89WVBpCqcJLra0dSmB5C4wDiVyt4AH88D5nGJlejQ/u3mKUsGGRoN5inl6A==
+  dependencies:
+    prompt-sync "^4.1.7"
+    qrcode-terminal "^0.12.0"
+
 "@privacybydesign/irma-core@^0.3.3":
   version "0.3.3"
   resolved "https://registry.npmjs.org/@privacybydesign/irma-core/-/irma-core-0.3.3.tgz#6a010a5702aebdc644fa48da79e1e019917072bc"
@@ -2707,6 +2715,13 @@ progress@^2.0.0:
   resolved "https://registry.npmjs.org/progress/-/progress-2.0.3.tgz#7e8cf8d8f5b8f239c1bc68beb4eb78567d572ef8"
   integrity sha512-7PiHtLll5LdnKIMw100I+8xJXR5gW2QwWYkT6iJva0bXitZKa/XMrSbdmg3r2Xnaidz9Qumd0VPaMrZlF9V9sA==
 
+prompt-sync@^4.1.7:
+  version "4.2.0"
+  resolved "https://registry.npmjs.org/prompt-sync/-/prompt-sync-4.2.0.tgz#0198f73c5b70e3b03e4b9033a50540a7c9a1d7f4"
+  integrity sha512-BuEzzc5zptP5LsgV5MZETjDaKSWfchl5U9Luiu8SKp7iZWD5tZalOxvNcZRwv+d2phNFr8xlbxmFNcRKfJOzJw==
+  dependencies:
+    strip-ansi "^5.0.0"
+
 prr@~1.0.1:
   version "1.0.1"
   resolved "https://registry.npmjs.org/prr/-/prr-1.0.1.tgz#d3fc114ba06995a45ec6893f484ceb1d78f5f476"
@@ -2716,6 +2731,11 @@ punycode@^2.1.0:
   version "2.1.1"
   resolved "https://registry.npmjs.org/punycode/-/punycode-2.1.1.tgz#b58b010ac40c22c5657616c8d2c2c02c7bf479ec"
   integrity sha512-XRsRjdf+j5ml+y/6GKHPZbrF/8p2Yga0JPtdqTIY2Xe5ohJPD9saDJJLPvp9+NSBprVvevdXZybnj2cv8OEd0A==
+
+qrcode-terminal@^0.12.0:
+  version "0.12.0"
+  resolved "https://registry.npmjs.org/qrcode-terminal/-/qrcode-terminal-0.12.0.tgz#bb5b699ef7f9f0505092a3748be4464fe71b5819"
+  integrity sha512-EXtzRZmC+YGmGlDFbXKxQiMZNwCLEO6BANKXG4iCtSIM0yqc/pappSx3RIKr4r0uh5JsBckOXeKrB3Iz7mdQpQ==
 
 qrcode@^1.4.4:
   version "1.4.4"

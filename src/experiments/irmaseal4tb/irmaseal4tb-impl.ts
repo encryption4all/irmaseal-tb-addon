@@ -56,7 +56,9 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
         try {
             DEBUG_LOG('starting experiment')
             const { IRMAsealMimeEncrypt } = loadJsm('irmaseal4tb/mimeEncrypt.jsm')
+            const { IRMAsealMimeDecrypt } = loadJsm('irmaseal4tb/mimeDecrypt.jsm')
             IRMAsealMimeEncrypt.startup()
+            IRMAsealMimeDecrypt.startup()
             DEBUG_LOG('all modules loaded')
         } catch (ex) {
             ERROR_LOG(ex)
@@ -72,8 +74,11 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
         try {
             DEBUG_LOG('unloading modules')
             const { IRMAsealMimeEncrypt } = loadJsm('irmaseal4tb/mimeEncrypt.jsm')
+            const { IRMAsealMimeDecrypt } = loadJsm('irmaseal4tb/mimeDecrypt.jsm')
             IRMAsealMimeEncrypt.shutdown()
+            IRMAsealMimeDecrypt.shutdown()
             unloadJsm('irmaseal4tb/mimeEncrypt.jsm')
+            unloadJsm('irmaseal4tb/mimeDecrypt.jsm')
             DEBUG_LOG('invalidating startup cache')
             Services.obs.notifyObservers(null, 'startupcache-invalidate', null)
             DEBUG_LOG('succesfully shutdown experiment')

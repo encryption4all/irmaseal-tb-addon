@@ -2,8 +2,15 @@ import { toDataURL } from 'qrcode'
 import { ComposeMail, ReadMail } from '@e4a/irmaseal-mail-utils'
 import * as IrmaCore from '@privacybydesign/irma-core'
 import * as IrmaClient from '@privacybydesign/irma-client'
+import * as IrmaConsole from '@privacybydesign/irma-console'
 
-import { createMIMETransform, new_readable_stream_from_array } from './utils'
+import {
+    createMIMETransform,
+    isIRMASeal,
+    readableStreamFromArray,
+    toEmail,
+    withTransform,
+} from './utils'
 
 declare const browser, messenger
 
@@ -44,20 +51,17 @@ const decryptState: {
         guess: any
         timestamp: number
         unsealer: any
-        id: string
+        usk: string | undefined
+        readable: ReadableStream<Uint8Array> | undefined
+        writable: WritableStream<string> | undefined
+        allReceived: Promise<void> | undefined
     }
 } = {}
-
-// Applies a transform in front of a WritableStream.
-function withTransform(writable: WritableStream, transform: TransformStream): WritableStream {
-    transform.readable.pipeTo(writable)
-    return transform.writable
-}
 
 messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
     console.log('[background]: received command: ', msg)
     switch (msg.command) {
-        case 'init': {
+        case 'enc_init': {
             const details = composeTabs[msg.tabId].details
 
             const timestamp = Math.round(Date.now() / 1000)
@@ -80,16 +84,14 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                         listener = messenger.NotifyTools.onNotifyBackground.addListener(
                             async (msg2) => {
                                 switch (msg2.command) {
-                                    case 'chunk': {
-                                        //console.log('[background]: received plaintext chunk: ', msg2)
+                                    case 'enc_chunk': {
                                         const encoded: Uint8Array = new TextEncoder().encode(
                                             msg2.data
                                         )
                                         controller.enqueue(encoded)
                                         break
                                     }
-                                    case 'finalize': {
-                                        console.log('[background]: received finalize')
+                                    case 'enc_finalize': {
                                         controller.close()
                                         break
                                     }
@@ -106,9 +108,8 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 // Writer that responds with ciphertext chunks.
                 writable = new WritableStream<string>({
                     write: async (chunk: string) => {
-                        //                        console.log('[background]: responding to chunk with: \n', chunk)
                         await messenger.NotifyTools.notifyExperiment({
-                            command: 'ct',
+                            command: 'enc_ct',
                             data: chunk,
                         })
                     },
@@ -126,29 +127,173 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
 
             return
         }
-        case 'start': {
-            const { policies, readable, writable, allReceived } = composeTabs[msg.tabId]
-
-            if (!policies || !readable || !writable) return
-
+        case 'enc_start': {
             try {
-                const transform: TransformStream<Uint8Array, string> = createMIMETransform()
+                const { policies, readable, writable, allReceived, details } =
+                    composeTabs[msg.tabId]
+                if (!(policies && readable && writable && allReceived && details))
+                    throw Error('unexpected')
 
+                const mimeTransform: TransformStream<Uint8Array, string> = createMIMETransform()
                 const sealPromise = mod.seal(
                     pk,
                     policies,
                     readable,
-                    withTransform(writable, transform)
+                    withTransform(writable, mimeTransform)
                 )
+
                 await sealPromise
                 await allReceived
-                await messenger.NotifyTools.notifyExperiment({ command: 'finished' })
+                await messenger.NotifyTools.notifyExperiment({ command: 'enc_finished' })
             } catch (e) {
                 console.log('something went wrong during sealing: ', e)
-                await messenger.NotifyTools.notifyExperiment({ command: 'aborted', error: e })
+                await messenger.NotifyTools.notifyExperiment({
+                    command: 'enc_aborted',
+                    error: e,
+                })
             }
 
             // cleanup is performed by onRemoved
+            return
+        }
+        case 'dec_init': {
+            const msgId = msg.msgId
+
+            // TODO: Retrieve mail account message was received on
+
+            console.log('[background]: adding listener for ciphertext chunks')
+            let listener
+            const decoder = new TextEncoder()
+            const readable = new ReadableStream<Uint8Array>({
+                start: (controller) => {
+                    listener = messenger.NotifyTools.onNotifyBackground.addListener(
+                        async (msg2) => {
+                            switch (msg2.command) {
+                                case 'dec_chunk': {
+                                    const array = Buffer.from(msg2.data, 'base64')
+                                    controller.enqueue(array)
+                                    break
+                                }
+                                case 'dec_finalize': {
+                                    controller.close()
+                                    break
+                                }
+                            }
+                        }
+                    )
+                },
+                cancel: () => {
+                    console.log('[background]: removing listener for ciphertext chunks')
+                    messenger.NotifyTools.onNotifyBackground.removeListener(listener)
+                },
+            })
+
+            decryptState[msgId] = {
+                ...decryptState[msgId],
+                readable,
+            }
+
+            return
+        }
+        case 'dec_metadata': {
+            const { readable } = decryptState[msg.msgId]
+            if (!readable) return
+
+            console.log('starting to read from readable')
+            // TODO: reads until metadata is parsed
+            const unsealer = await new mod.Unsealer(readable)
+            console.log('got metadata')
+            await messenger.NotifyTools.notifyExperiment({
+                command: 'dec_metadata_finished',
+            })
+
+            const currMsg = await browser.messages.get(msg.msgId)
+            const accountId = currMsg.folder.accountId
+            console.log('accountId: ', accountId)
+
+            const defaultIdentity = await browser.identities.getDefault(accountId)
+            const recipientId = toEmail(defaultIdentity.email)
+            console.log('recipientId: ', recipientId)
+
+            const hiddenPolicy = unsealer.get_hidden_policies()
+            console.log('hiddenPolicy: ', hiddenPolicy)
+
+            const guess = {
+                con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipientId }],
+            }
+
+            const ts = hiddenPolicy[recipientId].ts
+
+            const irma = new IrmaCore({
+                debugging: true,
+                session: {
+                    url: HOSTNAME,
+                    start: {
+                        url: (o) => `${o.url}/v2/request`,
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(guess),
+                    },
+                    result: {
+                        url: (o, { sessionToken: token }) =>
+                            `${o.url}/v2/request/${token}/${ts.toString()}`,
+                        parseResponse: (r) => {
+                            return new Promise((resolve, reject) => {
+                                if (r.status != '200') reject('not ok')
+                                r.json().then((json) => {
+                                    if (json.status !== 'DONE_VALID') reject('not done and valid')
+                                    resolve(json.key)
+                                })
+                            })
+                        },
+                    },
+                },
+            })
+
+            irma.use(IrmaClient)
+            irma.use(IrmaConsole)
+
+            console.log('starting session')
+            const usk: string = await irma.start()
+            console.log('usk: ', usk)
+
+            let writable: WritableStream<string> | undefined
+            const allReceived = new Promise<void>((resolve, reject) => {
+                writable = new WritableStream<string>({
+                    write: async (chunk: string) => {
+                        await messenger.NotifyTools.notifyExperiment({
+                            command: 'dec_ct',
+                            data: chunk,
+                        })
+                    },
+                    close: resolve,
+                    abort: reject,
+                })
+            })
+
+            decryptState[msg.msgId] = {
+                ...decryptState[msg.msgId],
+                unsealer,
+                usk,
+                writable,
+                allReceived,
+            }
+
+            return
+        }
+
+        case 'dec_start': {
+            //
+            //
+            const { unsealer, writable, allReceived, usk } = decryptState[msg.msgId]
+            try {
+                const unsealPromise = unsealer.unseal(usk, writable)
+
+                await unsealPromise
+                await allReceived
+            } catch (e) {
+                console.log('something went wrong during unsealing: ', e)
+            }
         }
     }
 })
@@ -228,150 +373,142 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     console.log('[background]: securityInfo set')
 })
 
-// Register a message display script
-await browser.messageDisplayScripts.register({
-    js: [{ file: 'message-content-script.js' }],
-    css: [{ file: 'message-content-styles.css' }],
-})
-
-function toEmail(identity: string): string {
-    const regex = /^(.*)<(.*)>$/
-    const match = identity.match(regex)
-    return match ? match[2] : identity
-}
-
-// communicate with message display script
-await browser.runtime.onConnect.addListener((port) => {
-    console.log('[background]: got connection: ', port)
-    port.onMessage.addListener(async (message, sender) => {
-        console.log('[background]: received message: ', message, sender)
-        if (!message || !('command' in message)) return
-        const {
-            sender: {
-                tab: { id: tabId },
-            },
-        } = sender
-        switch (message.command) {
-            case 'queryMailDetails': {
-                const currentMsg = await browser.messageDisplay.getDisplayedMessage(tabId)
-
-                // Check if the message is irmaseal encrypted
-                const parsedParts = await browser.messages.getFull(currentMsg.id)
-
-                const sealed =
-                    parsedParts?.headers['content-type']?.[0]?.includes('application/irmaseal') ??
-                    false
-
-                if (!sealed) return { sealed: false }
-
-                const mime = await browser.messages.getRaw(currentMsg.id)
-                const readMail = new ReadMail()
-                readMail.parseMail(mime)
-                const ct = readMail.getCiphertext()
-
-                const accountId = currentMsg.folder.accountId
-                console.log('accountId: ', accountId)
-                const defaultIdentity = await browser.identities.getDefault(accountId)
-                const recipient_id = toEmail(defaultIdentity.email)
-                console.log('recipient_id: ', recipient_id)
-
-                const readable: ReadableStream = new_readable_stream_from_array(ct)
-                const unsealer = await new mod.Unsealer(readable)
-
-                const hidden = unsealer.get_hidden_policies()
-                console.log('hidden policies: ', hidden)
-
-                const attribute = {
-                    type: hidden[recipient_id].c[0].t,
-                    value: hidden[recipient_id].c[0].v,
-                }
-
-                const guess = {
-                    con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
-                }
-
-                decryptState[currentMsg.id] = {
-                    guess,
-                    timestamp: hidden[recipient_id].t,
-                    unsealer,
-                    id: recipient_id,
-                }
-
-                port.postMessage({
-                    command: 'mailDetails',
-                    args: {
-                        sealed: true,
-                        messageId: currentMsg.id,
-                        sender: currentMsg.author,
-                        identity: attribute,
-                    },
-                })
-                break
-            }
-            case 'startSession': {
-                const { guess, timestamp, unsealer, id } = decryptState[message.args.messageId]
-
-                const irma = new IrmaCore({
-                    debugging: true,
-                    session: {
-                        url: HOSTNAME,
-                        start: {
-                            url: (o) => `${o.url}/v2/request`,
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(guess),
-                        },
-                        mapping: {
-                            sessionPtr: (r) => {
-                                toDataURL(JSON.stringify(r.sessionPtr)).then((dataURL) => {
-                                    port.postMessage({
-                                        command: 'showQr',
-                                        args: { qrData: dataURL },
-                                    })
-                                })
-
-                                return r.sessionPtr
-                            },
-                        },
-                        result: {
-                            url: (o, { sessionToken: token }) =>
-                                `${o.url}/v2/request/${token}/${timestamp?.toString()}`,
-                        },
-                    },
-                })
-
-                irma.use(IrmaClient)
-                irma.start()
-                    .then(async (r) => {
-                        const usk = r.key
-
-                        let plain = new Uint8Array(0)
-                        const writable = new WritableStream({
-                            write(chunk) {
-                                plain = new Uint8Array([...plain, ...chunk])
-                            },
-                        })
-
-                        await unsealer.unseal(id, usk, writable)
-                        const mail: string = new TextDecoder().decode(plain)
-
-                        port.postMessage({
-                            command: 'showDecryption',
-                            args: { mail: mail },
-                        })
-                    })
-                    .catch((err) => {
-                        console.log('Error during decryption: ', err)
-                    })
-
-                break
-            }
-            case 'cancelSession': {
-                console.log('[background]: received cancel command')
-                // TODO: Either cancel the session or decryptState it for later
-                break
-            }
-        }
-        return null
-    })
-})
+//// Register a message display script
+//await browser.messageDisplayScripts.register({
+//    js: [{ file: 'message-content-script.js' }],
+//    css: [{ file: 'message-content-styles.css' }],
+//})
+//
+//// communicate with message display script
+//await browser.runtime.onConnect.addListener((port) => {
+//    console.log('[background]: got connection: ', port)
+//    port.onMessage.addListener(async (message, sender) => {
+//        console.log('[background]: received message: ', message, sender)
+//        if (!message || !('command' in message)) return
+//        const {
+//            sender: {
+//                tab: { id: tabId },
+//            },
+//        } = sender
+//        switch (message.command) {
+//            case 'queryMailDetails': {
+//                const currentMsg = await browser.messageDisplay.getDisplayedMessage(tabId)
+//                const fullParts = await browser.messages.getFull(currentMsg.id)
+//
+//                if (!isIRMASeal(fullParts)) {
+//                    return { sealed: false }
+//                }
+//
+//                console.log('message was encrypted with irmaseal')
+//
+//                const mime = await browser.messages.getRaw(currentMsg.id)
+//                const readMail = new ReadMail()
+//                readMail.parseMail(mime)
+//                const ct = readMail.getCiphertext()
+//
+//                const accountId = currentMsg.folder.accountId
+//                console.log('accountId: ', accountId)
+//                const defaultIdentity = await browser.identities.getDefault(accountId)
+//                const recipient_id = toEmail(defaultIdentity.email)
+//                console.log('recipient_id: ', recipient_id)
+//
+//                const readable: ReadableStream = readableStreamFromArray(ct)
+//                const unsealer = await new mod.Unsealer(readable)
+//
+//                const hidden = unsealer.get_hidden_policies()
+//                console.log('hidden policies: ', hidden)
+//
+//                const attribute = {
+//                    type: hidden[recipient_id].c[0].t,
+//                    value: hidden[recipient_id].c[0].v,
+//                }
+//
+//                const guess = {
+//                    con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
+//                }
+//
+//                decryptState[currentMsg.id] = {
+//                    guess,
+//                    timestamp: hidden[recipient_id].t,
+//                    unsealer,
+//                    id: recipient_id,
+//                }
+//
+//                port.postMessage({
+//                    command: 'mailDetails',
+//                    args: {
+//                        sealed: true,
+//                        messageId: currentMsg.id,
+//                        sender: currentMsg.author,
+//                        identity: attribute,
+//                    },
+//                })
+//                break
+//            }
+//            case 'startSession': {
+//                const { guess, timestamp, unsealer, id } = decryptState[message.args.messageId]
+//
+//                const irma = new IrmaCore({
+//                    debugging: true,
+//                    session: {
+//                        url: HOSTNAME,
+//                        start: {
+//                            url: (o) => `${o.url}/v2/request`,
+//                            method: 'POST',
+//                            headers: { 'Content-Type': 'application/json' },
+//                            body: JSON.stringify(guess),
+//                        },
+//                        mapping: {
+//                            sessionPtr: (r) => {
+//                                toDataURL(JSON.stringify(r.sessionPtr)).then((dataURL) => {
+//                                    port.postMessage({
+//                                        command: 'showQr',
+//                                        args: { qrData: dataURL },
+//                                    })
+//                                })
+//
+//                                return r.sessionPtr
+//                            },
+//                        },
+//                        result: {
+//                            url: (o, { sessionToken: token }) =>
+//                                `${o.url}/v2/request/${token}/${timestamp?.toString()}`,
+//                        },
+//                    },
+//                })
+//
+//                irma.use(IrmaClient)
+//                irma.start()
+//                    .then(async (r) => {
+//                        const usk = r.key
+//
+//                        let plain = new Uint8Array(0)
+//                        const writable = new WritableStream({
+//                            write(chunk) {
+//                                plain = new Uint8Array([...plain, ...chunk])
+//                            },
+//                        })
+//
+//                        await unsealer.unseal(id, usk, writable)
+//                        const mail: string = new TextDecoder().decode(plain)
+//
+//                        port.postMessage({
+//                            command: 'showDecryption',
+//                            args: { mail: mail },
+//                        })
+//                    })
+//                    .catch((err) => {
+//                        console.log('Error during decryption: ', err)
+//                    })
+//
+//                break
+//            }
+//            case 'cancelSession': {
+//                console.log('[background]: received cancel command')
+//                // TODO: Either cancel the session or decryptState it for later
+//                break
+//            }
+//        }
+//        return null
+//    })
+//})
