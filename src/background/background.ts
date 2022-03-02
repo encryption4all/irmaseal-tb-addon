@@ -41,7 +41,7 @@ const composeTabs: {
         policies: any | undefined
         readable: ReadableStream<Uint8Array> | undefined
         writable: WritableStream<string> | undefined
-        allReceived: Promise<void> | undefined
+        allWritten: Promise<void> | undefined
     }
 } = {}
 
@@ -54,84 +54,17 @@ const decryptState: {
         usk: string | undefined
         readable: ReadableStream<Uint8Array> | undefined
         writable: WritableStream<string> | undefined
-        allReceived: Promise<void> | undefined
+        allWritten: Promise<void> | undefined
     }
 } = {}
 
 messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
     console.log('[background]: received command: ', msg)
     switch (msg.command) {
-        case 'enc_init': {
-            const details = composeTabs[msg.tabId].details
-
-            const timestamp = Math.round(Date.now() / 1000)
-            const policies = details.to.reduce((total, recipient) => {
-                const recipient_id = toEmail(recipient)
-                total[recipient_id] = {
-                    ts: timestamp,
-                    c: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
-                }
-                return total
-            }, {})
-
-            // Listen for plaintext chunks.
-            console.log('[background]: adding listener for plaintext chunks')
-            let listener, readable, writable
-
-            const allReceived: Promise<void> = new Promise((resolve) => {
-                readable = new ReadableStream<Uint8Array>({
-                    start: (controller) => {
-                        listener = messenger.NotifyTools.onNotifyBackground.addListener(
-                            async (msg2) => {
-                                switch (msg2.command) {
-                                    case 'enc_chunk': {
-                                        const encoded: Uint8Array = new TextEncoder().encode(
-                                            msg2.data
-                                        )
-                                        controller.enqueue(encoded)
-                                        break
-                                    }
-                                    case 'enc_finalize': {
-                                        controller.close()
-                                        break
-                                    }
-                                }
-                            }
-                        )
-                    },
-                    cancel: () => {
-                        console.log('[background]: removing listener for plaintext chunks')
-                        messenger.NotifyTools.onNotifyBackground.removeListener(listener)
-                    },
-                })
-
-                // Writer that responds with ciphertext chunks.
-                writable = new WritableStream<string>({
-                    write: async (chunk: string) => {
-                        await messenger.NotifyTools.notifyExperiment({
-                            command: 'enc_ct',
-                            data: chunk,
-                        })
-                    },
-                    close: resolve,
-                })
-            })
-
-            composeTabs[msg.tabId] = {
-                ...composeTabs[msg.tabId],
-                policies,
-                readable,
-                writable,
-                allReceived,
-            }
-
-            return
-        }
         case 'enc_start': {
             try {
-                const { policies, readable, writable, allReceived, details } =
-                    composeTabs[msg.tabId]
-                if (!(policies && readable && writable && allReceived && details))
+                const { policies, readable, writable, allWritten, details } = composeTabs[msg.tabId]
+                if (!(policies && readable && writable && allWritten && details))
                     throw Error('unexpected')
 
                 const mimeTransform: TransformStream<Uint8Array, string> = createMIMETransform()
@@ -143,7 +76,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 )
 
                 await sealPromise
-                await allReceived
+                await allWritten
                 await messenger.NotifyTools.notifyExperiment({ command: 'enc_finished' })
             } catch (e) {
                 console.log('something went wrong during sealing: ', e)
@@ -154,20 +87,18 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             }
 
             // cleanup is performed by onRemoved
-            return
+            break
         }
         case 'dec_init': {
             const msgId = msg.msgId
 
-            // TODO: Retrieve mail account message was received on
-
             console.log('[background]: adding listener for ciphertext chunks')
-            let listener
-            const decoder = new TextEncoder()
+            let listener: EventListener
+
             const readable = new ReadableStream<Uint8Array>({
                 start: (controller) => {
                     listener = messenger.NotifyTools.onNotifyBackground.addListener(
-                        async (msg2) => {
+                        async (msg2: { command: string; data: string }) => {
                             switch (msg2.command) {
                                 case 'dec_chunk': {
                                     const array = Buffer.from(msg2.data, 'base64')
@@ -193,18 +124,18 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 readable,
             }
 
-            return
+            break
         }
         case 'dec_metadata': {
             const { readable } = decryptState[msg.msgId]
             if (!readable) return
 
             console.log('starting to read from readable')
-            // TODO: reads until metadata is parsed
             const unsealer = await new mod.Unsealer(readable)
             console.log('got metadata')
+
             await messenger.NotifyTools.notifyExperiment({
-                command: 'dec_metadata_finished',
+                command: 'dec_session_start',
             })
 
             const currMsg = await browser.messages.get(msg.msgId)
@@ -253,46 +184,60 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             irma.use(IrmaClient)
             irma.use(IrmaConsole)
 
-            console.log('starting session')
-            const usk: string = await irma.start()
-            console.log('usk: ', usk)
+            try {
+                console.log('starting session')
+                const usk: string = await irma.start()
+                console.log('usk: ', usk)
 
-            let writable: WritableStream<string> | undefined
-            const allReceived = new Promise<void>((resolve, reject) => {
-                writable = new WritableStream<string>({
-                    write: async (chunk: string) => {
-                        await messenger.NotifyTools.notifyExperiment({
-                            command: 'dec_ct',
-                            data: chunk,
-                        })
-                    },
-                    close: resolve,
-                    abort: reject,
+                let writable: WritableStream<string> | undefined
+                const allWritten = new Promise<void>((resolve, reject) => {
+                    writable = new WritableStream<string>({
+                        write: async (chunk: string) => {
+                            await messenger.NotifyTools.notifyExperiment({
+                                command: 'dec_ct',
+                                data: chunk,
+                            })
+                        },
+                        close: resolve,
+                        abort: reject,
+                    })
                 })
-            })
 
-            decryptState[msg.msgId] = {
-                ...decryptState[msg.msgId],
-                unsealer,
-                usk,
-                writable,
-                allReceived,
+                decryptState[msg.msgId] = {
+                    ...decryptState[msg.msgId],
+                    unsealer,
+                    usk,
+                    writable,
+                    allWritten,
+                }
+                await messenger.NotifyTools.notifyExperiment({
+                    command: 'dec_session_complete',
+                })
+            } catch (e) {
+                await messenger.NotifyTools.notifyExperiment({
+                    command: 'dec_aborted',
+                })
             }
 
-            return
+            break
         }
 
         case 'dec_start': {
-            //
-            //
-            const { unsealer, writable, allReceived, usk } = decryptState[msg.msgId]
+            const { unsealer, writable, allWritten, usk } = decryptState[msg.msgId]
             try {
                 const unsealPromise = unsealer.unseal(usk, writable)
 
                 await unsealPromise
-                await allReceived
+                await allWritten
+                await messenger.NotifyTools.notifyExperiment({
+                    command: 'dec_finished',
+                })
             } catch (e) {
                 console.log('something went wrong during unsealing: ', e)
+                await messenger.NotifyTools.notifyExperiment({
+                    command: 'dec_aborted',
+                    error: e,
+                })
             }
         }
     }
@@ -346,7 +291,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
             readable: undefined,
             writable: undefined,
             policies: undefined,
-            allReceived: undefined,
+            allWritten: undefined,
         }
     }
 })
@@ -364,13 +309,64 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     console.log('[background]: onBeforeSend: ', tab, details)
     if (!composeTabs[tab.id].encrypt) return
 
-    // Store the details
-    composeTabs[tab.id].details = details
+    const timestamp = Math.round(Date.now() / 1000)
+    const policies = details.to.reduce((total, recipient) => {
+        const recipient_id = toEmail(recipient)
+        total[recipient_id] = {
+            ts: timestamp,
+            c: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
+        }
+        return total
+    }, {})
+
+    let listener: EventListener
+    const readable = new ReadableStream<Uint8Array>({
+        start: (controller) => {
+            listener = messenger.NotifyTools.onNotifyBackground.addListener(async (msg2) => {
+                switch (msg2.command) {
+                    case 'enc_chunk': {
+                        const encoded: Uint8Array = new TextEncoder().encode(msg2.data)
+                        controller.enqueue(encoded)
+                        break
+                    }
+                    case 'enc_finalize': {
+                        controller.close()
+                        break
+                    }
+                }
+            })
+        },
+        cancel: () => {
+            console.log('[background]: removing listener for plaintext chunks')
+            messenger.NotifyTools.onNotifyBackground.removeListener(listener)
+        },
+    })
+
+    let writable: WritableStream<string> | undefined
+    const allWritten: Promise<void> = new Promise((resolve) => {
+        writable = new WritableStream<string>({
+            write: async (chunk: string) => {
+                await messenger.NotifyTools.notifyExperiment({
+                    command: 'enc_ct',
+                    data: chunk,
+                })
+            },
+            close: resolve,
+        })
+    })
+
+    composeTabs[tab.id] = {
+        ...composeTabs[tab.id],
+        details,
+        policies,
+        readable,
+        writable,
+        allWritten,
+    }
 
     // Set the setSecurityInfo (triggering our custom MIME encoder)
     console.log('[background]: setting SecurityInfo')
     await browser.irmaseal4tb.setSecurityInfo(tab.windowId, tab.id)
-    console.log('[background]: securityInfo set')
 })
 
 //// Register a message display script

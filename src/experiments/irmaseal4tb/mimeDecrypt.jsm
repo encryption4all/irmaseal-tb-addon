@@ -53,39 +53,46 @@ MimeDecryptHandler.prototype = {
         DEBUG_LOG('mimeDecrypt.jsm: onStartRequest()\n')
         this.mimeProxy = request.QueryInterface(Ci.nsIPgpMimeProxy)
         this.uri = this.mimeProxy.messageURI
-        this.headersProcessed = false
 
         if (this.uri) {
             this.msgHdr = this.uri.QueryInterface(Ci.nsIMsgMessageUrl).messageHeader
-            //this.msgId = this.msgHdr.messageId
-            // use this line to convert the msgHdr to an Extension `Message` type.
             this.msgId = extension.messageManager.convert(this.msgHdr).id
             DEBUG_LOG(`msgId: ${this.msgId}`)
         }
 
+        this.sessionOnGoing = false
+
         // add a listener to wait for decrypted blocks
         this.finished = new Promise((resolve, reject) => {
-            var timeout = setTimeout(() => reject('timeout'), 5000)
-            this.chunkListener = notifyTools.addListener((msg) => {
-                switch (msg.command) {
-                    case 'dec_session_started':
-                        clearTimeout(timeout)
-                        timeout = setTimeout(() => reject('timeout'), 10000)
-                        break
-                    case 'dec_ct':
-                        clearTimeout(timeout)
-                        timeout = setTimeout(() => reject('timeout'), 5000)
+            this.sessionComplete = new Promise((resolve2, reject2) => {
+                var timeout = setTimeout(() => reject('timeout'), 5000)
+                this.chunkListener = notifyTools.addListener((msg) => {
+                    DEBUG_LOG(`mimeDecrypt got command ${msg.command}`)
+                    switch (msg.command) {
+                        case 'dec_session_start':
+                            this.sessionOnGoing = true
+                            clearTimeout(timeout)
+                            timeout = setTimeout(() => reject('timeout'), 15000)
+                            break
+                        case 'dec_session_complete':
+                            this.sessionOnGoing = false
+                            resolve2()
+                        case 'dec_ct':
+                            clearTimeout(timeout)
+                            timeout = setTimeout(() => reject('timeout'), 5000)
 
-                        this.mimeProxy.outputDecryptedData(msg.data)
-                        break
-                    case 'dec_finished':
-                        resolve()
-                        break
-                    case 'dec_aborted':
-                        reject(msg.error)
-                        break
-                }
-                return
+                            this.mimeProxy.outputDecryptedData(msg.data)
+                            break
+                        case 'dec_finished':
+                            resolve()
+                            break
+                        case 'dec_aborted':
+                            reject(msg.error)
+                            reject2(msg.error)
+                            break
+                    }
+                    return
+                })
             })
         })
 
@@ -102,21 +109,37 @@ MimeDecryptHandler.prototype = {
     },
 
     onDataAvailable: function (req, stream, offset, count) {
+        DEBUG_LOG(`writing data: ${count}, sessionOnGoing: ${this.sessionOnGoing}`)
+        //if (this.sessionOnGoing){
+        //    DEBUG_LOG('session is ongoing, blocking...')
+        //block_on(this.sessionComplete)
+        //    DEBUG_LOG('session is complete, unblocking...')
+        //}
+
         this.inStream.setInputStream(stream)
         if (count > 0) {
             const data = this.inStream.readBytes(count)
 
-            if (data !== '\n')
-                notifyTools.notifyBackground({
-                    command: 'dec_chunk',
-                    msgId: this.msgId,
-                    data,
-                })
+            let b64
+            try {
+                // Check if the data is base64 encoded.
+                b64 = btoa(data)
+            } catch (e) {
+                b64 = data
+            }
+
+            if (data == '\n') return
+
+            notifyTools.notifyBackground({
+                command: 'dec_chunk',
+                msgId: this.msgId,
+                data: b64,
+            })
         }
     },
 
     onStopRequest: function (request, status) {
-        notifyTools.notifyBackground({ command: 'dec_finish', msgId: this.msgId })
+        notifyTools.notifyBackground({ command: 'dec_finalize', msgId: this.msgId })
 
         try {
             block_on(this.finished)
