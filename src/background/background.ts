@@ -1,20 +1,15 @@
-import { toDataURL } from 'qrcode'
-import { ComposeMail, ReadMail } from '@e4a/irmaseal-mail-utils'
-import * as IrmaCore from '@privacybydesign/irma-core'
-import * as IrmaClient from '@privacybydesign/irma-client'
-import * as IrmaConsole from '@privacybydesign/irma-console'
+//import { toDataURL } from 'qrcode'
+//import { ComposeMail, ReadMail } from '@e4a/irmaseal-mail-utils'
+//import * as IrmaCore from '@privacybydesign/irma-core'
+//import * as IrmaClient from '@privacybydesign/irma-client'
+//import * as IrmaConsole from '@privacybydesign/irma-console'
 
-import {
-    createMIMETransform,
-    isIRMASeal,
-    readableStreamFromArray,
-    toEmail,
-    withTransform,
-} from './utils'
+import { createMIMETransform, toEmail, withTransform } from './utils'
 
 declare const browser, messenger
 
 const WIN_TYPE_COMPOSE = 'messageCompose'
+//const HOSTNAME = 'https://main.irmaseal-pkg.ihub.ru.nl'
 const HOSTNAME = 'http://localhost:8087'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 
@@ -155,40 +150,36 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
 
             const ts = hiddenPolicy[recipientId].ts
 
-            const irma = new IrmaCore({
-                debugging: true,
-                session: {
-                    url: HOSTNAME,
-                    start: {
-                        url: (o) => `${o.url}/v2/request`,
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(guess),
-                    },
-                    result: {
-                        url: (o, { sessionToken: token }) =>
-                            `${o.url}/v2/request/${token}/${ts.toString()}`,
-                        parseResponse: (r) => {
-                            return new Promise((resolve, reject) => {
-                                if (r.status != '200') reject('not ok')
-                                r.json().then((json) => {
-                                    if (json.status !== 'DONE_VALID') reject('not done and valid')
-                                    resolve(json.key)
-                                })
-                            })
-                        },
-                    },
-                },
+            const window = await messenger.windows.create({
+                url: 'decryptPopup.html',
+                type: 'normal',
+                height: 400,
+                width: 400,
             })
 
-            irma.use(IrmaClient)
-            irma.use(IrmaConsole)
+            console.log('setting up popupListener')
+            let popupListener
+            const uskPromise = new Promise<string>((resolve, reject) => {
+                popupListener = browser.runtime.onMessage.addListener((msg, sender) => {
+                    if (msg.command === 'popup_init') {
+                        return Promise.resolve({ guess, timestamp: ts, hostname: HOSTNAME })
+                    } else if (msg.command === 'popup_done') {
+                        console.log(msg)
+                        if (msg.usk) resolve(usk)
+                        else reject(msg.error)
+
+                        return false
+                    }
+                    return false
+                })
+            })
+
+            console.log('waiting for close and usk')
+            const usk = await uskPromise
+            await browser.runtime.onMessage.removeListener(popupListener)
+            console.log('usk: ', usk)
 
             try {
-                console.log('starting session')
-                const usk: string = await irma.start()
-                console.log('usk: ', usk)
-
                 let writable: WritableStream<string> | undefined
                 const allWritten = new Promise<void>((resolve, reject) => {
                     writable = new WritableStream<string>({
@@ -217,6 +208,8 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_aborted',
                 })
+
+                await cleanupDecryptState(msg.msgId)
             }
 
             break
@@ -232,12 +225,14 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_finished',
                 })
+                await cleanupDecryptState(msg.msgId)
             } catch (e) {
                 console.log('something went wrong during unsealing: ', e)
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_aborted',
                     error: e,
                 })
+                await cleanupDecryptState(msg.msgId)
             }
         }
     }
@@ -295,6 +290,12 @@ browser.tabs.onCreated.addListener(async (tab) => {
         }
     }
 })
+
+async function cleanupDecryptState(msgId: number) {
+    if (msgId in decryptState) {
+        delete decryptState[msgId]
+    }
+}
 
 // Remove tab if it was closed.
 browser.tabs.onRemoved.addListener((tabId: number) => {
