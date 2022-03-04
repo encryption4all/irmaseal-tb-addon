@@ -152,7 +152,7 @@ MimeEncrypt.prototype = {
         headers += `Subject: ${msgCompFields.subject}\r\n`
         headers += 'MIME-Version: 1\r\n'
 
-        notifyTools.notifyBackground({ command: 'enc_chunk', tabId: this.tabId, data: headers })
+        notifyTools.notifyBackground({ command: 'enc_plain', tabId: this.tabId, data: headers })
 
         DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): finish\n`)
     },
@@ -168,9 +168,7 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     mimeCryptoWriteBlock: function (data, length) {
-        //DEBUG_LOG(`mimeEncrypt.jsm: mimeCryptoWriteBlock(): ${length}\n`)
-
-        notifyTools.notifyBackground({ command: 'enc_chunk', tabId: this.tabId, data })
+        block_on(notifyTools.notifyBackground({ command: 'enc_plain', tabId: this.tabId, data }))
     },
 
     /**

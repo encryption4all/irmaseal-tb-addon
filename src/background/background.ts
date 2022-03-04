@@ -32,11 +32,11 @@ const composeTabs: {
         tab: any
         encrypt: boolean
         notificationId: number
-        details: any | undefined
-        policies: any | undefined
-        readable: ReadableStream<Uint8Array> | undefined
-        writable: WritableStream<string> | undefined
-        allWritten: Promise<void> | undefined
+        details?: any
+        policies?: any
+        readable?: ReadableStream<Uint8Array>
+        writable?: WritableStream<string>
+        allWritten?: Promise<void>
     }
 } = {}
 
@@ -46,70 +46,66 @@ const decryptState: {
         guess: any
         timestamp: number
         unsealer: any
-        usk: string | undefined
-        readable: ReadableStream<Uint8Array> | undefined
-        writable: WritableStream<string> | undefined
-        allWritten: Promise<void> | undefined
+        recipientId?: string
+        usk?: string
+        readable?: ReadableStream<Uint8Array>
+        writable?: WritableStream<Uint8Array>
+        allWritten?: Promise<void>
     }
 } = {}
 
 messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
-    console.log('[background]: received command: ', msg)
+    console.log('[background]: received command: ', msg.command)
+    if (msg.data) console.log('[background]: data len: ', msg.data.length)
     switch (msg.command) {
         case 'enc_start': {
             try {
                 const { policies, readable, writable, allWritten, details } = composeTabs[msg.tabId]
-                if (!(policies && readable && writable && allWritten && details))
+                if (!policies || !readable || !writable || !allWritten || !details)
                     throw Error('unexpected')
 
                 const mimeTransform: TransformStream<Uint8Array, string> = createMIMETransform()
-                const sealPromise = mod.seal(
-                    pk,
-                    policies,
-                    readable,
-                    withTransform(writable, mimeTransform)
-                )
 
-                await sealPromise
+                await mod.seal(pk, policies, readable, withTransform(writable, mimeTransform))
                 await allWritten
                 await messenger.NotifyTools.notifyExperiment({ command: 'enc_finished' })
             } catch (e) {
                 console.log('something went wrong during sealing: ', e)
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'enc_aborted',
-                    error: e,
+                    error: e.message,
                 })
             }
 
-            // cleanup is performed by onRemoved
-            break
+            // cleanup is performed by browser.tabs.onRemoved
+            return
         }
         case 'dec_init': {
+            console.log('current decryptState: ', decryptState)
             const msgId = msg.msgId
 
-            console.log('[background]: adding listener for ciphertext chunks')
             let listener: EventListener
-
+            console.log('setup listener')
             const readable = new ReadableStream<Uint8Array>({
                 start: (controller) => {
                     listener = messenger.NotifyTools.onNotifyBackground.addListener(
                         async (msg2: { command: string; data: string }) => {
                             switch (msg2.command) {
-                                case 'dec_chunk': {
+                                case 'dec_ct': {
                                     const array = Buffer.from(msg2.data, 'base64')
                                     controller.enqueue(array)
-                                    break
+                                    return
                                 }
                                 case 'dec_finalize': {
                                     controller.close()
-                                    break
+                                    return
                                 }
                             }
                         }
                     )
                 },
                 cancel: () => {
-                    console.log('[background]: removing listener for ciphertext chunks')
+                    console.log('removing listener')
                     messenger.NotifyTools.onNotifyBackground.removeListener(listener)
                 },
             })
@@ -119,9 +115,11 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 readable,
             }
 
-            break
+            return
         }
         case 'dec_metadata': {
+            console.log('current decryptState: ', decryptState)
+            const msgId = msg.msgId
             const { readable } = decryptState[msg.msgId]
             if (!readable) return
 
@@ -135,58 +133,53 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
 
             const currMsg = await browser.messages.get(msg.msgId)
             const accountId = currMsg.folder.accountId
-            console.log('accountId: ', accountId)
-
             const defaultIdentity = await browser.identities.getDefault(accountId)
             const recipientId = toEmail(defaultIdentity.email)
-            console.log('recipientId: ', recipientId)
-
             const hiddenPolicy = unsealer.get_hidden_policies()
-            console.log('hiddenPolicy: ', hiddenPolicy)
+
+            console.log(
+                `accountId: ${accountId}\nrecepientId: ${recipientId}\nhiddenPolicy: ${hiddenPolicy}`
+            )
 
             const guess = {
                 con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipientId }],
             }
-
             const ts = hiddenPolicy[recipientId].ts
 
             const window = await messenger.windows.create({
                 url: 'decryptPopup.html',
-                type: 'normal',
+                type: 'popup',
                 height: 400,
                 width: 400,
             })
 
-            console.log('setting up popupListener')
-            let popupListener
+            let popupListener, tabClosedListener
             const uskPromise = new Promise<string>((resolve, reject) => {
                 popupListener = browser.runtime.onMessage.addListener((msg, sender) => {
                     if (msg.command === 'popup_init') {
                         return Promise.resolve({ guess, timestamp: ts, hostname: HOSTNAME })
                     } else if (msg.command === 'popup_done') {
-                        console.log(msg)
-                        if (msg.usk) resolve(usk)
+                        if (msg.usk) resolve(msg.usk)
                         else reject(msg.error)
-
-                        return false
+                        return Promise.resolve()
                     }
                     return false
                 })
+                tabClosedListener = browser.windows.onRemoved.addListener((windowId: number) => {
+                    if (windowId === window.id) reject('window closed')
+                })
             })
 
-            console.log('waiting for close and usk')
-            const usk = await uskPromise
-            await browser.runtime.onMessage.removeListener(popupListener)
-            console.log('usk: ', usk)
-
             try {
-                let writable: WritableStream<string> | undefined
+                const usk = await uskPromise
+                let writable: WritableStream<Uint8Array> | undefined
                 const allWritten = new Promise<void>((resolve, reject) => {
-                    writable = new WritableStream<string>({
-                        write: async (chunk: string) => {
+                    writable = new WritableStream<Uint8Array>({
+                        write: async (chunk: Uint8Array) => {
+                            const decoded = new TextDecoder().decode(chunk)
                             await messenger.NotifyTools.notifyExperiment({
-                                command: 'dec_ct',
-                                data: chunk,
+                                command: 'dec_plain',
+                                data: decoded,
                             })
                         },
                         close: resolve,
@@ -197,43 +190,58 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 decryptState[msg.msgId] = {
                     ...decryptState[msg.msgId],
                     unsealer,
+                    recipientId,
                     usk,
                     writable,
                     allWritten,
                 }
+
+                console.log(decryptState[msg.msgId])
+
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_session_complete',
                 })
             } catch (e) {
+                console.log('error during dec_metadata')
+                await cleanupDecryptState(msg.msgId)
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_aborted',
+                    error: e.message,
                 })
-
-                await cleanupDecryptState(msg.msgId)
+            } finally {
+                await browser.runtime.onMessage.removeListener(popupListener)
+                await browser.windows.onRemoved.removeListener(tabClosedListener)
             }
 
-            break
+            return
         }
 
         case 'dec_start': {
-            const { unsealer, writable, allWritten, usk } = decryptState[msg.msgId]
+            console.log('current decryptState: ', decryptState)
+            const msgId = msg.msgId
             try {
-                const unsealPromise = unsealer.unseal(usk, writable)
+                const { unsealer, recipientId, writable, allWritten, usk } = decryptState[msg.msgId]
+                if (!unsealer || !recipientId || !writable || !allWritten || !usk)
+                    throw Error('unexpected')
 
-                await unsealPromise
+                await unsealer.unseal(recipientId, usk, writable)
                 await allWritten
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_finished',
                 })
-                await cleanupDecryptState(msg.msgId)
             } catch (e) {
-                console.log('something went wrong during unsealing: ', e)
+                console.log('something went wrong during unsealing: ', e.message)
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_aborted',
-                    error: e,
+                    error: e.message,
                 })
+            } finally {
                 await cleanupDecryptState(msg.msgId)
             }
+
+            console.log('decryption completed: ', decryptState)
+
+            return
         }
     }
 })
@@ -325,7 +333,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         start: (controller) => {
             listener = messenger.NotifyTools.onNotifyBackground.addListener(async (msg2) => {
                 switch (msg2.command) {
-                    case 'enc_chunk': {
+                    case 'enc_plain': {
                         const encoded: Uint8Array = new TextEncoder().encode(msg2.data)
                         controller.enqueue(encoded)
                         break

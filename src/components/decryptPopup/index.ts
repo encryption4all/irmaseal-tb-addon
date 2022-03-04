@@ -2,7 +2,7 @@ import * as IrmaCore from '@privacybydesign/irma-core'
 import * as IrmaClient from '@privacybydesign/irma-client'
 import * as IrmaWeb from '@privacybydesign/irma-web'
 
-import '@privacybydesign/irma-css'
+//import '@privacybydesign/irma-css'
 
 window.addEventListener('load', onLoad)
 
@@ -15,6 +15,8 @@ interface popupData {
 }
 
 async function onLoad() {
+    console.log('[popUp]: onLoad')
+
     const data: popupData = await browser.runtime.sendMessage({
         command: 'popup_init',
     })
@@ -49,23 +51,20 @@ async function onLoad() {
     irma.use(IrmaClient)
     irma.use(IrmaWeb)
 
-    console.log('starting session')
-    try {
-        const usk = await irma.start()
-
-        await browser.runtime.sendMessage({
-            command: 'popup_done',
-            usk,
+    irma.start()
+        .then((usk: string) => {
+            browser.runtime.sendMessage({
+                command: 'popup_done',
+                usk: usk,
+            })
         })
-    } catch (e) {
-        //        console.log('error during session: ', e)
-        //
-        //        await browser.runtime.sendMessage({
-        //            command: 'popup_done',
-        //            error: e.message,
-        //        })
-    }
-
-    const win = await messenger.windows.getCurrent()
-    messenger.windows.remove(win.id)
+        .catch((e) => {
+            console.log('error: ', e.msg)
+        })
+        .finally(async () => {
+            const win = await messenger.windows.getCurrent()
+            messenger.windows.remove(win.id)
+        })
 }
+
+window.addEventListener('load', onLoad)
