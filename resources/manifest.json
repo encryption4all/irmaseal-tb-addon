@@ -51,7 +51,8 @@
         "accountsRead",
         "compose",
         "messagesModify",
-        "storage"
+        "storage",
+        "accountsFolders"
     ],
     "web_accessible_resources": ["images/*"],
     "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"

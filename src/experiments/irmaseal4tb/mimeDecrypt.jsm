@@ -33,6 +33,8 @@ const MIME_JS_DECRYPTOR_CID = Components.ID('{f3a50b87-b198-42c0-86d9-116aca7180
 const DEBUG_LOG = (str) => Services.console.logStringMessage(`[experiment]: ${str}`)
 const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.stack}`)
 
+const MIN_BUFFER = 1024
+
 function MimeDecryptHandler() {
     DEBUG_LOG('mimeDecrypt.jsm: new MimeDecryptHandler()\n')
     this.mimeProxy = null
@@ -60,55 +62,45 @@ MimeDecryptHandler.prototype = {
             DEBUG_LOG(`msgId: ${this.msgId}`)
         }
 
+        this.buffer = ''
+        this.bufferCount = 0
         this.sessionOnGoing = false
         this.aborted = false
 
         // add a listener to wait for decrypted blocks
-        // initially waits one minute
+        // initially waits one minute for a session to start
         this.finishedPromise = new Promise((resolve, reject) => {
-            var timeout = setTimeout(() => reject('timeout'), 60000)
-            this.chunkListener = notifyTools.addListener((msg) => {
-                DEBUG_LOG(`got chunk update ${msg.command}`)
-                switch (msg.command) {
-                    case 'dec_plain':
-                        clearTimeout(timeout)
-                        timeout = setTimeout(() => reject('timeout'), 5000)
-                        DEBUG_LOG(`outputting decrypted data: ${msg.data}`)
-
-                        this.mimeProxy.outputDecryptedData(msg.data, msg.data.length)
-                        return
-                    case 'dec_finished':
-                        resolve()
-                        return
-                    case 'dec_aborted':
-                        DEBUG_LOG('got aborted')
-                        reject(msg.error)
-                        return
-                }
-            })
-        })
-
-        this.sessionPromise = new Promise((resolve, reject) => {
-            var timeout = setTimeout(() => reject('timeout'), 15000)
-            this.sessionListener = notifyTools.addListener((msg) => {
-                DEBUG_LOG(`got session update ${msg.command}`)
-                switch (msg.command) {
-                    case 'dec_session_start':
-                        DEBUG_LOG('got session started')
-                        this.sessionOnGoing = true
-                        clearTimeout(timeout)
-                        timeout = setTimeout(() => reject('timeout'), 60000)
-                        return
-                    case 'dec_session_complete':
-                        DEBUG_LOG('session complete')
-                        this.sessionOnGoing = false
-                        resolve()
-                        return
-                    case 'dec_aborted':
-                        DEBUG_LOG('got aborted')
-                        reject(msg.error)
-                        return
-                }
+            this.sessionPromise = new Promise((resolve2, reject2) => {
+                var timeout = setTimeout(() => reject('wait for session timed out'), 60000)
+                this.listener = notifyTools.addListener((msg) => {
+                    switch (msg.command) {
+                        case 'dec_session_start':
+                            DEBUG_LOG('session started')
+                            this.sessionOnGoing = true
+                            clearTimeout(timeout)
+                            timeout = setTimeout(() => reject('session timeout'), 60000)
+                            return
+                        case 'dec_session_complete':
+                            DEBUG_LOG('session complete')
+                            this.sessionOnGoing = false
+                            resolve2()
+                            return
+                        case 'dec_plain':
+                            DEBUG_LOG('got some plaintext')
+                            clearTimeout(timeout)
+                            timeout = setTimeout(() => reject(''), 5000)
+                            this.mimeProxy.outputDecryptedData(msg.data, msg.data.length)
+                            return
+                        case 'dec_finished':
+                            resolve()
+                            return
+                        case 'dec_aborted':
+                            DEBUG_LOG(`decryption aborted due to error: ${msg.error}`)
+                            reject(msg.error)
+                            reject2(msg.error)
+                            return
+                    }
+                })
             })
         })
 
@@ -125,41 +117,62 @@ MimeDecryptHandler.prototype = {
     },
 
     onDataAvailable: function (req, stream, offset, count) {
-        DEBUG_LOG(`writing data: ${count}, sessionOnGoing: ${this.sessionOnGoing}`)
+        if (this.aborted || count === 0) return
         if (this.sessionOnGoing) {
+            // If a session is still ongoing, block until it completes
+            // then, signal for the decryption to start.
             try {
                 block_on(this.sessionPromise)
                 notifyTools.notifyBackground({ command: 'dec_start', msgId: this.msgId })
             } catch (e) {
                 this.aborted = true
+                return
             }
         }
-        if (this.aborted) return
 
         this.inStream.setInputStream(stream)
-        if (count > 0) {
-            const data = this.inStream.readBytes(count)
+        const data = this.inStream.readBytes(count)
 
-            let b64
-            try {
-                // Check if the data is base64 encoded.
-                b64 = btoa(data)
-            } catch (e) {
-                b64 = data
-            }
+        // Check if the data is base64 encoded.
+        let b64
+        try {
+            b64 = btoa(data)
+        } catch (e) {
+            b64 = data
+        }
 
-            if (data == '\n') return
+        // Ignore the newlines
+        if (b64 == '\n') return
+
+        this.buffer += b64
+        this.bufferCount += count
+
+        if (this.bufferCount > MIN_BUFFER) {
             block_on(
                 notifyTools.notifyBackground({
                     command: 'dec_ct',
                     msgId: this.msgId,
-                    data: b64,
+                    data: this.buffer,
                 })
             )
+
+            this.buffer = ''
+            this.bufferCount = 0
         }
     },
 
     onStopRequest: function (request, status) {
+        DEBUG_LOG('mimeDecrypt.jsm: onStartRequest(): start\n')
+        if (this.bufferCount > 0) {
+            block_on(
+                notifyTools.notifyBackground({
+                    command: 'dec_ct',
+                    msgId: this.msgId,
+                    data: this.buffer,
+                })
+            )
+        }
+
         notifyTools.notifyBackground({ command: 'dec_finalize', msgId: this.msgId })
 
         try {
@@ -168,8 +181,8 @@ MimeDecryptHandler.prototype = {
             ERROR_LOG(e)
             this.mimeProxy.abort(e)
         } finally {
-            notifyTools.removeListener(this.chunkListener)
-            notifyTools.removeListener(this.sessionListener)
+            notifyTools.removeListener(this.listener)
+            DEBUG_LOG(`mimeDecrypt.jsm: onStopRequest(): completed\n Success: ${!this.aborted}`)
         }
     },
 }

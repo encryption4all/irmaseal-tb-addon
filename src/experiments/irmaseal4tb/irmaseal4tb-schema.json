@@ -14,6 +14,14 @@
                     {
                         "name": "tabId",
                         "type": "integer"
+                    },
+                    {
+                        "name": "accountId",
+                        "type": "string"
+                    },
+                    {
+                        "name": "path",
+                        "type": "string"
                     }
                 ]
             }
