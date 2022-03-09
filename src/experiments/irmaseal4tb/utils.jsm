@@ -6,22 +6,28 @@ const { MailServices } = Cu.import('resource:///modules/MailServices.jsm')
 
 var EXPORTED_SYMBOLS = ['block_on', 'getFolder', 'folderPathToURI']
 
+var inspector
+
 var block_on = function (promise) {
-    const inspector = Cc['@mozilla.org/jsinspector;1'].createInstance(Ci.nsIJSInspector)
-    let synchronous = null
+    if (!inspector) {
+        inspector = Cc['@mozilla.org/jsinspector;1'].createInstance(Ci.nsIJSInspector)
+    }
+
+    let result = null
     promise
-        .then((result) => {
-            synchronous = result
+        .then((res) => {
+            result = res
             inspector.exitNestedEventLoop()
         })
-        .catch((error) => {
-            synchronous = error
+        .catch((err) => {
+            result = err
             inspector.exitNestedEventLoop()
         })
 
     inspector.enterNestedEventLoop(0)
-    if (synchronous instanceof Error) throw synchronous
-    return synchronous
+    if (result instanceof Error) throw result
+
+    return result
 }
 
 /**

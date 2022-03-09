@@ -163,26 +163,27 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
 
             let popupListener, tabClosedListener
             const uskPromise = new Promise<string>((resolve, reject) => {
-                popupListener = browser.runtime.onMessage.addListener(
-                    (req, sender, sendResponse) => {
-                        if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
-                            return Promise.resolve({ guess, timestamp: ts, hostname: HOSTNAME })
-                        } else if (
-                            sender.tab.windowId == popupId &&
-                            req &&
-                            req.command === 'popup_done'
-                        ) {
-                            if (msg.usk) resolve(msg.usk)
-                            else reject()
-                            return Promise.resolve()
-                        }
-                        return false
+                popupListener = (req, sender, sendResponse) => {
+                    if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
+                        return Promise.resolve({ guess, timestamp: ts, hostname: HOSTNAME })
+                    } else if (
+                        sender.tab.windowId == popupId &&
+                        req &&
+                        req.command === 'popup_done'
+                    ) {
+                        if (req.usk) resolve(req.usk)
+                        else reject(new Error('no usk'))
+                        return Promise.resolve()
                     }
-                )
-                browser.windows.get(popupId).catch((e) => reject())
-                tabClosedListener = browser.windows.onRemoved.addListener((windowId: number) => {
-                    if (windowId === popupId) reject()
-                })
+                    return false
+                }
+
+                tabClosedListener = (windowId: number) => {
+                    if (windowId === popupId) reject(new Error('tab closed'))
+                }
+                browser.runtime.onMessage.addListener(popupListener)
+                browser.windows.get(popupId).catch((e) => reject(e))
+                browser.windows.onRemoved.addListener(tabClosedListener)
             })
 
             try {
@@ -217,10 +218,10 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             } catch (e) {
                 console.log('error during dec_metadata: ', e.message)
                 await failDecryption(msg.msgId, e)
-            } finally {
-                await browser.runtime.onMessage.removeListener(popupListener)
-                await browser.windows.onRemoved.removeListener(tabClosedListener)
             }
+
+            browser.windows.onRemoved.removeListener(tabClosedListener)
+            browser.runtime.onMessage.removeListener(popupListener)
 
             return
         }
