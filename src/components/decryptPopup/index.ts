@@ -8,22 +8,62 @@ window.addEventListener('load', onLoad)
 
 declare const browser, messenger
 
-interface popupData {
+interface PopupData {
     hostname: string
     guess: any
     timestamp: number
+    sender: string
+    policy: Policy
+}
+
+interface Policy {
+    c: { t: string; v: string }[]
+    ts: number
+}
+
+function fillTable(table: HTMLElement, policy: Policy) {
+    for (const { t, v } of policy.c) {
+        const row = document.createElement('tr')
+        const tdtype = document.createElement('td')
+        const tdvalue = document.createElement('td')
+        tdtype.innerText = browser.i18n.getMessage(t) ?? t
+        tdvalue.innerText = v
+        row.appendChild(tdtype)
+        row.appendChild(tdvalue)
+        table.appendChild(row)
+    }
 }
 
 async function onLoad() {
-    console.log('[popUp]: onLoad')
-
-    const data: popupData = await browser.runtime.sendMessage({
+    const data: PopupData = await browser.runtime.sendMessage({
         command: 'popup_init',
     })
 
+    const title = browser.i18n.getMessage('displayMessageTitle')
+    const appName = browser.i18n.getMessage('appName')
+    const header = browser.i18n.getMessage('displayMessageHeading')
+    const qrPrefix = browser.i18n.getMessage('displayMessageQrPrefix')
+    const helper = browser.i18n.getMessage('displayMessageIrmaHelp')
+
+    document.getElementById('idlock_txt')!.innerText = appName
+    document.getElementById('sender')!.innerText = data.sender
+    document.getElementById('msg_header')!.innerText = header
+    document.getElementById('irma_help')!.innerText = helper
+    document.getElementById('display_message_title')!.innerText = title
+    document.getElementById('qr_prefix')!.innerText = qrPrefix
+
+    const table = document.getElementById('attribute_table')
+    if (table) fillTable(table, data.policy)
+
+    const lang = browser.i18n.getUILanguage()
+
     const irma = new IrmaCore({
         element: '#irma-web-form',
-        debugging: true,
+        language: lang.startsWith('NL') ? 'nl' : 'en',
+        translations: {
+            header: '',
+            helper: '',
+        },
         session: {
             url: data.hostname,
             start: {
@@ -59,11 +99,13 @@ async function onLoad() {
             })
         })
         .catch((e) => {
-            console.log('error: ', e.msg)
+            console.log('[popup]: error during session: ', e.msg)
         })
         .finally(async () => {
-            const win = await messenger.windows.getCurrent()
-            messenger.windows.remove(win.id)
+            setTimeout(async () => {
+                const win = await messenger.windows.getCurrent()
+                messenger.windows.remove(win.id)
+            }, 1000)
         })
 }
 

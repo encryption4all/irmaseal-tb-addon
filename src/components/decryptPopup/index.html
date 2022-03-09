@@ -3,9 +3,57 @@
     <head>
         <meta charset="utf-8" />
         <title>IRMAseal Decrypt</title>
+        <link rel="stylesheet" href="message-content-styles.css" />
     </head>
     <body>
-        <section class="irma-web-form" id="irma-web-form"></section>
+        <div class="center">
+            <div id="idlock_svg">
+                <img src="images/idlock.svg" />
+            </div>
+        </div>
+        <div class="center">
+            <p id="idlock_txt"></p>
+        </div>
+        <div id="info_message">
+            <p id="display_message_title"></p>
+            <p class="blue" id="sender"></p>
+            <!-- <p class="smaller gray" disabled>Expires on June 15, 2021</p> -->
+        </div>
+        <div class="instructions_container">
+            <div class="left">
+                <img src="images/irma_logo.svg" />
+            </div>
+            <div class="right">
+                <div>
+                    <p id="msg_header"></p>
+                </div>
+                <div id="attributes">
+                    <table class="smaller" id="attribute_table">
+                    </table>
+                </div>
+                <div id="qr_instruction">
+                    <p id="qr_prefix"></p>
+                </div>
+            </div>
+        </div>
+        <div class="center">
+            <section class="irma-web-form" id="irma-web-form"></section>
+        </div>
+        <div class="instructions_container">
+            <div class="left"></div>
+            <div class="right">
+                <div id="download_irma">
+                    <p id="irma_help"></p>
+                    <a
+                        href="https://play.google.com/store/apps/details?id=org.irmacard.cardemu&hl=en&gl=US&pcampaignid=pcampaignidMKT-Other-global-all-co-prtnr-py-PartBadge-Mar2515-1"
+                        ><img alt="Get it on Google Play" src="images/google-play-badge.png"
+                    /></a>
+                    <a
+                        href="https://apps.apple.com/us/app/irma-authentication/id1294092994?itsct=apps_box_badge&amp;itscg=30200"
+                        ><img src="images/appstore_badge.svg" alt="Download on the App Store"
+                    /></a>
+                </div>
+            </div>
+        </div>
     </body>
 </html>
-

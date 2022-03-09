@@ -75,8 +75,6 @@ MimeDecryptHandler.prototype = {
         this.sessionCompleted = false
         this.aborted = false
 
-        this.initFile()
-
         // add a listener to wait for decrypted blocks
         // initially waits one minute for a session to start
         this.finishedPromise = new Promise((resolve, reject) => {
@@ -96,6 +94,7 @@ MimeDecryptHandler.prototype = {
                         case 'dec_session_complete':
                             DEBUG_LOG('session complete')
                             this.sessionCompleted = true
+                            this.initFile()
                             resolve2()
                             return
                         case 'dec_plain':
@@ -131,7 +130,8 @@ MimeDecryptHandler.prototype = {
         )
 
         // Both sides are ready, start reading from metadata.
-        notifyTools.notifyBackground({ command: 'dec_metadata', msgId: this.msgId })
+        if (!this.aborted)
+            notifyTools.notifyBackground({ command: 'dec_metadata', msgId: this.msgId })
     },
 
     onDataAvailable: function (req, stream, offset, count) {
@@ -174,6 +174,11 @@ MimeDecryptHandler.prototype = {
 
     onStopRequest: function (request, status) {
         DEBUG_LOG('mimeDecrypt.jsm: onStartRequest(): start\n')
+        if (this.aborted) {
+            notifyTools.removeListener(this.listener)
+            return
+        }
+
         if (this.bufferCount > 0) {
             block_on(
                 notifyTools.notifyBackground({
@@ -190,12 +195,12 @@ MimeDecryptHandler.prototype = {
             DEBUG_LOG('sending finalize command')
             notifyTools.notifyBackground({ command: 'dec_finalize', msgId: this.msgId })
             block_on(this.finishedPromise)
+            this.closeAndCopyFile()
         } catch (e) {
             ERROR_LOG(e)
             throw e
         } finally {
             notifyTools.removeListener(this.listener)
-            this.closeAndCopyFile()
             DEBUG_LOG(`mimeDecrypt.jsm: onStopRequest(): succesfully completed: ${!this.aborted}`)
         }
     },

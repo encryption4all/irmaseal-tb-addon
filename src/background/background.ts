@@ -26,17 +26,18 @@ const pk_promise: Promise<string> = fetch(`${HOSTNAME}/v2/parameters`)
 
 const mod_promise = import('@e4a/irmaseal-wasm-bindings')
 
+const [pk, mod] = await Promise.all([pk_promise, mod_promise])
+
 // For all accounts make some (imap) folders:
 // - make a "Cryptify Sent" folder for plaintexts,
 // - make a "Cryptify Received" folder for decrypted plaintexts.
+// TODO: do this went needed only during encryption/decryption
 const accounts = await browser.accounts.list()
 
 for (const acc of accounts) {
     browser.folders.create(acc, SENT_COPY_FOLDER).catch(() => {})
     browser.folders.create(acc, RECEIVED_COPY_FOLDER).catch(() => {})
 }
-
-const [pk, mod] = await Promise.all([pk_promise, mod_promise])
 
 // Keeps track of which tabs (messageCompose type) should use encryption.
 const composeTabs: {
@@ -55,9 +56,9 @@ const composeTabs: {
 // Keeps track of decryptions state (per message).
 const decryptState: {
     [messageId: number]: {
-        guess: any
-        timestamp: number
-        unsealer: any
+        guess?: any
+        timestamp?: number
+        unsealer?: any
         recipientId?: string
         usk?: string
         readable?: ReadableStream<Uint8Array>
@@ -93,8 +94,10 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             return
         }
         case 'dec_init': {
-            if (decryptState[msg.msgId]) {
-                console.log('already a decryption running')
+            if (Object.keys(decryptState).length > 0) {
+                console.log('current decryptState: ', JSON.stringify(decryptState, null, 4))
+                failDecryption(msg.msgId, new Error('already decrypting a message'))
+                return
             }
 
             let listener: EventListener
@@ -110,7 +113,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                                     break
                                 }
                                 case 'dec_finalize': {
-                                    console.log('closing readable')
+                                    console.log('[background]: closing readable')
                                     controller.close()
                                     break
                                 }
@@ -119,13 +122,12 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                     )
                 },
                 cancel: () => {
-                    console.log('removing listener')
+                    console.log('[background]: cancel() called: removing listener')
                     messenger.NotifyTools.onNotifyBackground.removeListener(listener)
                 },
             })
 
             decryptState[msg.msgId] = {
-                ...decryptState[msg.msgId],
                 readable,
             }
 
@@ -135,9 +137,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             const { readable } = decryptState[msg.msgId]
             if (!readable) return
 
-            console.log('starting to read from readable')
             const unsealer = await new mod.Unsealer(readable)
-            console.log('got metadata')
 
             await messenger.NotifyTools.notifyExperiment({
                 command: 'dec_session_start',
@@ -148,21 +148,23 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             const defaultIdentity = await browser.identities.getDefault(accountId)
             const recipientId = toEmail(defaultIdentity.email)
             const hiddenPolicy = unsealer.get_hidden_policies()
+            const msgSender = currMsg.author
 
             console.log(
-                `accountId: ${accountId}\nrecepientId: ${recipientId}\nhiddenPolicy: ${hiddenPolicy}`
+                `[background]: accountId: ${accountId}\nrecepientId: ${recipientId}\nhiddenPolicy: ${hiddenPolicy}`
             )
 
+            const myPolicy = hiddenPolicy[recipientId]
+            const ts = hiddenPolicy[recipientId].ts
             const guess = {
                 con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipientId }],
             }
-            const ts = hiddenPolicy[recipientId].ts
 
             const popupWindow = await messenger.windows.create({
                 url: 'decryptPopup.html',
                 type: 'popup',
-                height: 400,
-                width: 400,
+                height: 720,
+                width: 500,
             })
 
             const popupId = popupWindow.id
@@ -171,7 +173,13 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             const uskPromise = new Promise<string>((resolve, reject) => {
                 popupListener = (req, sender, sendResponse) => {
                     if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
-                        return Promise.resolve({ guess, timestamp: ts, hostname: HOSTNAME })
+                        return Promise.resolve({
+                            guess,
+                            timestamp: ts,
+                            hostname: HOSTNAME,
+                            sender: msgSender,
+                            policy: myPolicy,
+                        })
                     } else if (
                         sender.tab.windowId == popupId &&
                         req &&
@@ -209,20 +217,19 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                     })
                 })
 
-                decryptState[msg.msgId] = {
-                    ...decryptState[msg.msgId],
+                decryptState[msg.msgId] = Object.assign({}, decryptState[msg.msgId], {
                     unsealer,
                     recipientId,
                     usk,
                     writable,
                     allWritten,
-                }
+                })
 
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_session_complete',
                 })
             } catch (e) {
-                console.log('error during dec_metadata: ', e.message)
+                console.log('[bacground]: error during dec_metadata: ', e.message)
                 await failDecryption(msg.msgId, e)
             }
 
@@ -244,11 +251,9 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                     command: 'dec_finished',
                 })
 
-                if (msg.msgId in decryptState) {
-                    delete decryptState[msg.msgId]
-                }
+                if (msg.msgId in decryptState) delete decryptState[msg.msgId]
             } catch (e) {
-                console.log('something went wrong during unsealing: ', e.message)
+                console.log('[background]: something went wrong during unsealing: ', e.message)
                 await failDecryption(msg.msgId, e)
             }
 
@@ -301,11 +306,6 @@ browser.tabs.onCreated.addListener(async (tab) => {
             encrypt: true,
             notificationId,
             tab,
-            details: undefined,
-            readable: undefined,
-            writable: undefined,
-            policies: undefined,
-            allWritten: undefined,
         }
     }
 })
@@ -316,9 +316,7 @@ async function failDecryption(msgId: number, e: Error) {
         error: e.message,
     })
 
-    if (msgId in decryptState) {
-        delete decryptState[msgId]
-    }
+    if (msgId in decryptState) delete decryptState[msgId]
 }
 
 // Remove tab if it was closed.
@@ -391,14 +389,13 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         })
     })
 
-    composeTabs[tab.id] = {
-        ...composeTabs[tab.id],
+    composeTabs[tab.id] = Object.assign({}, composeTabs[tab.id], {
         details,
         policies,
         readable,
         writable,
         allWritten,
-    }
+    })
 
     // Set the setSecurityInfo (triggering our custom MIME encoder)
     console.log('[background]: setting SecurityInfo')
