@@ -93,20 +93,26 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             return
         }
         case 'dec_init': {
+            if (decryptState[msg.msgId]) {
+                console.log('already a decryption running')
+            }
+
             let listener: EventListener
             const readable = new ReadableStream<Uint8Array>({
                 start: (controller) => {
                     listener = messenger.NotifyTools.onNotifyBackground.addListener(
-                        async (msg2: { command: string; data: string }) => {
+                        async (msg2: { command: string; msgId: number; data: string }) => {
+                            if (msg.msgId !== msg2.msgId) return
                             switch (msg2.command) {
                                 case 'dec_ct': {
                                     const array = Buffer.from(msg2.data, 'base64')
                                     controller.enqueue(array)
-                                    return
+                                    break
                                 }
                                 case 'dec_finalize': {
+                                    console.log('closing readable')
                                     controller.close()
-                                    return
+                                    break
                                 }
                             }
                         }

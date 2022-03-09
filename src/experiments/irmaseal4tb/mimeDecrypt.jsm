@@ -21,10 +21,12 @@ Cm.QueryInterface(Ci.nsIComponentRegistrar)
 const Services = Cu.import('resource://gre/modules/Services.jsm').Services
 const { ExtensionCommon } = ChromeUtils.import('resource://gre/modules/ExtensionCommon.jsm')
 const { ExtensionParent } = ChromeUtils.import('resource://gre/modules/ExtensionParent.jsm')
+const { MailServices } = Cu.import('resource:///modules/MailServices.jsm')
+const { MailUtils } = Cu.import('resource:///modules/MailUtils.jsm')
 
 const extension = ExtensionParent.GlobalManager.getExtension('irmaseal4tb@e4a.org')
 const { notifyTools } = Cu.import(extension.rootURI.resolve('irmaseal4tb/notifyTools.js'))
-const { block_on } = Cu.import(extension.rootURI.resolve('irmaseal4tb/utils.jsm'))
+const { block_on, folderPathToURI } = Cu.import(extension.rootURI.resolve('irmaseal4tb/utils.jsm'))
 const { clearTimeout, setTimeout } = ChromeUtils.import('resource://gre/modules/Timer.jsm')
 
 const MIME_JS_DECRYPTOR_CONTRACTID = '@mozilla.org/mime/pgp-mime-js-decrypt;1'
@@ -58,14 +60,22 @@ MimeDecryptHandler.prototype = {
 
         if (this.uri) {
             this.msgHdr = this.uri.QueryInterface(Ci.nsIMsgMessageUrl).messageHeader
+            this.copyReceivedFolderURI = this.msgHdr.folder.URI.replace(
+                'INBOX',
+                'Cryptify Received'
+            )
+            DEBUG_LOG(`copyReceivedFolderURI: ${this.copyReceivedFolderURI}`)
             this.msgId = extension.messageManager.convert(this.msgHdr).id
             DEBUG_LOG(`msgId: ${this.msgId}`)
         }
 
         this.buffer = ''
         this.bufferCount = 0
-        this.sessionOnGoing = false
+        this.sessionStarted = false
+        this.sessionCompleted = false
         this.aborted = false
+
+        this.initFile()
 
         // add a listener to wait for decrypted blocks
         // initially waits one minute for a session to start
@@ -79,13 +89,13 @@ MimeDecryptHandler.prototype = {
                     switch (msg.command) {
                         case 'dec_session_start':
                             DEBUG_LOG('session started')
-                            this.sessionOnGoing = true
+                            this.sessionStarted = true
                             clearTimeout(timeout)
                             timeout = setTimeout(() => reject(new Error('session timeout')), 60000)
                             return
                         case 'dec_session_complete':
                             DEBUG_LOG('session complete')
-                            this.sessionOnGoing = false
+                            this.sessionCompleted = true
                             resolve2()
                             return
                         case 'dec_plain':
@@ -96,6 +106,7 @@ MimeDecryptHandler.prototype = {
                                 5000
                             )
                             this.mimeProxy.outputDecryptedData(msg.data, msg.data.length)
+                            this.foStream.write(msg.data, msg.data.length)
                             return
                         case 'dec_finished':
                             resolve()
@@ -125,21 +136,10 @@ MimeDecryptHandler.prototype = {
 
     onDataAvailable: function (req, stream, offset, count) {
         DEBUG_LOG(
-            `onDataAvailable: onGoing: ${this.sessionOnGoing}, aborted: ${this.aborted}, count: ${count}`
+            `onDataAvailable: started: ${this.sessionStarted}, completed: ${this.sessionCompleted}, aborted: ${this.aborted}, count: ${count}`
         )
         if (this.aborted || count === 0) return
-        if (this.sessionOnGoing) {
-            // If a session is still ongoing, block until it completes
-            // then, signal for the decryption to start.
-            try {
-                DEBUG_LOG('blocking on session')
-                block_on(this.sessionPromise)
-                notifyTools.notifyBackground({ command: 'dec_start', msgId: this.msgId })
-            } catch (e) {
-                DEBUG_LOG('sessionPromise rejected')
-                return
-            }
-        }
+        if (this.sessionStarted && !this.sessionCompleted) this.blockOnSession()
 
         this.inStream.setInputStream(stream)
         const data = this.inStream.readBytes(count)
@@ -184,17 +184,83 @@ MimeDecryptHandler.prototype = {
             )
         }
 
-        notifyTools.notifyBackground({ command: 'dec_finalize', msgId: this.msgId })
+        if (!this.sessionCompleted) this.blockOnSession()
 
         try {
+            DEBUG_LOG('sending finalize command')
+            notifyTools.notifyBackground({ command: 'dec_finalize', msgId: this.msgId })
             block_on(this.finishedPromise)
         } catch (e) {
             ERROR_LOG(e)
             throw e
         } finally {
             notifyTools.removeListener(this.listener)
-            DEBUG_LOG(`mimeDecrypt.jsm: onStopRequest(): completed\n Success: ${!this.aborted}`)
+            this.closeAndCopyFile()
+            DEBUG_LOG(`mimeDecrypt.jsm: onStopRequest(): succesfully completed: ${!this.aborted}`)
         }
+    },
+
+    blockOnSession: function () {
+        // There is a session is ongoing, block until it completes.
+        // Then, signal for the decryption to start.
+        DEBUG_LOG('session was not yet completed. blocking..')
+        block_on(this.sessionPromise)
+        DEBUG_LOG('session completed. sending start command')
+        notifyTools.notifyBackground({ command: 'dec_start', msgId: this.msgId })
+    },
+
+    initFile: function () {
+        this.tempFile = Services.dirsvc.get('TmpD', Ci.nsIFile)
+        this.tempFile.append('message.eml')
+        this.tempFile.createUnique(0, 384) // == 0600, octal is deprecated
+
+        // ensure that file gets deleted on exit, if something goes wrong ...
+        let extAppLauncher = Cc['@mozilla.org/mime;1'].getService(Ci.nsPIExternalAppLauncher)
+
+        this.foStream = Cc['@mozilla.org/network/file-output-stream;1'].createInstance(
+            Ci.nsIFileOutputStream
+        )
+        this.foStream.init(this.tempFile, 2, 0x200, false) // open as "write only"
+        extAppLauncher.deleteTemporaryFileOnExit(this.tempFile)
+    },
+
+    closeAndCopyFile: function () {
+        this.foStream.close()
+        const tempFile = this.tempFile
+        const copyListener = {
+            GetMessageId(messageId) {},
+            OnProgress(progress, progressMax) {},
+            OnStartCopy() {},
+            SetMessageKey(key) {
+                DEBUG_LOG(`mimeDecrypt.jsm: copyListener: copyListener: SetMessageKey(${key})\n`)
+            },
+            OnStopCopy(statusCode) {
+                if (statusCode !== 0) {
+                    DEBUG_LOG(
+                        `mimeDecrypt.jsm: copyListener: Error copying message: ${statusCode}\n`
+                    )
+                }
+                try {
+                    tempFile.remove(false)
+                } catch (ex) {
+                    DEBUG_LOG('mimeDecrypt.jsm: copyListener: Could not delete temp file\n')
+                    ERROR_LOG(ex)
+                }
+            },
+        }
+
+        DEBUG_LOG(`Copying to folder with URI ${this.copyReceivedFolderURI}`)
+
+        MailServices.copy.copyFileMessage(
+            this.tempFile,
+            MailUtils.getExistingFolder(this.copyReceivedFolderURI),
+            null,
+            false,
+            0,
+            '',
+            copyListener,
+            null
+        )
     },
 }
 
