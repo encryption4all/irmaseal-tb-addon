@@ -33,8 +33,10 @@ const composeTabs: {
         writable?: WritableStream<string>
         allWritten?: Promise<void>
     }
-} = (await browser.tabs.query({ type: WIN_TYPE_COMPOSE })).reduce(async (tabs, tab) => {
-    const notificationId = await createNotification(tab)
+} = await (
+    await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
+).reduce(async (tabs, tab) => {
+    const notificationId = await addBar(tab)
     return { ...tabs, [tab.id]: { encrypt: true, tab, notificationId } }
 }, {})
 
@@ -55,15 +57,12 @@ const decryptState: {
 } = {}
 
 // Keeps track of currently selected messages.
-let currSelectedMessages: number[] = (await browser.tabs.query({ mailTab: true })).reduce(
-    async (currIds, nextTab) => {
-        const sel = (await browser.mailTabs.getSelectedMessages(nextTab.id)).messages.map(
-            (s) => s.id
-        )
-        return currIds.concat(sel)
-    },
-    []
-)
+let currSelectedMessages: number[] = await (
+    await browser.tabs.query({ mailTab: true })
+).reduce(async (currIds, nextTab) => {
+    const sel = (await browser.mailTabs.getSelectedMessages(nextTab.id)).messages.map((s) => s.id)
+    return currIds.concat(sel)
+}, [])
 
 console.log('[background]: startup currSelectedMessages: ', currSelectedMessages)
 
@@ -219,8 +218,6 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             try {
                 const usk = await uskPromise
 
-                console.log('got usk')
-
                 let writable: WritableStream<Uint8Array> | undefined
                 const allWritten = new Promise<void>((resolve, reject) => {
                     writable = new WritableStream<Uint8Array>({
@@ -251,8 +248,9 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_session_complete',
                 })
+                console.log('metadata complete')
             } catch (e) {
-                console.log('[bacground]: error during dec_metadata: ', e.message)
+                console.log('[background]: error during dec_metadata: ', e.message)
                 await failDecryption(msg.msgId, e)
             }
 
@@ -300,7 +298,7 @@ messenger.switchbar.onButtonClicked.addListener(
     }
 )
 
-async function createNotification(tab): Promise<number> {
+async function addBar(tab): Promise<number> {
     const notificationId = await messenger.switchbar.create({
         windowId: tab.windowId,
         buttonId: 'btn-switch',
@@ -328,7 +326,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
     // Check the windowType of the tab.
     if (win.type === WIN_TYPE_COMPOSE) {
-        const notificationId = await createNotification(tab)
+        const notificationId = await addBar(tab)
 
         // Register the tab
         composeTabs[tab.id] = {
@@ -340,7 +338,6 @@ browser.tabs.onCreated.addListener(async (tab) => {
 })
 
 browser.mailTabs.onSelectedMessagesChanged.addListener((tab, selectedMessages) => {
-    console.log('[background]: onSelectedMessagesChanged, messages: ', selectedMessages)
     currSelectedMessages = selectedMessages.messages.map((m) => m.id)
     console.log('[background]: currSelectedMessages: ', currSelectedMessages)
 })
@@ -369,8 +366,13 @@ async function getCopyFolder(accountId: string, folderName: string): Promise<any
     for (const f of acc.folders) {
         if (f.name === folderName) return f
     }
-    const newFolder = browser.folders.create(acc, folderName)
-    return newFolder
+    const newFolderPromise = browser.folders.create(acc, folderName)
+    const timeout = new Promise(function (resolve, reject) {
+        setTimeout(() => reject(new Error('creating folder took too long')), 3000)
+    })
+
+    // Since newFolderPromise can stall indefinitely, we give up after a timeout seconds
+    return Promise.race([newFolderPromise, timeout])
 }
 
 // Watch for outgoing mails.
