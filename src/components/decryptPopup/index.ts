@@ -2,7 +2,7 @@ import * as IrmaCore from '@privacybydesign/irma-core'
 import * as IrmaClient from '@privacybydesign/irma-client'
 import * as IrmaWeb from '@privacybydesign/irma-web'
 
-//import '@privacybydesign/irma-css'
+import './index.css'
 
 window.addEventListener('load', onLoad)
 
