@@ -1,16 +1,9 @@
-//import { toDataURL } from 'qrcode'
-//import { ComposeMail, ReadMail } from '@e4a/irmaseal-mail-utils'
-//import * as IrmaCore from '@privacybydesign/irma-core'
-//import * as IrmaClient from '@privacybydesign/irma-client'
-//import * as IrmaConsole from '@privacybydesign/irma-console'
-
 import { createMIMETransform, toEmail, withTransform } from './utils'
 
 declare const browser, messenger
 
 const WIN_TYPE_COMPOSE = 'messageCompose'
 const HOSTNAME = 'https://main.irmaseal-pkg.ihub.ru.nl'
-//const HOSTNAME = 'http://localhost:8087'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 const SENT_COPY_FOLDER = 'Cryptify Sent'
 const RECEIVED_COPY_FOLDER = 'Cryptify Received'
@@ -333,7 +326,7 @@ browser.tabs.onRemoved.addListener((tabId: number) => {
     }
 })
 
-// Retrieve folder to copy all sent e-mail to (plaintext).
+// Retrieve folder to keep a seperate plaintext copy of emails.
 // If it does not exist, create one.
 async function getCopyFolder(accountId: string, folderName: string): Promise<any> {
     const acc = await browser.accounts.get(accountId)
@@ -419,143 +412,3 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     const { accountId, path } = copySentFolder
     await browser.irmaseal4tb.setSecurityInfo(tab.windowId, tab.id, accountId, path)
 })
-
-//// Register a message display script
-//await browser.messageDisplayScripts.register({
-//    js: [{ file: 'message-content-script.js' }],
-//    css: [{ file: 'message-content-styles.css' }],
-//})
-//
-//// communicate with message display script
-//await browser.runtime.onConnect.addListener((port) => {
-//    console.log('[background]: got connection: ', port)
-//    port.onMessage.addListener(async (message, sender) => {
-//        console.log('[background]: received message: ', message, sender)
-//        if (!message || !('command' in message)) return
-//        const {
-//            sender: {
-//                tab: { id: tabId },
-//            },
-//        } = sender
-//        switch (message.command) {
-//            case 'queryMailDetails': {
-//                const currentMsg = await browser.messageDisplay.getDisplayedMessage(tabId)
-//                const fullParts = await browser.messages.getFull(currentMsg.id)
-//
-//                if (!isIRMASeal(fullParts)) {
-//                    return { sealed: false }
-//                }
-//
-//                console.log('message was encrypted with irmaseal')
-//
-//                const mime = await browser.messages.getRaw(currentMsg.id)
-//                const readMail = new ReadMail()
-//                readMail.parseMail(mime)
-//                const ct = readMail.getCiphertext()
-//
-//                const accountId = currentMsg.folder.accountId
-//                console.log('accountId: ', accountId)
-//                const defaultIdentity = await browser.identities.getDefault(accountId)
-//                const recipient_id = toEmail(defaultIdentity.email)
-//                console.log('recipient_id: ', recipient_id)
-//
-//                const readable: ReadableStream = readableStreamFromArray(ct)
-//                const unsealer = await new mod.Unsealer(readable)
-//
-//                const hidden = unsealer.get_hidden_policies()
-//                console.log('hidden policies: ', hidden)
-//
-//                const attribute = {
-//                    type: hidden[recipient_id].c[0].t,
-//                    value: hidden[recipient_id].c[0].v,
-//                }
-//
-//                const guess = {
-//                    con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
-//                }
-//
-//                decryptState[currentMsg.id] = {
-//                    guess,
-//                    timestamp: hidden[recipient_id].t,
-//                    unsealer,
-//                    id: recipient_id,
-//                }
-//
-//                port.postMessage({
-//                    command: 'mailDetails',
-//                    args: {
-//                        sealed: true,
-//                        messageId: currentMsg.id,
-//                        sender: currentMsg.author,
-//                        identity: attribute,
-//                    },
-//                })
-//                break
-//            }
-//            case 'startSession': {
-//                const { guess, timestamp, unsealer, id } = decryptState[message.args.messageId]
-//
-//                const irma = new IrmaCore({
-//                    debugging: true,
-//                    session: {
-//                        url: HOSTNAME,
-//                        start: {
-//                            url: (o) => `${o.url}/v2/request`,
-//                            method: 'POST',
-//                            headers: { 'Content-Type': 'application/json' },
-//                            body: JSON.stringify(guess),
-//                        },
-//                        mapping: {
-//                            sessionPtr: (r) => {
-//                                toDataURL(JSON.stringify(r.sessionPtr)).then((dataURL) => {
-//                                    port.postMessage({
-//                                        command: 'showQr',
-//                                        args: { qrData: dataURL },
-//                                    })
-//                                })
-//
-//                                return r.sessionPtr
-//                            },
-//                        },
-//                        result: {
-//                            url: (o, { sessionToken: token }) =>
-//                                `${o.url}/v2/request/${token}/${timestamp?.toString()}`,
-//                        },
-//                    },
-//                })
-//
-//                irma.use(IrmaClient)
-//                irma.start()
-//                    .then(async (r) => {
-//                        const usk = r.key
-//
-//                        let plain = new Uint8Array(0)
-//                        const writable = new WritableStream({
-//                            write(chunk) {
-//                                plain = new Uint8Array([...plain, ...chunk])
-//                            },
-//                        })
-//
-//                        await unsealer.unseal(id, usk, writable)
-//                        const mail: string = new TextDecoder().decode(plain)
-//
-//                        port.postMessage({
-//                            command: 'showDecryption',
-//                            args: { mail: mail },
-//                        })
-//                    })
-//                    .catch((err) => {
-//                        console.log('Error during decryption: ', err)
-//                    })
-//
-//                break
-//            }
-//            case 'cancelSession': {
-//                console.log('[background]: received cancel command')
-//                // TODO: Either cancel the session or decryptState it for later
-//                break
-//            }
-//        }
-//        return null
-//    })
-//})
