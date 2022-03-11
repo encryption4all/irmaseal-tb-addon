@@ -58,6 +58,7 @@ async function onLoad() {
     const lang = browser.i18n.getUILanguage()
 
     const irma = new IrmaCore({
+        debugging: true,
         element: '#irma-web-form',
         language: lang.startsWith('NL') ? 'nl' : 'en',
         translations: {
@@ -71,6 +72,13 @@ async function onLoad() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data.guess),
+            },
+            mapping: {
+                sessionPtr: (r) => {
+                    const ptr = r.sessionPtr
+                    ptr.u = `https://ihub.ru.nl/irma/1/${ptr.u}`
+                    return ptr
+                },
             },
             result: {
                 url: (o, { sessionToken: token }) =>

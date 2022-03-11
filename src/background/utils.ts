@@ -33,6 +33,10 @@ export function createMIMETransform(): TransformStream<Uint8Array, string> {
                 controller.enqueue(`${k}: ${v}\r\n`)
             }
             controller.enqueue(`--${boundary}\r\n`)
+            for (const [k, v] of Object.entries(plainHeaders)) {
+                controller.enqueue(`${k}: ${v}\r\n`)
+            }
+            controller.enqueue(`\r\n${plain}\r\n--${boundary}\r\n`)
 
             for (const [k, v] of Object.entries(encryptedHeaders)) {
                 controller.enqueue(`${k}: ${v}\r\n`)
@@ -63,12 +67,7 @@ export function createMIMETransform(): TransformStream<Uint8Array, string> {
             const b64string = buf.slice(0, buf_tail).toString('base64')
             const formatted = b64string.replace(/(.{76})/g, '$1\r\n')
             controller.enqueue(formatted + '\r\n')
-            controller.enqueue(`--${boundary}\r\n`)
-
-            for (const [k, v] of Object.entries(plainHeaders)) {
-                controller.enqueue(`${k}: ${v}\r\n`)
-            }
-            controller.enqueue(`\r\n${plain}\r\n--${boundary}--`)
+            controller.enqueue(`--${boundary}--\r\n`)
         },
     })
 }

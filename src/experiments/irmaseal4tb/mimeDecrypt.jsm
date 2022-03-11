@@ -98,7 +98,7 @@ MimeDecryptHandler.prototype = {
                             resolve2()
                             return
                         case 'dec_plain':
-                            DEBUG_LOG('got some plaintext')
+                            DEBUG_LOG(`got some plaintext: ${msg.data}`)
                             clearTimeout(timeout)
                             timeout = setTimeout(
                                 () => reject(new Error('plaintext chunks timeout')),
