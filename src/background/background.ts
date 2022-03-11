@@ -33,7 +33,12 @@ const composeTabs: {
         writable?: WritableStream<string>
         allWritten?: Promise<void>
     }
-} = {}
+} = (await browser.tabs.query({ type: WIN_TYPE_COMPOSE })).reduce(async (tabs, tab) => {
+    const notificationId = await createNotification(tab)
+    return { ...tabs, [tab.id]: { encrypt: true, tab, notificationId } }
+}, {})
+
+console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
 
 // Keeps track of decryptions state (per message).
 const decryptState: {
@@ -48,6 +53,19 @@ const decryptState: {
         allWritten?: Promise<void>
     }
 } = {}
+
+// Keeps track of currently selected messages.
+let currSelectedMessages: number[] = (await browser.tabs.query({ mailTab: true })).reduce(
+    async (currIds, nextTab) => {
+        const sel = (await browser.mailTabs.getSelectedMessages(nextTab.id)).messages.map(
+            (s) => s.id
+        )
+        return currIds.concat(sel)
+    },
+    []
+)
+
+console.log('[background]: startup currSelectedMessages: ', currSelectedMessages)
 
 messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
     console.log('[background]: received command: ', msg.command)
@@ -77,7 +95,13 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
         }
         case 'dec_init': {
             if (Object.keys(decryptState).length > 0) {
+                console.log('currently decrypting: ', Object.keys(decryptState))
                 await failDecryption(msg.msgId, new Error('already decrypting a message'))
+                return
+            }
+
+            if (!currSelectedMessages.includes(msg.msgId)) {
+                await failDecryption(msg.msgId, new Error('only decrypting selected messages'))
                 return
             }
 
@@ -276,6 +300,27 @@ messenger.switchbar.onButtonClicked.addListener(
     }
 )
 
+async function createNotification(tab): Promise<number> {
+    const notificationId = await messenger.switchbar.create({
+        windowId: tab.windowId,
+        buttonId: 'btn-switch',
+        placement: 'top',
+        icon: 'chrome://messenger/skin/icons/privacy-security.svg',
+        labels: {
+            enabled: i18n('composeNotificationEnabled'),
+            disabled: i18n('composeNotificationDisabled'),
+        },
+        style: {
+            'color-enabled': 'white',
+            'color-disabled': 'black',
+            'background-color-enabled': '#5DCCAB',
+            'background-color-disabled': '#EED202',
+        },
+    })
+
+    return notificationId
+}
+
 // Keep track of all the compose tabs created.
 browser.tabs.onCreated.addListener(async (tab) => {
     console.log('[background]: tab opened: ', tab)
@@ -283,22 +328,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
     // Check the windowType of the tab.
     if (win.type === WIN_TYPE_COMPOSE) {
-        const notificationId = await messenger.switchbar.create({
-            windowId: tab.windowId,
-            buttonId: 'btn-switch',
-            placement: 'top',
-            icon: 'chrome://messenger/skin/icons/privacy-security.svg',
-            labels: {
-                enabled: i18n('composeNotificationEnabled'),
-                disabled: i18n('composeNotificationDisabled'),
-            },
-            style: {
-                'color-enabled': 'white',
-                'color-disabled': 'black',
-                'background-color-enabled': '#5DCCAB',
-                'background-color-disabled': '#EED202',
-            },
-        })
+        const notificationId = await createNotification(tab)
 
         // Register the tab
         composeTabs[tab.id] = {
@@ -307,6 +337,12 @@ browser.tabs.onCreated.addListener(async (tab) => {
             tab,
         }
     }
+})
+
+browser.mailTabs.onSelectedMessagesChanged.addListener((tab, selectedMessages) => {
+    console.log('[background]: onSelectedMessagesChanged, messages: ', selectedMessages)
+    currSelectedMessages = selectedMessages.messages.map((m) => m.id)
+    console.log('[background]: currSelectedMessages: ', currSelectedMessages)
 })
 
 async function failDecryption(msgId: number, e: Error) {
