@@ -39,9 +39,7 @@ const MIN_BUFFER = 1024
 
 function MimeDecryptHandler() {
     DEBUG_LOG('mimeDecrypt.jsm: new MimeDecryptHandler()\n')
-    this.mimeProxy = null
-    this.msgHdr = null
-    this.msgId = null
+    this._init()
 }
 
 MimeDecryptHandler.prototype = {
@@ -51,6 +49,12 @@ MimeDecryptHandler.prototype = {
     QueryInterface: ChromeUtils.generateQI([Ci.nsIStreamListener]),
 
     inStream: Cc['@mozilla.org/binaryinputstream;1'].createInstance(Ci.nsIBinaryInputStream),
+
+    _init: function () {
+        this.mimeProxy = null
+        this.msgHdr = null
+        this.msgId = null
+    },
 
     // the MIME handler needs to implement the nsIStreamListener API
     onStartRequest: function (request) {
@@ -83,6 +87,7 @@ MimeDecryptHandler.prototype = {
                     () => reject(new Error('wait for session timed out')),
                     60000
                 )
+
                 this.listener = notifyTools.addListener((msg) => {
                     switch (msg.command) {
                         case 'dec_session_start':
@@ -98,7 +103,6 @@ MimeDecryptHandler.prototype = {
                             resolve2()
                             return
                         case 'dec_plain':
-                            DEBUG_LOG(`got some plaintext: ${msg.data}`)
                             clearTimeout(timeout)
                             timeout = setTimeout(
                                 () => reject(new Error('plaintext chunks timeout')),
@@ -118,6 +122,20 @@ MimeDecryptHandler.prototype = {
                             return
                     }
                 })
+
+                this.shutdownObserver = {
+                    QueryInterface: ChromeUtils.generateQI([Ci.nsIObserver]),
+                    observe: function (aSubject, aTopic, aData) {
+                        if (aTopic === 'mime-decrypt-shutdown') {
+                            this.aborted = true
+                            const err = new Error('extension shutdown during decryption')
+                            reject(err)
+                            reject2(err)
+                        }
+                    },
+                }
+
+                Services.obs.addObserver(this.shutdownObserver, 'mime-decrypt-shutdown')
             })
         })
 
@@ -138,7 +156,15 @@ MimeDecryptHandler.prototype = {
         DEBUG_LOG(
             `onDataAvailable: started: ${this.sessionStarted}, completed: ${this.sessionCompleted}, aborted: ${this.aborted}, count: ${count}`
         )
-        if (this.aborted || count === 0) return
+
+        if (this.aborted) {
+            DEBUG_LOG('aborting request')
+            req.cancel(Cr.NS_BINDING_ABORTED)
+            return
+        }
+
+        if (count === 0) return
+
         if (this.sessionStarted && !this.sessionCompleted) this.blockOnSession()
 
         this.inStream.setInputStream(stream)
@@ -173,12 +199,13 @@ MimeDecryptHandler.prototype = {
     },
 
     onStopRequest: function (request, status) {
-        DEBUG_LOG('mimeDecrypt.jsm: onStartRequest(): start\n')
+        DEBUG_LOG('mimeDecrypt.jsm: onStopRequest()\n')
         if (this.aborted) {
-            notifyTools.removeListener(this.listener)
+            this.removeListeners()
             return
         }
 
+        // flush the remaining buffer
         if (this.bufferCount > 0) {
             block_on(
                 notifyTools.notifyBackground({
@@ -197,12 +224,12 @@ MimeDecryptHandler.prototype = {
             block_on(this.finishedPromise)
             this.closeAndCopyFile()
         } catch (e) {
-            ERROR_LOG(e)
-            throw e
+            request.cancel(e)
         } finally {
-            notifyTools.removeListener(this.listener)
-            DEBUG_LOG(`mimeDecrypt.jsm: onStopRequest(): succesfully completed: ${!this.aborted}`)
+            this.removeListeners()
         }
+
+        DEBUG_LOG(`mimeDecrypt.jsm: onStopRequest(): succesfully completed: ${!this.aborted}`)
     },
 
     blockOnSession: function () {
@@ -267,6 +294,11 @@ MimeDecryptHandler.prototype = {
             null
         )
     },
+
+    removeListeners: function () {
+        notifyTools.removeListener(this.listener)
+        Services.obs.addObserver(this.shutdownObserver, 'mime-decrypt-shutdown')
+    },
 }
 
 // Factory used to register the component in Thunderbird
@@ -322,6 +354,9 @@ var IRMAsealMimeDecrypt = {
     },
 
     shutdown: function (reason) {
+        Services.obs.notifyObservers(null, 'mime-decrypt-shutdown')
+        notifyTools.removeAllListeners()
+
         if (this.factory) {
             this.factory.unregister()
         }
