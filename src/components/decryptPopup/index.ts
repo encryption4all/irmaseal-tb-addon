@@ -14,6 +14,7 @@ interface PopupData {
     timestamp: number
     sender: string
     policy: Policy
+    recipientId: string
 }
 
 interface Policy {
@@ -21,13 +22,14 @@ interface Policy {
     ts: number
 }
 
-function fillTable(table: HTMLElement, policy: Policy) {
-    for (const { t, v } of policy.c) {
+function fillTable(table: HTMLElement, data: PopupData) {
+    for (const { t, v } of data.policy.c) {
         const row = document.createElement('tr')
         const tdtype = document.createElement('td')
         const tdvalue = document.createElement('td')
         tdtype.innerText = browser.i18n.getMessage(t) ?? t
-        tdvalue.innerText = v
+        tdvalue.innerText = t === 'pbdf.sidn-pbdf.email.email' ? data.recipientId : v
+        tdvalue.classList.add('blue')
         row.appendChild(tdtype)
         row.appendChild(tdvalue)
         table.appendChild(row)
@@ -53,7 +55,7 @@ async function onLoad() {
     document.getElementById('qr_prefix')!.innerText = qrPrefix
 
     const table = document.getElementById('attribute_table')
-    if (table) fillTable(table, data.policy)
+    if (table) fillTable(table, data)
 
     const lang = browser.i18n.getUILanguage()
 

@@ -194,6 +194,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                             hostname: HOSTNAME,
                             sender: msgSender,
                             policy: myPolicy,
+                            recipientId,
                         })
                     } else if (
                         sender.tab.windowId == popupId &&

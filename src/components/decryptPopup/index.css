@@ -53,10 +53,11 @@ p {
 
 .instructions_container {
     width: 424px;
-    display: flex;
-    margin-left: 46px;
-    margin-top: 20px;
     height: 125px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin: 20px auto;
 }
 
 .left {
@@ -92,4 +93,15 @@ p {
 #download_irma img {
     height: 30px;
     margin-top: 12px;
+}
+
+#irma_flex {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin: 0 auto;
+}
+
+#irma_help {
+    text-align: center;
 }
