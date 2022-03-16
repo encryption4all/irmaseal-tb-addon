@@ -52,7 +52,7 @@ MimeDecryptHandler.prototype = {
 
     _init: function () {
         this.mimeProxy = null
-        this.msgHdr = null
+        this.originalMsgHdr = null
         this.msgId = null
     },
 
@@ -63,13 +63,9 @@ MimeDecryptHandler.prototype = {
         this.uri = this.mimeProxy.messageURI
 
         if (this.uri) {
-            this.msgHdr = this.uri.QueryInterface(Ci.nsIMsgMessageUrl).messageHeader
-            this.copyReceivedFolderURI = this.msgHdr.folder.URI.replace(
-                'INBOX',
-                'Cryptify Received'
-            )
-            DEBUG_LOG(`copyReceivedFolderURI: ${this.copyReceivedFolderURI}`)
-            this.msgId = extension.messageManager.convert(this.msgHdr).id
+            this.originalMsgHdr = this.uri.QueryInterface(Ci.nsIMsgMessageUrl).messageHeader
+            this.folder = this.originalMsgHdr.folder
+            this.msgId = extension.messageManager.convert(this.originalMsgHdr).id
             DEBUG_LOG(`msgId: ${this.msgId}`)
         }
 
@@ -108,7 +104,7 @@ MimeDecryptHandler.prototype = {
                                 () => reject(new Error('plaintext chunks timeout')),
                                 5000
                             )
-                            this.mimeProxy.outputDecryptedData(msg.data, msg.data.length)
+                            //this.mimeProxy.outputDecryptedData(msg.data, msg.data.length)
                             this.foStream.write(msg.data, msg.data.length)
                             return
                         case 'dec_finished':
@@ -158,8 +154,9 @@ MimeDecryptHandler.prototype = {
         )
 
         if (this.aborted) {
-            DEBUG_LOG('aborting request')
-            req.cancel(Cr.NS_BINDING_ABORTED)
+            // TODO: try to abort the request stream
+            // DEBUG_LOG('aborting request')
+            // req.cancel(Cr.NS_BINDING_ABORTED)
             return
         }
 
@@ -171,6 +168,7 @@ MimeDecryptHandler.prototype = {
         const data = this.inStream.readBytes(count)
 
         // Check if the data is base64 encoded.
+        // Note: In older versions, we might get the data differently.
         let b64
         try {
             b64 = btoa(data)
@@ -201,6 +199,7 @@ MimeDecryptHandler.prototype = {
     onStopRequest: function (request, status) {
         DEBUG_LOG('mimeDecrypt.jsm: onStopRequest()\n')
         if (this.aborted) {
+            if (this.foStream) this.foStream.close()
             this.removeListeners()
             return
         }
@@ -222,14 +221,79 @@ MimeDecryptHandler.prototype = {
             DEBUG_LOG('sending finalize command')
             notifyTools.notifyBackground({ command: 'dec_finalize', msgId: this.msgId })
             block_on(this.finishedPromise)
-            this.closeAndCopyFile()
         } catch (e) {
-            request.cancel(e)
+            throw e
         } finally {
+            this.foStream.close()
             this.removeListeners()
         }
 
         DEBUG_LOG(`mimeDecrypt.jsm: onStopRequest(): succesfully completed: ${!this.aborted}`)
+
+        const copyFilePromise = new Promise((resolve, reject) => {
+            const file = this.tempFile
+            const folder = this.folder
+            const originalMsgHdr = this.originalMsgHdr
+
+            let newKey
+            const copyListener = {
+                GetMessageId(messageId) {},
+                OnProgress(progress, progressMax) {},
+                OnStartCopy() {
+                    DEBUG_LOG(`mimeDecrypt.jsm: copyListener: OnStartCopy`)
+                },
+                SetMessageKey(key) {
+                    DEBUG_LOG(`mimeDecrypt.jsm: copyListener: SetMessageKey(${key})`)
+                    newKey = key
+                },
+                OnStopCopy(statusCode) {
+                    DEBUG_LOG(`mimeDecrypt.jsm: copyListener: OnStopCopy`)
+                    if (statusCode !== 0) {
+                        DEBUG_LOG(
+                            `mimeDecrypt.jsm: copyListener: Error copying message: ${statusCode}`
+                        )
+                        reject()
+                        return
+                    }
+                    try {
+                        file.remove(false)
+                    } catch (ex) {
+                        DEBUG_LOG('mimeDecrypt.jsm: copyListener: Could not delete temp file')
+                        ERROR_LOG(ex)
+                    }
+
+                    DEBUG_LOG(`deleting original mail`)
+
+                    const newHdr = folder.GetMessageHeader(newKey)
+                    newHdr.markRead(originalMsgHdr.isRead)
+                    newHdr.markFlagged(originalMsgHdr.isFlagged)
+                    newHdr.subject = originalMsgHdr.subject
+                    newHdr.date = originalMsgHdr.date
+
+                    folder.deleteMessages([originalMsgHdr], null, true, false, null, false)
+
+                    resolve(newHdr)
+                },
+            }
+
+            DEBUG_LOG(`Copying to folder with URI: ${this.folder.URI}`)
+            const dstFolder = MailUtils.getExistingFolder(this.folder.URI)
+
+            MailServices.copy.copyFileMessage(
+                this.tempFile, // aFile
+                dstFolder, // dstFolder
+                null, // msgToReplace (msgHdr)
+                false, // isDraftOrTemplate
+                this.originalMsgHdr.flags, // aMsgFlags
+                '', // aMsgKeywords
+                copyListener, // listener
+                null // msgWindow
+            )
+        })
+
+        const newHdr = block_on(copyFilePromise)
+        const result = MailUtils.openMessageInExistingWindow(newHdr)
+        DEBUG_LOG(`displaying mail with key: ${newHdr.messageKey}, success: ${result}`)
     },
 
     blockOnSession: function () {
@@ -254,45 +318,6 @@ MimeDecryptHandler.prototype = {
         )
         this.foStream.init(this.tempFile, 2, 0x200, false) // open as "write only"
         extAppLauncher.deleteTemporaryFileOnExit(this.tempFile)
-    },
-
-    closeAndCopyFile: function () {
-        this.foStream.close()
-        const tempFile = this.tempFile
-        const copyListener = {
-            GetMessageId(messageId) {},
-            OnProgress(progress, progressMax) {},
-            OnStartCopy() {},
-            SetMessageKey(key) {
-                DEBUG_LOG(`mimeDecrypt.jsm: copyListener: copyListener: SetMessageKey(${key})\n`)
-            },
-            OnStopCopy(statusCode) {
-                if (statusCode !== 0) {
-                    DEBUG_LOG(
-                        `mimeDecrypt.jsm: copyListener: Error copying message: ${statusCode}\n`
-                    )
-                }
-                try {
-                    tempFile.remove(false)
-                } catch (ex) {
-                    DEBUG_LOG('mimeDecrypt.jsm: copyListener: Could not delete temp file\n')
-                    ERROR_LOG(ex)
-                }
-            },
-        }
-
-        DEBUG_LOG(`Copying to folder with URI ${this.copyReceivedFolderURI}`)
-
-        MailServices.copy.copyFileMessage(
-            this.tempFile,
-            MailUtils.getExistingFolder(this.copyReceivedFolderURI),
-            null,
-            false,
-            0,
-            '',
-            copyListener,
-            null
-        )
     },
 
     removeListeners: function () {

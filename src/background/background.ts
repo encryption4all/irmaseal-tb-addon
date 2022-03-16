@@ -122,7 +122,6 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                                     return
                                 }
                                 case 'dec_finalize': {
-                                    console.log('[background]: closing readable')
                                     controller.close()
                                     resolve()
                                     return
@@ -135,7 +134,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             })
 
             closed.then(() => {
-                console.log('[background]: readable closed: removing listener')
+                console.log('[background]: readable closed, removing listener')
                 messenger.NotifyTools.onNotifyBackground.removeListener(listener)
             })
 
@@ -249,7 +248,6 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_session_complete',
                 })
-                console.log('metadata complete')
             } catch (e) {
                 console.log('[background]: error during dec_metadata: ', e.message)
                 await failDecryption(msg.msgId, e)
