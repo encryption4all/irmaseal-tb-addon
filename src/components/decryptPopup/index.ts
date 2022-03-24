@@ -1,29 +1,17 @@
 import * as IrmaCore from '@privacybydesign/irma-core'
 import * as IrmaClient from '@privacybydesign/irma-client'
 import * as IrmaWeb from '@privacybydesign/irma-web'
-
+import { hashString } from './../../utils'
+import jwtDecode, { JwtPayload } from 'jwt-decode'
 import './index.css'
+
+// One day in seconds.
+const ONE_DAY = 24 * 60 * 60
 
 window.addEventListener('load', onLoad)
 
-declare const browser, messenger
-
-interface PopupData {
-    hostname: string
-    guess: any
-    timestamp: number
-    sender: string
-    policy: Policy
-    recipientId: string
-}
-
-interface Policy {
-    c: { t: string; v: string }[]
-    ts: number
-}
-
 function fillTable(table: HTMLElement, data: PopupData) {
-    for (const { t, v } of data.policy.c) {
+    for (const { t, v } of data.policy.con) {
         const row = document.createElement('tr')
         const tdtype = document.createElement('td')
         const tdvalue = document.createElement('td')
@@ -36,44 +24,23 @@ function fillTable(table: HTMLElement, data: PopupData) {
     }
 }
 
-async function onLoad() {
-    const data: PopupData = await browser.runtime.sendMessage({
-        command: 'popup_init',
-    })
-
-    const title = browser.i18n.getMessage('displayMessageTitle')
-    const appName = browser.i18n.getMessage('appName')
-    const header = browser.i18n.getMessage('displayMessageHeading')
-    const qrPrefix = browser.i18n.getMessage('displayMessageQrPrefix')
-    const helper = browser.i18n.getMessage('displayMessageIrmaHelp')
-
-    document.getElementById('idlock_txt')!.innerText = appName
-    document.getElementById('sender')!.innerText = data.sender
-    document.getElementById('msg_header')!.innerText = header
-    document.getElementById('irma_help')!.innerText = helper
-    document.getElementById('display_message_title')!.innerText = title
-    document.getElementById('qr_prefix')!.innerText = qrPrefix
-
-    const table = document.getElementById('attribute_table')
-    if (table) fillTable(table, data)
-
+async function doSession(pol: Policy, pkg: string): Promise<string> {
     const lang = browser.i18n.getUILanguage()
-
     const irma = new IrmaCore({
         debugging: true,
         element: '#irma-web-form',
         language: lang.startsWith('NL') ? 'nl' : 'en',
         translations: {
             header: '',
-            helper: '',
+            helper: browser.i18n.getMessage('displayMessageQrPrefix'),
         },
         session: {
-            url: data.hostname,
+            url: pkg,
             start: {
-                url: (o) => `${o.url}/v2/request`,
+                url: (o) => `${o.url}/v2/request/start`,
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data.guess),
+                body: JSON.stringify({ con: pol.con, validity: ONE_DAY }),
             },
             mapping: {
                 sessionPtr: (r) => {
@@ -83,16 +50,31 @@ async function onLoad() {
                 },
             },
             result: {
-                url: (o, { sessionToken: token }) =>
-                    `${o.url}/v2/request/${token}/${data.timestamp.toString()}`,
+                url: (o, { sessionToken }) => `${o.url}/v2/request/jwt/${sessionToken}`,
                 parseResponse: (r) => {
-                    return new Promise((resolve, reject) => {
-                        if (r.status != '200') reject('not ok')
-                        r.json().then((json) => {
-                            if (json.status !== 'DONE_VALID') reject('not done and valid')
-                            resolve(json.key)
+                    return r
+                        .text()
+                        .then((encoded: string) => {
+                            const decoded = jwtDecode<JwtPayload>(encoded)
+                            const serializedCon = JSON.stringify(pol.con)
+                            hashString(serializedCon).then((hash) => {
+                                browser.storage.local.set({
+                                    [hash]: { encoded, exp: decoded.exp },
+                                })
+                            })
+
+                            return fetch(`${pkg}/v2/request/key/${pol.ts.toString()}`, {
+                                headers: {
+                                    Authorization: `Bearer ${encoded}`,
+                                },
+                            })
                         })
-                    })
+                        .then((r) => r.json())
+                        .then((json) => {
+                            if (json.status !== 'DONE' || json.proofStatus !== 'VALID')
+                                throw new Error('not done and valid')
+                            return json.key
+                        })
                 },
             },
         },
@@ -100,23 +82,42 @@ async function onLoad() {
 
     irma.use(IrmaClient)
     irma.use(IrmaWeb)
+    return irma.start()
+}
 
-    irma.start()
-        .then((usk: string) => {
+async function onLoad() {
+    const data: PopupData = await browser.runtime.sendMessage({
+        command: 'popup_init',
+    })
+
+    const title = browser.i18n.getMessage('displayMessageTitle')
+    const appName = browser.i18n.getMessage('appName')
+    const header = browser.i18n.getMessage('displayMessageHeading')
+    const helper = browser.i18n.getMessage('displayMessageIrmaHelp')
+
+    document.getElementById('idlock_txt')!.innerText = appName
+    //    document.getElementById('sender')!.innerText = data.senderId
+    document.getElementById('msg_header')!.innerText = header
+    document.getElementById('irma_help')!.innerText = helper
+    document.getElementById('display_message_title')!.innerText = title
+    //    document.getElementById('qr_prefix')!.innerText = qrPrefix
+
+    //const table = document.getElementById('attribute_table')
+    //if (table) fillTable(table, data)
+
+    doSession(data.policy, data.hostname)
+        .then((usk) => {
             browser.runtime.sendMessage({
                 command: 'popup_done',
                 usk: usk,
             })
         })
-        .catch((e) => {
-            console.log('[popup]: error during session: ', e.msg)
-        })
-        .finally(async () => {
+        .finally(() =>
             setTimeout(async () => {
                 const win = await messenger.windows.getCurrent()
                 messenger.windows.remove(win.id)
             }, 1000)
-        })
+        )
 }
 
 window.addEventListener('load', onLoad)

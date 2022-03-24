@@ -12,15 +12,15 @@
         "description": ""
     },
     "displayMessageTitle": {
-        "message": "Encrypted message from",
+        "message": "Get your Cryptify key",
         "description": ""
     },
     "displayMessageHeading": {
-        "message": "Decrypt the message by disclosing the following personal data from your IRMA app:",
+        "message": "To decrypt and read the email you need your cryptify key.",
         "description": ""
     },
     "displayMessageQrPrefix": {
-        "message": "Use your IRMA app to scan the QR code:",
+        "message": "Scan the QR code with the IRMA app to disclose your e-mail address.",
         "description": ""
     },
     "displayMessageIrmaHelp": {

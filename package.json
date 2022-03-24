@@ -2,7 +2,13 @@
     "name": "irmaseal-tb-addon",
     "version": "0.0.1",
     "description": "Experimental IRMASeal addon for Thunderbird",
-    "keywords": ["email", "encryption", "privacy", "identity-based", "encryption"],
+    "keywords": [
+        "email",
+        "encryption",
+        "privacy",
+        "identity-based",
+        "encryption"
+    ],
     "author": "Leon Botros (l.botros@cs.ru.nl)",
     "license": "MIT",
     "devDependencies": {
@@ -23,18 +29,19 @@
         "grunt-webpack": "^4.0.2",
         "html-webpack-plugin": "^5.5.0",
         "prettier": "^2.2.1",
+        "process": "^0.11.10",
         "style-loader": "^3.3.1",
         "ts-loader": "^8.0.17",
         "typescript": "^4.2.2",
-        "webpack": "^5.24.2",
-        "process": "^0.11.10",
-        "util": "^0.12.4"
+        "util": "^0.12.4",
+        "webpack": "^5.24.2"
     },
     "dependencies": {
-        "@e4a/irmaseal-wasm-bindings": "^0.2.0-beta.2",
+        "@e4a/irmaseal-wasm-bindings": "0.2.0-beta.5",
         "@privacybydesign/irma-client": "^0.3.3",
         "@privacybydesign/irma-core": "^0.3.3",
         "@privacybydesign/irma-web": "^0.3.3",
+        "jwt-decode": "^3.1.2",
         "web-streams-polyfill": "^3.0.3"
     },
     "scripts": {

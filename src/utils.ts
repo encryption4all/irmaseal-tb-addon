@@ -130,3 +130,11 @@ function generateBoundary(): string {
     const boundary = Buffer.from(rand).toString('hex')
     return boundary
 }
+
+export async function hashString(message: string): Promise<string> {
+    const msgArray = new TextEncoder().encode(message)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgArray)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+    return hashHex
+}

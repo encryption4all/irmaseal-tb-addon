@@ -1,9 +1,7 @@
-import { createMIMETransform, toEmail, withTransform } from './utils'
-
-declare const browser, messenger
+import { createMIMETransform, toEmail, withTransform, hashString } from './../utils'
 
 const WIN_TYPE_COMPOSE = 'messageCompose'
-const HOSTNAME = 'https://main.irmaseal-pkg.ihub.ru.nl'
+const PKG_URL = 'https://main.irmaseal-pkg.ihub.ru.nl'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 const SENT_COPY_FOLDER = 'Cryptify Sent'
 const RECEIVED_COPY_FOLDER = 'Cryptify Received'
@@ -13,8 +11,8 @@ const i18n = (key: string) => browser.i18n.getMessage(key)
 console.log('[background]: irmaseal-tb started.')
 console.log('[background]: loading wasm module and retrieving master public key.')
 
-const pk_promise: Promise<string> = fetch(`${HOSTNAME}/v2/parameters`)
-    .then((resp) => resp.json().then((o) => o.public_key))
+const pk_promise: Promise<string> = fetch(`${PKG_URL}/v2/parameters`)
+    .then((resp) => resp.json().then((o) => o.publicKey))
     .catch((e) => console.log(`failed to retrieve public key: ${e.toString()}`))
 
 const mod_promise = import('@e4a/irmaseal-wasm-bindings')
@@ -22,6 +20,7 @@ const mod_promise = import('@e4a/irmaseal-wasm-bindings')
 const [pk, mod] = await Promise.all([pk_promise, mod_promise])
 
 // Keeps track of which tabs (messageCompose type) should use encryption.
+// Also, add a bar to any existing compose windows.
 const composeTabs: {
     [tabId: number]: {
         tab: any
@@ -40,13 +39,9 @@ const composeTabs: {
     return { ...tabs, [tab.id]: { encrypt: true, tab, notificationId } }
 }, {})
 
-console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
-
 // Keeps track of decryptions state (per message).
 const decryptState: {
     [messageId: number]: {
-        guess?: any
-        timestamp?: number
         unsealer?: any
         recipientId?: string
         usk?: string
@@ -64,7 +59,24 @@ let currSelectedMessages: number[] = await (
     return currIds.concat(sel)
 }, [])
 
+console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
 console.log('[background]: startup currSelectedMessages: ', currSelectedMessages)
+
+// Cleans up the local storage.
+async function cleanUp(): Promise<void> {
+    const all = await browser.storage.local.get(null)
+    console.log('storage', all)
+    const now = Date.now() / 1000
+    for (const [hash, val] of Object.entries(all)) {
+        if (val) {
+            const { encoded, exp } = val as { encoded: string; exp: number }
+            if (now > exp) await browser.storage.local.remove(hash)
+        }
+    }
+}
+
+// Run the cleanup every 10 minutes.
+setInterval(cleanUp, 20000 /* * 60 * 1000*/)
 
 messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
     console.log('[background]: received command: ', msg.command)
@@ -162,61 +174,23 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             const defaultIdentity = await browser.identities.getDefault(accountId)
             const recipientId = toEmail(defaultIdentity.email)
             const hiddenPolicy = unsealer.get_hidden_policies()
-            const msgSender = currMsg.author
+            const sender = currMsg.author
 
             console.log(
                 `[background]: accountId: ${accountId}\nrecipientId: ${recipientId}\nhiddenPolicy: ${hiddenPolicy}`
             )
 
-            const myPolicy = hiddenPolicy[recipientId]
             const ts = hiddenPolicy[recipientId].ts
-            const guess = {
-                con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipientId }],
-            }
-
-            const popupWindow = await messenger.windows.create({
-                url: 'decryptPopup.html',
-                type: 'popup',
-                height: 720,
-                width: 500,
-            })
-
-            const popupId = popupWindow.id
-
-            let popupListener, tabClosedListener
-            const uskPromise = new Promise<string>((resolve, reject) => {
-                popupListener = (req, sender, sendResponse) => {
-                    if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
-                        return Promise.resolve({
-                            guess,
-                            timestamp: ts,
-                            hostname: HOSTNAME,
-                            sender: msgSender,
-                            policy: myPolicy,
-                            recipientId,
-                        })
-                    } else if (
-                        sender.tab.windowId == popupId &&
-                        req &&
-                        req.command === 'popup_done'
-                    ) {
-                        if (req.usk) resolve(req.usk)
-                        else reject(new Error('no usk'))
-                        return Promise.resolve()
-                    }
-                    return false
-                }
-
-                tabClosedListener = (windowId: number) => {
-                    if (windowId === popupId) reject(new Error('tab closed'))
-                }
-                browser.runtime.onMessage.addListener(popupListener)
-                browser.windows.get(popupId).catch((e) => reject(e))
-                browser.windows.onRemoved.addListener(tabClosedListener)
+            const myPolicy = hiddenPolicy[recipientId]
+            myPolicy.con = myPolicy.con.map(({ t, v }) => {
+                if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
+                return { t, v }
             })
 
             try {
-                const usk = await uskPromise
+                const usk = await checkLocalStorage(myPolicy, PKG_URL).catch((e) =>
+                    createSessionPopup(myPolicy, sender, recipientId)
+                )
 
                 let writable: WritableStream<Uint8Array> | undefined
                 const allWritten = new Promise<void>((resolve, reject) => {
@@ -243,18 +217,14 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 })
 
                 // make sure a folder for the plaintext exists
-                await getCopyFolder(accountId, RECEIVED_COPY_FOLDER)
-
+                await getCopyFolder(accountId, RECEIVED_COPY_FOLDER).catch(() => {})
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_session_complete',
                 })
             } catch (e) {
-                console.log('[background]: error during dec_metadata: ', e.message)
-                await failDecryption(msg.msgId, e)
+                failDecryption(msg.msgId, e)
+                return
             }
-
-            browser.windows.onRemoved.removeListener(tabClosedListener)
-            browser.runtime.onMessage.removeListener(popupListener)
 
             return
         }
@@ -327,7 +297,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
     if (win.type === WIN_TYPE_COMPOSE) {
         const notificationId = await addBar(tab)
 
-        // Register the tab
+        // Register the tab.
         composeTabs[tab.id] = {
             encrypt: true,
             notificationId,
@@ -387,7 +357,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         const recipient_id = toEmail(recipient)
         total[recipient_id] = {
             ts: timestamp,
-            c: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
+            con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
         }
         return total
     }, {})
@@ -449,3 +419,74 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     const { accountId, path } = copySentFolder
     await browser.irmaseal4tb.setSecurityInfo(tab.windowId, tab.id, accountId, path)
 })
+
+async function checkLocalStorage(pol: Policy, pkg: string): Promise<string> {
+    const serializedCon = JSON.stringify(pol.con)
+    const hash = await hashString(serializedCon)
+
+    return browser.storage.local
+        .get(hash)
+        .then((cached) => {
+            if (Object.keys(cached).length === 0) throw new Error('not found in localStorage')
+            const jwt = cached[hash]
+            if (Date.now() / 1000 > jwt.exp) throw new Error('jwt has expired')
+
+            return fetch(`${pkg}/v2/request/key/${pol.ts.toString()}`, {
+                headers: {
+                    Authorization: `Bearer ${jwt.encoded}`,
+                },
+            })
+        })
+        .then((r) => r.json())
+        .then((json) => {
+            if (json.status !== 'DONE' || json.proofStatus !== 'VALID')
+                throw new Error('session not DONE and VALId')
+            return json.key
+        })
+}
+
+async function createSessionPopup(
+    pol: Policy,
+    senderId: string,
+    recipientId: string
+): Promise<string> {
+    const popupWindow = await messenger.windows.create({
+        url: 'decryptPopup.html',
+        type: 'popup',
+        height: 720,
+        width: 500,
+    })
+
+    const popupId = popupWindow.id
+
+    let popupListener, tabClosedListener
+    const uskPromise = new Promise<string>((resolve, reject) => {
+        popupListener = (req, sender, sendResponse) => {
+            if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
+                return Promise.resolve({
+                    hostname: PKG_URL,
+                    policy: pol,
+                    senderId,
+                    recipientId,
+                })
+            } else if (sender.tab.windowId == popupId && req && req.command === 'popup_done') {
+                if (req.usk) resolve(req.usk)
+                else reject(new Error('no usk'))
+                return Promise.resolve()
+            }
+            return false
+        }
+
+        tabClosedListener = (windowId: number) => {
+            if (windowId === popupId) reject(new Error('tab closed'))
+        }
+        browser.runtime.onMessage.addListener(popupListener)
+        browser.windows.get(popupId).catch((e) => reject(e))
+        browser.windows.onRemoved.addListener(tabClosedListener)
+    })
+
+    return uskPromise.finally(() => {
+        browser.windows.onRemoved.removeListener(tabClosedListener)
+        browser.runtime.onMessage.removeListener(popupListener)
+    })
+}
