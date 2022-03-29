@@ -5,9 +5,6 @@ import { hashString } from './../../utils'
 import jwtDecode, { JwtPayload } from 'jwt-decode'
 import './index.css'
 
-// One day in seconds.
-const ONE_DAY = 24 * 60 * 60
-
 window.addEventListener('load', onLoad)
 
 function fillTable(table: HTMLElement, data: PopupData) {
@@ -22,6 +19,13 @@ function fillTable(table: HTMLElement, data: PopupData) {
         row.appendChild(tdvalue)
         table.appendChild(row)
     }
+}
+
+function secondsTillMidnight(): number {
+    const now = Date.now()
+    const nextMidnight = new Date(now).setHours(24, 0, 0, 0)
+    const secondsTillMidnight = Math.round((nextMidnight - now) / 1000)
+    return secondsTillMidnight
 }
 
 async function doSession(pol: Policy, pkg: string): Promise<string> {
@@ -40,7 +44,7 @@ async function doSession(pol: Policy, pkg: string): Promise<string> {
                 url: (o) => `${o.url}/v2/request/start`,
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ con: pol.con, validity: ONE_DAY }),
+                body: JSON.stringify({ con: pol.con, validity: secondsTillMidnight() }),
             },
             mapping: {
                 sessionPtr: (r) => {
