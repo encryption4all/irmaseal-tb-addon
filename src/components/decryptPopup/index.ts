@@ -99,12 +99,12 @@ async function onLoad() {
     const header = browser.i18n.getMessage('displayMessageHeading')
     const helper = browser.i18n.getMessage('displayMessageIrmaHelp')
 
-    document.getElementById('idlock_txt')!.innerText = appName
-    //    document.getElementById('sender')!.innerText = data.senderId
+    document.getElementById('name')!.innerText = appName
+    // document.getElementById('sender')!.innerText = data.senderId
     document.getElementById('msg_header')!.innerText = header
     document.getElementById('irma_help')!.innerText = helper
     document.getElementById('display_message_title')!.innerText = title
-    //    document.getElementById('qr_prefix')!.innerText = qrPrefix
+    // document.getElementById('qr_prefix')!.innerText = qrPrefix
 
     //const table = document.getElementById('attribute_table')
     //if (table) fillTable(table, data)

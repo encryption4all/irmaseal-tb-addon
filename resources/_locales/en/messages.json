@@ -1,6 +1,6 @@
 {
     "appName": {
-        "message": "Cryptify",
+        "message": "PostGuard",
         "description": ""
     },
     "pbdf.sidn-pbdf.email.email": {
@@ -12,11 +12,11 @@
         "description": ""
     },
     "displayMessageTitle": {
-        "message": "Get your Cryptify key",
+        "message": "Get your PostGuard key",
         "description": ""
     },
     "displayMessageHeading": {
-        "message": "To decrypt and read the email you need your cryptify key.",
+        "message": "To decrypt and read the email you need your PostGuard key.",
         "description": ""
     },
     "displayMessageQrPrefix": {
@@ -28,11 +28,11 @@
         "description": ""
     },
     "composeNotificationEnabled": {
-        "message": "The contents, subject and attachment of this email will be encrypted.",
+        "message": "The contents and attachments of this email will be encrypted.",
         "description": ""
     },
     "composeNotificationDisabled": {
-        "message": "The contents, subject and attachment of this email will not be encrypted.",
+        "message": "The contents and attachments of this email will not be encrypted.",
         "description": ""
     }
 }
