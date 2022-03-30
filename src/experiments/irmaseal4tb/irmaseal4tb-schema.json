@@ -17,11 +17,14 @@
                     },
                     {
                         "name": "accountId",
-                        "type": "string"
+                        "type": "string",
+                        "optional": true
+
                     },
                     {
                         "name": "path",
-                        "type": "string"
+                        "type": "string",
+                        "optional": true
                     }
                 ]
             }

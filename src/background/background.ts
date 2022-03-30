@@ -350,7 +350,9 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     if (!composeTabs[tab.id].encrypt) return
 
     const mailId = await browser.identities.get(details.identityId)
-    const copySentFolder = await getCopyFolder(mailId.accountId, SENT_COPY_FOLDER)
+    const copySentFolder = await getCopyFolder(mailId.accountId, SENT_COPY_FOLDER).catch((e) =>
+        console.log("couldn't make folder: ", e.message)
+    )
 
     const timestamp = Math.round(Date.now() / 1000)
     const policies = details.to.reduce((total, recipient) => {
@@ -416,7 +418,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     // Set the setSecurityInfo (triggering our custom MIME encoder)
     console.log('[background]: setting SecurityInfo')
-    const { accountId, path } = copySentFolder
+    const { accountId, path } = copySentFolder || ({} as { accountId?: string; path?: string })
     await browser.irmaseal4tb.setSecurityInfo(tab.windowId, tab.id, accountId, path)
 })
 

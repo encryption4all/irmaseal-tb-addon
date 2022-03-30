@@ -62,7 +62,7 @@ MimeEncrypt.prototype = {
     init(windowId, tabId, accountId, copyPath) {
         this.windowId = windowId
         this.tabId = tabId
-        this.copySentFolderURI = folderPathToURI(accountId, copyPath)
+        if (accountId && copyPath) this.copySentFolderURI = folderPathToURI(accountId, copyPath)
     },
 
     /**
@@ -116,19 +116,20 @@ MimeEncrypt.prototype = {
         this.sendReport = sendReport
         this.isDraft = isDraft
 
-        this.tempFile = Services.dirsvc.get('TmpD', Ci.nsIFile)
-        this.tempFile.append('message.eml')
-        this.tempFile.createUnique(0, 384) // == 0600, octal is deprecated
+        if (this.copySentFolderURI) {
+            this.tempFile = Services.dirsvc.get('TmpD', Ci.nsIFile)
+            this.tempFile.append('message.eml')
+            this.tempFile.createUnique(0, 384) // == 0600, octal is deprecated
 
-        // ensure that file gets deleted on exit, if something goes wrong ...
-        let extAppLauncher = Cc['@mozilla.org/mime;1'].getService(Ci.nsPIExternalAppLauncher)
+            // ensure that file gets deleted on exit, if something goes wrong ...
+            let extAppLauncher = Cc['@mozilla.org/mime;1'].getService(Ci.nsPIExternalAppLauncher)
+            this.foStream = Cc['@mozilla.org/network/file-output-stream;1'].createInstance(
+                Ci.nsIFileOutputStream
+            )
+            this.foStream.init(this.tempFile, 2, 0x200, false) // open as "write only"
 
-        this.foStream = Cc['@mozilla.org/network/file-output-stream;1'].createInstance(
-            Ci.nsIFileOutputStream
-        )
-        this.foStream.init(this.tempFile, 2, 0x200, false) // open as "write only"
-
-        extAppLauncher.deleteTemporaryFileOnExit(this.tempFile)
+            extAppLauncher.deleteTemporaryFileOnExit(this.tempFile)
+        }
 
         // Setup a listener waiting for incoming chunks
         DEBUG_LOG(`mimeEncrypt.jsm: adding listener`)
@@ -172,7 +173,7 @@ MimeEncrypt.prototype = {
         headers += `Subject: ${msgCompFields.subject}\r\n`
         headers += 'MIME-Version: 1.0\r\n'
 
-        this.foStream.write(headers, headers.length)
+        if (this.foStream) this.foStream.write(headers, headers.length)
         notifyTools.notifyBackground({ command: 'enc_plain', tabId: this.tabId, data: headers })
 
         DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): finish\n`)
@@ -189,7 +190,7 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     mimeCryptoWriteBlock: function (data, length) {
-        this.foStream.write(data, length)
+        if (this.foStream) this.foStream.write(data, length)
         block_on(notifyTools.notifyBackground({ command: 'enc_plain', tabId: this.tabId, data }))
     },
 
@@ -208,8 +209,6 @@ MimeEncrypt.prototype = {
         // Notify background that no new chunks will be coming.
         notifyTools.notifyBackground({ command: 'enc_finalize', tabId: this.tabId })
 
-        this.foStream.close()
-
         try {
             block_on(this.finished)
         } catch (e) {
@@ -219,43 +218,48 @@ MimeEncrypt.prototype = {
 
         notifyTools.removeListener(this.chunkListener)
 
-        DEBUG_LOG('mimeEncrypt: encryption complete. Copying file to copySentFolder...')
+        DEBUG_LOG('mimeEncrypt: encryption complete.')
 
-        let tempFile = this.tempFile
-        const copyListener = {
-            GetMessageId(messageId) {},
-            OnProgress(progress, progressMax) {},
-            OnStartCopy() {},
-            SetMessageKey(key) {
-                DEBUG_LOG(`mimeEncrypt.jsm: copyListener: copyListener: SetMessageKey(${key})\n`)
-            },
-            OnStopCopy(statusCode) {
-                if (statusCode !== 0) {
+        if (this.foStream) {
+            this.foStream.close()
+            let tempFile = this.tempFile
+            const copyListener = {
+                GetMessageId(messageId) {},
+                OnProgress(progress, progressMax) {},
+                OnStartCopy() {},
+                SetMessageKey(key) {
                     DEBUG_LOG(
-                        `mimeEncrypt.jsm: copyListener: Error copying message: ${statusCode}\n`
+                        `mimeEncrypt.jsm: copyListener: copyListener: SetMessageKey(${key})\n`
                     )
-                }
-                try {
-                    tempFile.remove(false)
-                } catch (ex) {
-                    DEBUG_LOG('mimeEncrypt.jsm: copyListener: Could not delete temp file\n')
-                    ERROR_LOG(ex)
-                }
-            },
+                },
+                OnStopCopy(statusCode) {
+                    if (statusCode !== 0) {
+                        DEBUG_LOG(
+                            `mimeEncrypt.jsm: copyListener: Error copying message: ${statusCode}\n`
+                        )
+                    }
+                    try {
+                        tempFile.remove(false)
+                    } catch (ex) {
+                        DEBUG_LOG('mimeEncrypt.jsm: copyListener: Could not delete temp file\n')
+                        ERROR_LOG(ex)
+                    }
+                },
+            }
+
+            DEBUG_LOG(`Copying to folder with URI ${this.copySentFolderURI}`)
+
+            MailServices.copy.copyFileMessage(
+                this.tempFile,
+                MailUtils.getExistingFolder(this.copySentFolderURI),
+                null,
+                false,
+                0,
+                '',
+                copyListener,
+                null
+            )
         }
-
-        DEBUG_LOG(`Copying to folder with URI ${this.copySentFolderURI}`)
-
-        MailServices.copy.copyFileMessage(
-            this.tempFile,
-            MailUtils.getExistingFolder(this.copySentFolderURI),
-            null,
-            false,
-            0,
-            '',
-            copyListener,
-            null
-        )
 
         DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation(): done\n`)
     },
