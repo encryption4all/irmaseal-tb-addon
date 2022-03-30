@@ -162,7 +162,14 @@ MimeDecryptHandler.prototype = {
 
         if (count === 0) return
 
-        if (this.sessionStarted && !this.sessionCompleted) this.blockOnSession()
+        if (this.sessionStarted && !this.sessionCompleted) {
+            try {
+                this.blockOnSession()
+            } catch {
+                DEBUG_LOG('session not completed')
+                return
+            }
+        }
 
         this.inStream.setInputStream(stream)
         const data = this.inStream.readBytes(count)
@@ -215,16 +222,15 @@ MimeDecryptHandler.prototype = {
             )
         }
 
-        if (!this.sessionCompleted) this.blockOnSession()
-
         try {
+            if (!this.sessionCompleted) this.blockOnSession()
             DEBUG_LOG('sending finalize command')
             notifyTools.notifyBackground({ command: 'dec_finalize', msgId: this.msgId })
             block_on(this.finishedPromise)
         } catch (e) {
-            throw e
+            return
         } finally {
-            this.foStream.close()
+            if (this.foStream) this.foStream.close()
             this.removeListeners()
         }
 
@@ -284,7 +290,7 @@ MimeDecryptHandler.prototype = {
                 dstFolder, // dstFolder
                 null, // msgToReplace (msgHdr)
                 false, // isDraftOrTemplate
-                this.originalMsgHdr.flags, // aMsgFlags
+                null, // aMsgFlags
                 '', // aMsgKeywords
                 copyListener, // listener
                 null // msgWindow
@@ -292,6 +298,8 @@ MimeDecryptHandler.prototype = {
         })
 
         const newHdr = block_on(copyFilePromise)
+
+        // TODO: find out why this does not work
         const result = MailUtils.openMessageInExistingWindow(newHdr)
         DEBUG_LOG(`displaying mail with key: ${newHdr.messageKey}, success: ${result}`)
     },
