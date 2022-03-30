@@ -21,11 +21,12 @@ function fillTable(table: HTMLElement, data: PopupData) {
     }
 }
 
-function secondsTillMidnight(): number {
+function secondsTill4AM(): number {
     const now = Date.now()
     const nextMidnight = new Date(now).setHours(24, 0, 0, 0)
     const secondsTillMidnight = Math.round((nextMidnight - now) / 1000)
-    return secondsTillMidnight
+    const secondsTill4AM = secondsTillMidnight + 4 * 60 * 60
+    return secondsTill4AM
 }
 
 async function doSession(pol: Policy, pkg: string): Promise<string> {
@@ -44,7 +45,7 @@ async function doSession(pol: Policy, pkg: string): Promise<string> {
                 url: (o) => `${o.url}/v2/request/start`,
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ con: pol.con, validity: secondsTillMidnight() }),
+                body: JSON.stringify({ con: pol.con, validity: secondsTill4AM() }),
             },
             mapping: {
                 sessionPtr: (r) => {
