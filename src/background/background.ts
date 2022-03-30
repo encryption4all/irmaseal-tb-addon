@@ -66,7 +66,6 @@ console.log('[background]: startup currSelectedMessages: ', currSelectedMessages
 // Cleans up the local storage.
 async function cleanUp(): Promise<void> {
     const all = await browser.storage.local.get(null)
-    console.log('storage', all)
     const now = Date.now() / 1000
     for (const [hash, val] of Object.entries(all)) {
         if (val) {
@@ -77,7 +76,7 @@ async function cleanUp(): Promise<void> {
 }
 
 // Run the cleanup every 10 minutes.
-setInterval(cleanUp, 20000 /* * 60 * 1000*/)
+setInterval(cleanUp, 600000)
 
 messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
     console.log('[background]: received command: ', msg.command)
