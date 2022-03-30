@@ -1,5 +1,6 @@
 import { createMIMETransform, toEmail, withTransform, hashString } from './../utils'
 
+const DEFAULT_ENCRYPT_ON = false
 const WIN_TYPE_COMPOSE = 'messageCompose'
 const PKG_URL = 'https://main.irmaseal-pkg.ihub.ru.nl'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
@@ -299,7 +300,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
         // Register the tab.
         composeTabs[tab.id] = {
-            encrypt: true,
+            encrypt: DEFAULT_ENCRYPT_ON,
             notificationId,
             tab,
         }
