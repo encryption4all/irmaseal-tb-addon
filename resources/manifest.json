@@ -1,11 +1,11 @@
 {
     "manifest_version": 2,
-    "name": "IRMASeal",
+    "name": "Postguard",
     "version": "0.1",
-    "description": "IRMASeal IBE encryption addon for thunderbird",
+    "description": "Postguard encryption plugin for Thunderbird",
     "applications": {
         "gecko": {
-            "id": "irmaseal4tb@e4a.org",
+            "id": "pg4tb@e4a.org",
             "strict_min_version": "88.0",
             "strict_max_version": "*"
         }
@@ -18,12 +18,12 @@
         "scripts": ["background.js"]
     },
     "experiment_apis": {
-        "irmaseal4tb": {
-            "schema": "irmaseal4tb/irmaseal4tb-schema.json",
+        "pg4tb": {
+            "schema": "pg4tb/pg4tb-schema.json",
             "parent": {
                 "scopes": ["addon_parent"],
-                "paths": [["irmaseal4tb"]],
-                "script": "irmaseal4tb/irmaseal4tb-impl.js",
+                "paths": [["pg4tb"]],
+                "script": "pg4tb/pg4tb-impl.js",
                 "events": ["startup"]
             }
         },
@@ -51,6 +51,7 @@
         "accountsRead",
         "compose",
         "messagesModify",
+        "messagesDelete",
         "storage",
         "accountsFolders"
     ],

@@ -4,8 +4,8 @@ const DEFAULT_ENCRYPT_ON = false
 const WIN_TYPE_COMPOSE = 'messageCompose'
 const PKG_URL = 'https://main.irmaseal-pkg.ihub.ru.nl'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
-const SENT_COPY_FOLDER = 'Cryptify Sent'
-const RECEIVED_COPY_FOLDER = 'Cryptify Received'
+const SENT_COPY_FOLDER = 'Postguard Sent'
+const RECEIVED_COPY_FOLDER = 'Postguard Received'
 
 const i18n = (key: string) => browser.i18n.getMessage(key)
 
@@ -49,6 +49,7 @@ const decryptState: {
         readable?: ReadableStream<Uint8Array>
         writable?: WritableStream<Uint8Array>
         allWritten?: Promise<void>
+        copyFolder?: any
     }
 } = {}
 
@@ -57,7 +58,7 @@ let currSelectedMessages: number[] = await (
     await browser.tabs.query({ mailTab: true })
 ).reduce(async (currIds, nextTab) => {
     const sel = (await browser.mailTabs.getSelectedMessages(nextTab.id)).messages.map((s) => s.id)
-    return currIds.concat(sel)
+    return [...currIds, ...sel]
 }, [])
 
 console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
@@ -108,6 +109,17 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             if (Object.keys(decryptState).length > 0) {
                 console.log('currently decrypting: ', Object.keys(decryptState))
                 await failDecryption(msg.msgId, new Error('already decrypting a message'))
+                return
+            }
+
+            const mail = await browser.messages.get(msg.msgId)
+            const folder = mail.folder
+
+            if (folder['type'] !== 'inbox') {
+                await failDecryption(
+                    msg.msgId,
+                    new Error('only decrypting messages in inbox type folders')
+                )
                 return
             }
 
@@ -176,11 +188,8 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             const hiddenPolicy = unsealer.get_hidden_policies()
             const sender = currMsg.author
 
-            console.log(
-                `[background]: accountId: ${accountId}\nrecipientId: ${recipientId}\nhiddenPolicy: ${hiddenPolicy}`
-            )
+            console.log(`[background]: accountId: ${accountId}\nrecipientId: ${recipientId}\n`)
 
-            const ts = hiddenPolicy[recipientId].ts
             const myPolicy = hiddenPolicy[recipientId]
             myPolicy.con = myPolicy.con.map(({ t, v }) => {
                 if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
@@ -207,6 +216,10 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                     })
                 })
 
+                const copyFolder = await getCopyFolder(accountId, RECEIVED_COPY_FOLDER).catch(
+                    () => {}
+                )
+
                 const currState = decryptState[msg.msgId]
                 decryptState[msg.msgId] = Object.assign({}, currState, {
                     unsealer,
@@ -214,10 +227,10 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                     usk,
                     writable,
                     allWritten,
+                    copyFolder,
                 })
 
                 // make sure a folder for the plaintext exists
-                await getCopyFolder(accountId, RECEIVED_COPY_FOLDER).catch(() => {})
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_session_complete',
                 })
@@ -240,12 +253,43 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_finished',
                 })
-
-                if (msg.msgId in decryptState) delete decryptState[msg.msgId]
             } catch (e) {
                 console.log('[background]: something went wrong during unsealing: ', e.message)
                 await failDecryption(msg.msgId, e)
             }
+
+            return
+        }
+        case 'dec_copy_complete': {
+            console.log('msg: ', msg)
+            // block until the message is rendered (or already is rendered)
+            let listener
+            const displayedPromise = new Promise<void>((resolve, reject) => {
+                browser.mailTabs
+                    .getCurrent()
+                    .then((tab) => browser.messageDisplay.getDisplayedMessage(tab.id))
+                    .then((displayed) => {
+                        console.log('currently displayed: ', displayed, msg.msgId, displayed.id)
+                        if (decryptState[msg.msgId] && msg.msgId === displayed.id) {
+                            console.log('displayed already')
+                            resolve()
+                        } else {
+                            listener = async (tab, message) => {
+                                console.log('[background]: onMessageDisplayed', tab, message)
+                                if (message.id in decryptState) resolve()
+                            }
+                            browser.messageDisplay.onMessageDisplayed.addListener(listener)
+                        }
+                    })
+            })
+
+            await displayedPromise
+            if (listener) browser.messageDisplay.onMessageDisplayed.removeListener(listener)
+            console.log('message is being displayed')
+            await browser.messages.delete([msg.msgId], true)
+            console.log(`message deleted, showing new message (id = ${msg.mdgId})`)
+            await browser.pg4tb.displayMessage(msg.newMsgId)
+            delete decryptState[msg.msgId]
 
             return
         }
@@ -269,6 +313,7 @@ messenger.switchbar.onButtonClicked.addListener(
 
 async function addBar(tab): Promise<number> {
     const notificationId = await messenger.switchbar.create({
+        enabled: DEFAULT_ENCRYPT_ON,
         windowId: tab.windowId,
         buttonId: 'btn-switch',
         placement: 'top',
@@ -419,7 +464,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     // Set the setSecurityInfo (triggering our custom MIME encoder)
     console.log('[background]: setting SecurityInfo')
     const { accountId, path } = copySentFolder || ({} as { accountId?: string; path?: string })
-    await browser.irmaseal4tb.setSecurityInfo(tab.windowId, tab.id, accountId, path)
+    await browser.pg4tb.setSecurityInfo(tab.windowId, tab.id, accountId, path)
 })
 
 async function checkLocalStorage(pol: Policy, pkg: string): Promise<string> {

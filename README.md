@@ -1,4 +1,4 @@
-# IRMAseal extension for Thunderbird
+# Postguard encyption plugin for Thunderbird
 
 ## Prerequisites
 

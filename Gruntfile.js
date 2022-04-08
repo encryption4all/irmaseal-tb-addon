@@ -4,7 +4,7 @@ module.exports = (grunt) => {
     const srcDir = 'src/'
     const outDir = 'dist/'
     const outDirExtracted = `${outDir}/release/`
-    const outXpi = `${outDir}/irmaseal-tb-addon.xpi`
+    const outXpi = `${outDir}/postguard-tb-addon.xpi`
     const resourceDir = 'resources/'
 
     grunt.initConfig({

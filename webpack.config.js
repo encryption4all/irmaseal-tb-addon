@@ -65,11 +65,11 @@ module.exports = [
     {
         name: 'experiment',
         mode: defaultMode,
-        entry: './src/experiments/irmaseal4tb/irmaseal4tb-impl.ts',
+        entry: './src/experiments/pg4tb/pg4tb-impl.ts',
         output: {
-            filename: 'irmaseal4tb-impl.js',
-            path: `${outputPath}/irmaseal4tb/`,
-            library: 'irmaseal4tb',
+            filename: 'pg4tb-impl.js',
+            path: `${outputPath}/pg4tb/`,
+            library: 'pg4tb',
             libraryExport: 'default',
         },
         module: { rules: tsLoaderRules },
