@@ -19,7 +19,7 @@ class SwitchBar {
         this.parent = parent
         this.notificationId = notificationId
 
-        const { buttonId, icon, labels, style, windowId } = properties
+        const { enabled, buttonId, icon, labels, style, windowId } = properties
 
         var iconURL = null
         if (icon) {
@@ -47,7 +47,7 @@ class SwitchBar {
         let element
         if (this.getThunderbirdVersion().major < 94) {
             element = this.getNotificationBox().appendNotification(
-                "",
+                '',
                 `extension-notification-${notificationId}`,
                 iconURL,
                 0,
@@ -58,7 +58,7 @@ class SwitchBar {
             element = this.getNotificationBox().appendNotification(
                 `extension-notification-${notificationId}`,
                 {
-                    label: "",
+                    label: '',
                     image: iconURL,
                     priority: 0,
                 },
@@ -91,15 +91,15 @@ class SwitchBar {
             const message = shadowroot.querySelector('label.notification-message')
             const buttonContainer = element.buttonContainer
             message.parentNode.insertBefore(buttonContainer, message)
-            message.textContent = labels.enabled
+            message.textContent = enabled ? labels.enabled : labels.disabled
 
             // change the button to a switch
             const label = document.createElement('label')
             const input = document.createElement('input')
             const span = document.createElement('span')
             input.setAttribute('type', 'checkbox')
-            input.checked = true
-            element.classList.add('enabled')
+            input.checked = enabled
+            element.classList.add(enabled ? 'enabled' : 'disabled')
             span.setAttribute('class', 'slider round')
             label.setAttribute('class', 'switch')
             label.replaceChildren(input, span)
@@ -118,7 +118,7 @@ class SwitchBar {
                     e.target.checked
                 )
 
-                message.textContent = enabled ? labels.enabled : labels.disabled;
+                message.textContent = enabled ? labels.enabled : labels.disabled
                 element.classList.remove(enabled ? 'disabled' : 'enabled')
                 element.classList.add(enabled ? 'enabled' : 'disabled')
             })

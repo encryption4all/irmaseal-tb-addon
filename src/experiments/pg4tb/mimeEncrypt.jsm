@@ -24,9 +24,9 @@ const { ExtensionParent } = ChromeUtils.import('resource://gre/modules/Extension
 const { MailServices } = Cu.import('resource:///modules/MailServices.jsm')
 const { MailUtils } = Cu.import('resource:///modules/MailUtils.jsm')
 
-const extension = ExtensionParent.GlobalManager.getExtension('irmaseal4tb@e4a.org')
-const { notifyTools } = Cu.import(extension.rootURI.resolve('irmaseal4tb/notifyTools.js'))
-const { block_on, folderPathToURI } = Cu.import(extension.rootURI.resolve('irmaseal4tb/utils.jsm'))
+const extension = ExtensionParent.GlobalManager.getExtension('pg4tb@e4a.org')
+const { notifyTools } = Cu.import(extension.rootURI.resolve('pg4tb/notifyTools.js'))
+const { block_on, folderPathToURI } = Cu.import(extension.rootURI.resolve('pg4tb/utils.jsm'))
 const { clearTimeout, setTimeout } = ChromeUtils.import('resource://gre/modules/Timer.jsm')
 
 // contract IDs

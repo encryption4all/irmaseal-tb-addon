@@ -6,6 +6,10 @@
                 "id": "BarProperties",
                 "type": "object",
                 "properties": {
+                    "enabled" : {
+                        "description": "Whether or not the bar is initially enabled.",
+                        "type": "boolean"
+                    },
                     "windowId": {
                         "description": "ID of the window, where the bar should be added to.",
                         "type": "integer"

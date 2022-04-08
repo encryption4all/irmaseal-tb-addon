@@ -1,6 +1,6 @@
 [
     {
-        "namespace": "irmaseal4tb",
+        "namespace": "pg4tb",
         "functions": [
             {
                 "name": "setSecurityInfo",
@@ -19,7 +19,6 @@
                         "name": "accountId",
                         "type": "string",
                         "optional": true
-
                     },
                     {
                         "name": "path",
@@ -27,6 +26,12 @@
                         "optional": true
                     }
                 ]
+            },
+            {
+                "name": "displayMessage",
+                "type": "function",
+                "async": true,
+                "parameters": [{ "name": "msgId", "type": "integer" }]
             }
         ]
     }

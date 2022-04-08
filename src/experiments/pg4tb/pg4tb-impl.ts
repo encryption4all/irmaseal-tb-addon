@@ -1,5 +1,5 @@
 /**
- * IRMAseal thunderbird experiment
+ * Postguard thunderbird experiment
  */
 
 /* global Components: false */
@@ -10,7 +10,8 @@ const { classes: Cc, interfaces: Ci, utils: Cu } = Components
 const { ExtensionCommon } = Cu.import('resource://gre/modules/ExtensionCommon.jsm')
 const { Services } = Cu.import('resource://gre/modules/Services.jsm')
 const { ExtensionParent } = Cu.import('resource://gre/modules/ExtensionParent.jsm')
-const extension = ExtensionParent.GlobalManager.getExtension('irmaseal4tb@e4a.org')
+const { MailUtils } = Cu.import('resource:///modules/MailUtils.jsm')
+const extension = ExtensionParent.GlobalManager.getExtension('pg4tb@e4a.org')
 
 // To load and unload modules
 const loadJsm = (path: string) => Cu.import(extension.rootURI.resolve(path))
@@ -19,17 +20,17 @@ const unloadJsm = (path: string) => Cu.unload(extension.rootURI.resolve(path))
 const DEBUG_LOG = (str: string) => Services.console.logStringMessage(`[EXPERIMENT]: ${str}`)
 const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.stack}`)
 
-export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
+export default class pg4tb extends ExtensionCommon.ExtensionAPI {
     public getAPI(context) {
         return {
-            irmaseal4tb: {
+            pg4tb: {
                 setSecurityInfo: function (
                     windowId: number,
                     tabId: number,
                     accountId: string,
                     path: string
                 ) {
-                    DEBUG_LOG('irmaseal4tb.js: setSecurityInfo()\n')
+                    DEBUG_LOG('pg4tb.js: setSecurityInfo()\n')
                     let compSec = Cc['@e4a/irmaseal/compose-encrypted;1'].createInstance(
                         Ci.nsIMsgComposeSecure
                     )
@@ -50,8 +51,12 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
                             win.gMsgCompose.compFields.composeSecure = compSec
                         }
                     }
-                    DEBUG_LOG('irmaseal4tb.js: setSecurityInfo() complete\n')
+                    DEBUG_LOG('pg4tb.js: setSecurityInfo() complete\n')
                     return Promise.resolve()
+                },
+                displayMessage: function (msgId: number) {
+                    const msgHdr = context.extension.messageManager.get(msgId)
+                    MailUtils.displayMessageInFolderTab(msgHdr)
                 },
             },
         }
@@ -60,8 +65,8 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
     public onStartup(): void {
         try {
             DEBUG_LOG('starting experiment')
-            const { IRMAsealMimeEncrypt } = loadJsm('irmaseal4tb/mimeEncrypt.jsm')
-            const { IRMAsealMimeDecrypt } = loadJsm('irmaseal4tb/mimeDecrypt.jsm')
+            const { IRMAsealMimeEncrypt } = loadJsm('pg4tb/mimeEncrypt.jsm')
+            const { IRMAsealMimeDecrypt } = loadJsm('pg4tb/mimeDecrypt.jsm')
             IRMAsealMimeEncrypt.startup()
             IRMAsealMimeDecrypt.startup()
             DEBUG_LOG('all modules loaded')
@@ -78,12 +83,12 @@ export default class irmaseal4tb extends ExtensionCommon.ExtensionAPI {
 
         try {
             DEBUG_LOG('unloading modules')
-            const { IRMAsealMimeEncrypt } = loadJsm('irmaseal4tb/mimeEncrypt.jsm')
-            const { IRMAsealMimeDecrypt } = loadJsm('irmaseal4tb/mimeDecrypt.jsm')
+            const { IRMAsealMimeEncrypt } = loadJsm('pg4tb/mimeEncrypt.jsm')
+            const { IRMAsealMimeDecrypt } = loadJsm('pg4tb/mimeDecrypt.jsm')
             IRMAsealMimeEncrypt.shutdown()
             IRMAsealMimeDecrypt.shutdown()
-            unloadJsm('irmaseal4tb/mimeEncrypt.jsm')
-            unloadJsm('irmaseal4tb/mimeDecrypt.jsm')
+            unloadJsm('pg4tb/mimeEncrypt.jsm')
+            unloadJsm('pg4tb/mimeDecrypt.jsm')
             DEBUG_LOG('invalidating startup cache')
             Services.obs.notifyObservers(null, 'startupcache-invalidate', null)
             DEBUG_LOG('succesfully shutdown experiment')
