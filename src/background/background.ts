@@ -264,34 +264,35 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             return
         }
         case 'dec_copy_complete': {
-            console.log('msg: ', msg)
             // block until the message is rendered (or already is rendered)
             let listener
             const displayedPromise = new Promise<void>((resolve, reject) => {
+                listener = async (tab, message) => {
+                    console.log('[background]: onMessageDisplayed', tab, message)
+                    if (message.id in decryptState) resolve()
+                }
+                browser.messageDisplay.onMessageDisplayed.addListener(listener)
                 browser.mailTabs
                     .getCurrent()
                     .then((tab) => browser.messageDisplay.getDisplayedMessage(tab.id))
                     .then((displayed) => {
-                        console.log('currently displayed: ', displayed, msg.msgId, displayed.id)
-                        if (decryptState[msg.msgId] && msg.msgId === displayed.id) {
-                            console.log('displayed already')
+                        if (displayed && decryptState[msg.msgId] && msg.msgId === displayed.id) {
                             resolve()
-                        } else {
-                            listener = async (tab, message) => {
-                                console.log('[background]: onMessageDisplayed', tab, message)
-                                if (message.id in decryptState) resolve()
-                            }
-                            browser.messageDisplay.onMessageDisplayed.addListener(listener)
                         }
                     })
+                setTimeout(reject, 2000)
             })
 
             await displayedPromise
-            if (listener) browser.messageDisplay.onMessageDisplayed.removeListener(listener)
-            console.log('message is being displayed')
+                .then(() => console.log('[background]: message is being displayed'))
+                .catch(() => console.log('[background]: message not displayed'))
+
+            browser.messageDisplay.onMessageDisplayed.removeListener(listener)
+
             await browser.messages.delete([msg.msgId], true)
-            console.log(`message deleted, showing new message (id = ${msg.mdgId})`)
             await browser.pg4tb.displayMessage(msg.newMsgId)
+            console.log(`[background]: message deleted, showing new message (id = ${msg.newMsgId})`)
+
             delete decryptState[msg.msgId]
 
             return
