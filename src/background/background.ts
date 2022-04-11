@@ -191,7 +191,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             const hiddenPolicy = unsealer.get_hidden_policies()
             const sender = currMsg.author
 
-            console.log(`[background]: accountId: ${accountId}\nrecipientId: ${recipientId}\n`)
+            console.log(`[background]: accountId: ${accountId}, recipientId: ${recipientId}\n`)
 
             const myPolicy = hiddenPolicy[recipientId]
             myPolicy.con = myPolicy.con.map(({ t, v }) => {

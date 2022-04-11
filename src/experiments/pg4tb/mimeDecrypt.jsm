@@ -73,29 +73,24 @@ MimeDecryptHandler.prototype = {
 
     // the MIME handler needs to implement the nsIStreamListener API
     onStartRequest: function (request) {
-        DEBUG_LOG('mimeDecrypt.jsm: onStartRequest()\n')
         this.mimeProxy = request.QueryInterface(Ci.nsIPgpMimeProxy)
         this.uri = this.mimeProxy.messageURI
         this.request = request
-
-        if (this.uri) {
-            this.originalMsgHdr = this.uri.QueryInterface(Ci.nsIMsgMessageUrl).messageHeader
-            this.folder = this.originalMsgHdr.folder
-            this.copyReceivedFolderURI = this.folder.URI.replace('INBOX', 'Postguard Received')
-            this.copyReceivedFolder = MailUtils.getExistingFolder(this.copyReceivedFolderURI)
-            this.msgId = extension.messageManager.convert(this.originalMsgHdr).id
-            DEBUG_LOG(`copyReceivedFolderURI: ${this.copyReceivedFolderURI}`)
-            DEBUG_LOG(`msgId: ${this.msgId}`)
-        }
-
+        this.originalMsgHdr = this.uri.QueryInterface(Ci.nsIMsgMessageUrl).messageHeader
+        this.folder = this.originalMsgHdr.folder
+        this.copyReceivedFolderURI = this.folder.URI.replace('INBOX', 'Postguard Received')
+        this.copyReceivedFolder = MailUtils.getExistingFolder(this.copyReceivedFolderURI)
+        this.msgId = extension.messageManager.convert(this.originalMsgHdr).id
         this.buffer = ''
         this.bufferCount = 0
         this.sessionStarted = false
         this.sessionCompleted = false
         this.aborted = false
 
-        // add a listener to wait for decrypted blocks
-        // initially waits one minute for a session to start
+        DEBUG_LOG(
+            `mimeDecrypt.jsm: onStartRequest(), id: ${this.msgId}, copy: ${this.copyReceivedFolderURI}`
+        )
+
         this.finishedPromise = new Promise((resolve, reject) => {
             this.sessionPromise = new Promise((resolve2, reject2) => {
                 var timeout = setTimeout(() => reject(new Error('init timeout exceeded')), 10000)
@@ -165,19 +160,20 @@ MimeDecryptHandler.prototype = {
             )
         )
 
-        // Both sides are ready, start reading from metadata.
         if (this.aborted) {
             // aborted after init, ignore the request
             DEBUG_LOG('aborted after init')
             return
         }
 
+        // Both sides are ready and there was no error during initialization,
+        // so start sending (first meta, then regular) data to the background.
         notifyTools.notifyBackground({ command: 'dec_metadata', msgId: this.msgId })
     },
 
     onDataAvailable: function (req, stream, offset, count) {
         if (this.aborted) {
-            // TODO: just send the encrypted data?
+            // TODO: We could just send the encrypted data in this case.
             // this.mimeProxy.outputDecryptedData(b64, b64.length)
             return
         }
@@ -186,12 +182,14 @@ MimeDecryptHandler.prototype = {
         DEBUG_LOG(
             `onDataAvailable: started: ${this.sessionStarted}, completed: ${this.sessionCompleted}, aborted: ${this.aborted}, count: ${count}`
         )
+
         this.inStream.setInputStream(stream)
         const data = this.inStream.readBytes(count)
 
         if (this.sessionStarted && !this.sessionCompleted) {
             try {
-                this.blockOnSession()
+                block_on(this.sessionPromise)
+                notifyTools.notifyBackground({ command: 'dec_start', msgId: this.msgId })
             } catch {
                 DEBUG_LOG('session not completed')
                 return
@@ -213,16 +211,11 @@ MimeDecryptHandler.prototype = {
         this.bufferCount += count
 
         if (this.bufferCount > MIN_BUFFER) {
-            block_on(
-                timeout(
-                    notifyTools.notifyBackground({
-                        command: 'dec_ct',
-                        msgId: this.msgId,
-                        data: this.buffer,
-                    }),
-                    MSG_TIMEOUT
-                )
-            )
+            notifyTools.notifyBackground({
+                command: 'dec_ct',
+                msgId: this.msgId,
+                data: this.buffer,
+            })
 
             this.buffer = ''
             this.bufferCount = 0
@@ -230,29 +223,26 @@ MimeDecryptHandler.prototype = {
     },
 
     onStopRequest: function (request, status) {
-        DEBUG_LOG(`mimeDecrypt.jsm: onStopRequest(), aborted: ${this.aborted}\n`)
         if (this.aborted) {
             if (this.foStream) this.foStream.close()
             this.removeListeners()
             return
         }
 
+        DEBUG_LOG(`mimeDecrypt.jsm: onStopRequest(), aborted: ${this.aborted}\n`)
+
         // flush the remaining buffer
         if (this.bufferCount > 0) {
-            block_on(
-                timeout(
-                    notifyTools.notifyBackground({
-                        command: 'dec_ct',
-                        msgId: this.msgId,
-                        data: this.buffer,
-                    }),
-                    MSG_TIMEOUT
-                )
-            )
+            notifyTools.notifyBackground({
+                command: 'dec_ct',
+                msgId: this.msgId,
+                data: this.buffer,
+            })
         }
 
         try {
-            if (!this.sessionCompleted) this.blockOnSession()
+            if (!this.sessionCompleted) block_on(this.sessionPromise)
+            notifyTools.notifyBackground({ command: 'dec_start', msgId: this.msgId })
             notifyTools.notifyBackground({ command: 'dec_finalize', msgId: this.msgId })
             block_on(this.finishedPromise)
         } finally {
@@ -295,12 +285,14 @@ MimeDecryptHandler.prototype = {
                 const newHdr = newFolder.GetMessageHeader(newKey)
                 const newId = extension.messageManager.convert(newHdr).id
 
-                // Does not seem to work
+                // TODO: this does not seem to work.
                 newHdr.markRead(originalMsgHdr.isRead)
                 newHdr.markFlagged(originalMsgHdr.isFlagged)
                 newHdr.subject = originalMsgHdr.subject
                 newHdr.date = originalMsgHdr.date
 
+                // Notify the background that copying completed, such that we can display
+                // this new message.
                 notifyTools.notifyBackground({
                     command: 'dec_copy_complete',
                     msgId: origMsgId,
@@ -312,7 +304,7 @@ MimeDecryptHandler.prototype = {
         DEBUG_LOG(`Copying to folder with URI: ${newFolder.URI}`)
 
         MailServices.copy.copyFileMessage(
-            this.tempFile, // aFile
+            file, // aFile
             newFolder, // dstFolder
             null, // msgToReplace (msgHdr)
             false, // isDraftOrTemplate
@@ -323,19 +315,10 @@ MimeDecryptHandler.prototype = {
         )
     },
 
-    blockOnSession: function () {
-        // There is a session is ongoing, block until it completes.
-        // Then, signal for the decryption to start.
-        DEBUG_LOG('session was not yet completed. blocking..')
-        block_on(this.sessionPromise)
-        DEBUG_LOG('session completed. sending start command')
-        notifyTools.notifyBackground({ command: 'dec_start', msgId: this.msgId })
-    },
-
     initFile: function () {
         this.tempFile = Services.dirsvc.get('TmpD', Ci.nsIFile)
         this.tempFile.append('message.eml')
-        this.tempFile.createUnique(0, 384) // == 0600, octal is deprecated
+        this.tempFile.createUnique(0, 0o600)
 
         // ensure that file gets deleted on exit, if something goes wrong ...
         let extAppLauncher = Cc['@mozilla.org/mime;1'].getService(Ci.nsPIExternalAppLauncher)
