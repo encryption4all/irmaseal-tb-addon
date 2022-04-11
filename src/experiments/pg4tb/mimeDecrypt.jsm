@@ -37,10 +37,24 @@ const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.st
 
 const MIN_BUFFER = 1024
 
+// Time after which a session is assumed aborted.
+const SESSION_TIMEOUT = 60000
+
+// Maximum time before the next plaintext chunk should be received.
+const PLAIN_TIMEOUT = 1000
+
+// Maximum time before the decryption handler expects an answer to a message.
+const MSG_TIMEOUT = 1000
+
 function MimeDecryptHandler() {
     DEBUG_LOG('mimeDecrypt.jsm: new MimeDecryptHandler()\n')
     this._init()
 }
+
+// Helper function returns promise that resolves before the timeout is reached, otherwise rejects.
+// This is to make sure this process _never_ fully blocks.
+const timeout = (promise, timeout) =>
+    Promise.race([promise, new Promise((_, reject) => setTimeout(reject, timeout))])
 
 MimeDecryptHandler.prototype = {
     classDescription: 'Postguard/MIME JS Decryption Handler',
@@ -94,7 +108,7 @@ MimeDecryptHandler.prototype = {
                             clearTimeout(timeout)
                             timeout = setTimeout(
                                 () => reject(new Error('session timeout exceeded')),
-                                60000
+                                SESSION_TIMEOUT
                             )
                             return
                         case 'dec_session_complete':
@@ -107,7 +121,7 @@ MimeDecryptHandler.prototype = {
                             clearTimeout(timeout)
                             timeout = setTimeout(
                                 () => reject(new Error('plaintext chunks timeout exceeded')),
-                                5000
+                                PLAIN_TIMEOUT
                             )
                             // this.mimeProxy.outputDecryptedData(msg.data, msg.data.length)
                             this.foStream.write(msg.data, msg.data.length)
@@ -142,10 +156,13 @@ MimeDecryptHandler.prototype = {
 
         // Wait till both sides are ready.
         block_on(
-            notifyTools.notifyBackground({
-                command: 'dec_init',
-                msgId: this.msgId,
-            })
+            timeout(
+                notifyTools.notifyBackground({
+                    command: 'dec_init',
+                    msgId: this.msgId,
+                }),
+                MSG_TIMEOUT
+            )
         )
 
         // Both sides are ready, start reading from metadata.
@@ -197,11 +214,14 @@ MimeDecryptHandler.prototype = {
 
         if (this.bufferCount > MIN_BUFFER) {
             block_on(
-                notifyTools.notifyBackground({
-                    command: 'dec_ct',
-                    msgId: this.msgId,
-                    data: this.buffer,
-                })
+                timeout(
+                    notifyTools.notifyBackground({
+                        command: 'dec_ct',
+                        msgId: this.msgId,
+                        data: this.buffer,
+                    }),
+                    MSG_TIMEOUT
+                )
             )
 
             this.buffer = ''
@@ -220,11 +240,14 @@ MimeDecryptHandler.prototype = {
         // flush the remaining buffer
         if (this.bufferCount > 0) {
             block_on(
-                notifyTools.notifyBackground({
-                    command: 'dec_ct',
-                    msgId: this.msgId,
-                    data: this.buffer,
-                })
+                timeout(
+                    notifyTools.notifyBackground({
+                        command: 'dec_ct',
+                        msgId: this.msgId,
+                        data: this.buffer,
+                    }),
+                    MSG_TIMEOUT
+                )
             )
         }
 
