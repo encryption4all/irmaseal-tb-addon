@@ -16,8 +16,8 @@ export function createMIMETransform(): TransformStream<Uint8Array, string> {
         'Content-Type': `multipart/mixed; boundary="${boundary}"`,
     }
     const encryptedHeaders = {
-        'Content-Type': 'application/irmaseal; name="irmaseal.encrypted"',
-        'Content-Disposition': 'attachment; filename="encrypted.irmaseal"',
+        'Content-Type': 'application/postguard; name="postguard.encrypted"',
+        'Content-Disposition': 'attachment; filename="postguard.encrypted"',
         'Content-Transfer-Encoding': 'base64',
     }
     const plainHeaders = {
@@ -25,7 +25,7 @@ export function createMIMETransform(): TransformStream<Uint8Array, string> {
         'Content-Transfer-Encoding': '7bit',
     }
     const plain =
-        'This mail has been encrypted using Cryptify. For more information, see cryptify.mail.'
+        'This mail has been encrypted using Postguard. For more information, see postguard.mail.'
 
     return new TransformStream({
         start: (controller) => {
@@ -107,7 +107,7 @@ export function withTransforms(
 
 export function isIRMASeal(fullParts: any): boolean {
     // check if the outside MIME is multipart/mixed
-    // check if one of the parts contains application/irmaseal
+    // check if one of the parts contains application/postguard
 
     try {
         const outer = fullParts.parts[0]
@@ -115,7 +115,7 @@ export function isIRMASeal(fullParts: any): boolean {
         if (!mixed) return false
 
         const sealed = outer.parts.some((part) =>
-            part.headers['content-type'].some((c) => c.includes('application/irmaseal'))
+            part.headers['content-type'].some((c) => c.includes('application/postguard'))
         )
 
         return sealed

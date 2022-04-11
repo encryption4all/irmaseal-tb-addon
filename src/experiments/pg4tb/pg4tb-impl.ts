@@ -65,10 +65,10 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
     public onStartup(): void {
         try {
             DEBUG_LOG('starting experiment')
-            const { IRMAsealMimeEncrypt } = loadJsm('pg4tb/mimeEncrypt.jsm')
-            const { IRMAsealMimeDecrypt } = loadJsm('pg4tb/mimeDecrypt.jsm')
-            IRMAsealMimeEncrypt.startup()
-            IRMAsealMimeDecrypt.startup()
+            const { PostguardMimeEncrypt } = loadJsm('pg4tb/mimeEncrypt.jsm')
+            const { PostguardMimeDecrypt } = loadJsm('pg4tb/mimeDecrypt.jsm')
+            PostguardMimeEncrypt.startup()
+            PostguardMimeDecrypt.startup()
             DEBUG_LOG('all modules loaded')
         } catch (ex) {
             ERROR_LOG(ex)
@@ -83,10 +83,10 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
 
         try {
             DEBUG_LOG('unloading modules')
-            const { IRMAsealMimeEncrypt } = loadJsm('pg4tb/mimeEncrypt.jsm')
-            const { IRMAsealMimeDecrypt } = loadJsm('pg4tb/mimeDecrypt.jsm')
-            IRMAsealMimeEncrypt.shutdown()
-            IRMAsealMimeDecrypt.shutdown()
+            const { PostguardMimeEncrypt } = loadJsm('pg4tb/mimeEncrypt.jsm')
+            const { PostguardMimeDecrypt } = loadJsm('pg4tb/mimeDecrypt.jsm')
+            PostguardMimeEncrypt.shutdown()
+            PostguardMimeDecrypt.shutdown()
             unloadJsm('pg4tb/mimeEncrypt.jsm')
             unloadJsm('pg4tb/mimeDecrypt.jsm')
             DEBUG_LOG('invalidating startup cache')

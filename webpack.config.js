@@ -55,7 +55,7 @@ module.exports = [
                 process: 'process/browser',
             }),
             new HtmlWebpackPlugin({
-                title: 'IRMAseal decrypt',
+                title: 'Postguard decrypt',
                 template: './src/components/decryptPopup/index.html',
                 filename: 'decryptPopup.html',
                 chunks: ['decryptPopup'],

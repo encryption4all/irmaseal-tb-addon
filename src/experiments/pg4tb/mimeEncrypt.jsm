@@ -12,7 +12,7 @@
 
 'use strict'
 
-var EXPORTED_SYMBOLS = ['IRMAsealMimeEncrypt']
+var EXPORTED_SYMBOLS = ['PostguardMimeEncrypt']
 
 const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr, manager: Cm } = Components
 
@@ -41,7 +41,7 @@ function MimeEncrypt() {
 }
 
 MimeEncrypt.prototype = {
-    classDescription: 'IRMAseal Encryption Handler',
+    classDescription: 'Postguard Encryption Handler',
     classID: IRMASEAL_JS_ENCRYPT_CID,
     get contractID() {
         return IRMASEAL_ENCRYPT_CONTRACTID
@@ -306,7 +306,7 @@ class Factory {
 }
 
 // Exported API that will register and unregister the class Factory
-var IRMAsealMimeEncrypt = {
+var PostguardMimeEncrypt = {
     startup: function (reason) {
         this.factory = new Factory(MimeEncrypt)
     },

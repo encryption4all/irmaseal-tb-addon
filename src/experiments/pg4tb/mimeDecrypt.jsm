@@ -12,7 +12,7 @@
 
 'use strict'
 
-var EXPORTED_SYMBOLS = ['IRMAsealMimeDecrypt']
+var EXPORTED_SYMBOLS = ['PostguardMimeDecrypt']
 
 const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr, manager: Cm } = Components
 
@@ -43,7 +43,7 @@ function MimeDecryptHandler() {
 }
 
 MimeDecryptHandler.prototype = {
-    classDescription: 'IRMAseal/MIME JS Decryption Handler',
+    classDescription: 'Postguard/MIME JS Decryption Handler',
     classID: MIME_JS_DECRYPTOR_CID,
     contractID: MIME_JS_DECRYPTOR_CONTRACTID,
     QueryInterface: ChromeUtils.generateQI([Ci.nsIStreamListener]),
@@ -360,7 +360,7 @@ class Factory {
 }
 
 // Exported API that will register and unregister the class Factory
-var IRMAsealMimeDecrypt = {
+var PostguardMimeDecrypt = {
     startup: function (reason) {
         try {
             this.factory = new Factory(MimeDecryptHandler)
@@ -373,8 +373,8 @@ var IRMAsealMimeDecrypt = {
 
             reg.registerFactory(
                 pgpMimeClass,
-                'IRMASeal Decryption Module',
-                '@mozilla.org/mimecth;1?type=application/irmaseal',
+                'Postguard Decryption Module',
+                '@mozilla.org/mimecth;1?type=application/postguard',
                 null
             )
         } catch (ex) {
