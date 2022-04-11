@@ -60,8 +60,8 @@ let currSelectedMessages: number[] = await (
     return browser.mailTabs
         .getSelectedMessages(nextTab.id)
         .then((messages) => messages.map((s) => s.id))
-        .catch(() => [])
         .then((selIds) => [...currIds, ...selIds])
+        .catch(() => [])
 }, [])
 
 console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
@@ -114,20 +114,18 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 await failDecryption(msg.msgId, new Error('already decrypting a message'))
                 return
             }
+            if (!currSelectedMessages.includes(msg.msgId)) {
+                await failDecryption(msg.msgId, new Error('only decrypting selected messages'))
+                return
+            }
 
             const mail = await browser.messages.get(msg.msgId)
             const folder = mail.folder
-
             if (folder['type'] !== 'inbox') {
                 await failDecryption(
                     msg.msgId,
                     new Error('only decrypting messages in inbox type folders')
                 )
-                return
-            }
-
-            if (!currSelectedMessages.includes(msg.msgId)) {
-                await failDecryption(msg.msgId, new Error('only decrypting selected messages'))
                 return
             }
 
