@@ -504,7 +504,7 @@ async function createSessionPopup(
     const popupWindow = await messenger.windows.create({
         url: 'decryptPopup.html',
         type: 'popup',
-        height: 480,
+        height: 500,
         width: 420,
     })
 
