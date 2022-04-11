@@ -115,34 +115,22 @@ MimeEncrypt.prototype = {
         this.msgIdentity = msgIdentity
         this.sendReport = sendReport
         this.isDraft = isDraft
+        this.aborted = false
 
-        if (this.copySentFolderURI) {
-            this.tempFile = Services.dirsvc.get('TmpD', Ci.nsIFile)
-            this.tempFile.append('message.eml')
-            this.tempFile.createUnique(0, 384) // == 0600, octal is deprecated
-
-            // ensure that file gets deleted on exit, if something goes wrong ...
-            let extAppLauncher = Cc['@mozilla.org/mime;1'].getService(Ci.nsPIExternalAppLauncher)
-            this.foStream = Cc['@mozilla.org/network/file-output-stream;1'].createInstance(
-                Ci.nsIFileOutputStream
-            )
-            this.foStream.init(this.tempFile, 2, 0x200, false) // open as "write only"
-
-            extAppLauncher.deleteTemporaryFileOnExit(this.tempFile)
-        }
+        if (this.copySentFolderURI) this.initFile()
 
         // Setup a listener waiting for incoming chunks
         DEBUG_LOG(`mimeEncrypt.jsm: adding listener`)
 
-        // After 5 seconds of not receiving data this promise rejects.
+        // After 1 second of not receiving data this promise rejects.
         // This is to make sure it never fully blocks.
         this.finished = new Promise((resolve, reject) => {
-            var timeout = setTimeout(() => reject('timeout'), 5000)
+            var timeout = setTimeout(() => reject(new Error('timeout')), 1000)
             this.chunkListener = notifyTools.addListener((msg) => {
                 switch (msg.command) {
                     case 'enc_ct':
                         clearTimeout(timeout)
-                        timeout = setTimeout(() => reject('timeout'), 5000)
+                        timeout = setTimeout(() => reject(new Error('timeout')), 1000)
 
                         this.writeOut(msg.data)
                         break
@@ -150,6 +138,7 @@ MimeEncrypt.prototype = {
                         resolve()
                         break
                     case 'enc_aborted':
+                        this.aborted = true
                         reject(msg.error)
                         break
                 }
@@ -158,13 +147,23 @@ MimeEncrypt.prototype = {
         })
 
         block_on(
-            notifyTools.notifyBackground({
-                command: 'enc_init',
-                tabId: this.tabId,
-            })
+            Promise.race([
+                notifyTools.notifyBackground({
+                    command: 'enc_init',
+                    tabId: this.tabId,
+                }),
+                new Promise((_, reject) =>
+                    setTimeout(() => {
+                        this.aborted = true
+                        reject(new Error('timeout'))
+                    }, 1000)
+                ),
+            ])
         )
 
-        // Both sides are ready
+        if (this.aborted) return
+
+        // Both sides are ready.
         notifyTools.notifyBackground({ command: 'enc_start', tabId: this.tabId })
 
         var headers = ''
@@ -191,6 +190,7 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     mimeCryptoWriteBlock: function (data, length) {
+        if (this.aborted) return
         if (this.foStream) this.foStream.write(data, length)
         block_on(notifyTools.notifyBackground({ command: 'enc_plain', tabId: this.tabId, data }))
     },
@@ -205,6 +205,7 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     finishCryptoEncapsulation: function (abort, sendReport) {
+        if (this.aborted) return
         DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation()\n`)
 
         // Notify background that no new chunks will be coming.
@@ -274,6 +275,21 @@ MimeEncrypt.prototype = {
                 `mimeEncrypt.jsm: writeOut: wrote ${writeCount} instead of  ${content.length} bytes\n`
             )
         }
+    },
+
+    initFile: function () {
+        this.tempFile = Services.dirsvc.get('TmpD', Ci.nsIFile)
+        this.tempFile.append('message.eml')
+        this.tempFile.createUnique(0, 0o600)
+
+        // ensure that file gets deleted on exit, if something goes wrong ...
+        let extAppLauncher = Cc['@mozilla.org/mime;1'].getService(Ci.nsPIExternalAppLauncher)
+        this.foStream = Cc['@mozilla.org/network/file-output-stream;1'].createInstance(
+            Ci.nsIFileOutputStream
+        )
+        this.foStream.init(this.tempFile, 2, 0x200, false) // open as "write only"
+
+        extAppLauncher.deleteTemporaryFileOnExit(this.tempFile)
     },
 }
 
