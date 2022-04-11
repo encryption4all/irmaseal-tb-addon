@@ -51,11 +51,6 @@ function MimeDecryptHandler() {
     this._init()
 }
 
-// Helper function returns promise that resolves before the timeout is reached, otherwise rejects.
-// This is to make sure this process _never_ fully blocks.
-const timeout = (promise, timeout) =>
-    Promise.race([promise, new Promise((_, reject) => setTimeout(reject, timeout))])
-
 MimeDecryptHandler.prototype = {
     classDescription: 'Postguard/MIME JS Decryption Handler',
     classID: MIME_JS_DECRYPTOR_CID,
@@ -151,13 +146,18 @@ MimeDecryptHandler.prototype = {
 
         // Wait till both sides are ready.
         block_on(
-            timeout(
+            Promise.race([
                 notifyTools.notifyBackground({
                     command: 'dec_init',
                     msgId: this.msgId,
                 }),
-                MSG_TIMEOUT
-            )
+                new Promise((_, reject) =>
+                    setTimeout(() => {
+                        this.aborted = true
+                        reject(new Error('timeout after init'))
+                    }, MSG_TIMEOUT)
+                ),
+            ])
         )
 
         if (this.aborted) {
