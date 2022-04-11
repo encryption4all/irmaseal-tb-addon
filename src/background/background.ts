@@ -56,9 +56,12 @@ const decryptState: {
 // Keeps track of currently selected messages.
 let currSelectedMessages: number[] = await (
     await browser.tabs.query({ mailTab: true })
-).reduce(async (currIds, nextTab) => {
-    const sel = (await browser.mailTabs.getSelectedMessages(nextTab.id)).messages.map((s) => s.id)
-    return [...currIds, ...sel]
+).reduce((currIds, nextTab) => {
+    return browser.mailTabs
+        .getSelectedMessages(nextTab.id)
+        .then((messages) => messages.map((s) => s.id))
+        .catch(() => [])
+        .then((selIds) => [...currIds, ...selIds])
 }, [])
 
 console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
