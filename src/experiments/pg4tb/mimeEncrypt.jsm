@@ -168,6 +168,7 @@ MimeEncrypt.prototype = {
         notifyTools.notifyBackground({ command: 'enc_start', tabId: this.tabId })
 
         var headers = ''
+        headers += `Date: ${new Date().toUTCString()}\r\n`
         headers += `From: ${msgCompFields.from}\r\n`
         headers += `To: ${msgCompFields.to}\r\n`
         headers += `Subject: ${msgCompFields.subject}\r\n`
