@@ -1,7 +1,7 @@
 {
-    "name": "irmaseal-tb-addon",
+    "name": "postguard-tb-addon",
     "version": "0.0.1",
-    "description": "Experimental IRMASeal addon for Thunderbird",
+    "description": "Postguard encryption plugin for Thunderbird",
     "keywords": [
         "email",
         "encryption",
