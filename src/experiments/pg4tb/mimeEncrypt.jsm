@@ -172,6 +172,8 @@ MimeEncrypt.prototype = {
         headers += `To: ${msgCompFields.to}\r\n`
         headers += `Subject: ${msgCompFields.subject}\r\n`
         headers += 'MIME-Version: 1.0\r\n'
+        if (msgCompFields.cc) headers += `Cc: ${msgCompFields.cc}\r\n`
+        if (msgCompFields.bcc) headers += `Bcc: ${msgCompFields.bcc}\r\n`
 
         if (this.foStream) this.foStream.write(headers, headers.length)
         notifyTools.notifyBackground({ command: 'enc_plain', tabId: this.tabId, data: headers })
