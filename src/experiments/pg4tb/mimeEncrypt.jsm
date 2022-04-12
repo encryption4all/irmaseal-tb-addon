@@ -36,6 +36,12 @@ const IRMASEAL_JS_ENCRYPT_CID = Components.ID('{2b7a8e39-88d6-4ed2-91ec-f2aaf964
 const DEBUG_LOG = (str) => Services.console.logStringMessage(`[experiment]: ${str}`)
 const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.stack}`)
 
+// Minimal buffer size before sending buffered data to the background script.
+const MIN_BUFFER = 1024
+
+// Maximum time before the decryption handler expects an answer to a message.
+const MSG_TIMEOUT = 3000
+
 function MimeEncrypt() {
     this.wrappedJSObject = this
 }
@@ -75,7 +81,6 @@ MimeEncrypt.prototype = {
      * @return {Boolean}:  true if the message should be encrypted, false otherwiese
      */
     requiresCryptoEncapsulation: function (msgIdentity, msgCompFields) {
-        DEBUG_LOG('mimeEncrypt.jsm: requiresCryptoEncapsulation()\n')
         return true
     },
 
@@ -101,9 +106,6 @@ MimeEncrypt.prototype = {
         isDraft
     ) {
         DEBUG_LOG('mimeEncrypt.jsm: beginCryptoEncapsulation()\n')
-        DEBUG_LOG(
-            `mimeEncrypt.jsm: beginCryptoEncapsulation: copySentFolder: ${this.copySentFolder}\n`
-        )
 
         this.outStream = outStream
         this.outStringStream = Cc['@mozilla.org/io/string-input-stream;1'].createInstance(
@@ -116,21 +118,20 @@ MimeEncrypt.prototype = {
         this.sendReport = sendReport
         this.isDraft = isDraft
         this.aborted = false
+        this.buffer = ''
+        this.bufferCount = 0
 
         if (this.copySentFolderURI) this.initFile()
-
-        // Setup a listener waiting for incoming chunks
-        DEBUG_LOG(`mimeEncrypt.jsm: adding listener`)
 
         // After 1 second of not receiving data this promise rejects.
         // This is to make sure it never fully blocks.
         this.finished = new Promise((resolve, reject) => {
-            var timeout = setTimeout(() => reject(new Error('timeout')), 1000)
+            var timeout = setTimeout(() => reject(new Error('timeout')), MSG_TIMEOUT)
             this.chunkListener = notifyTools.addListener((msg) => {
                 switch (msg.command) {
                     case 'enc_ct':
                         clearTimeout(timeout)
-                        timeout = setTimeout(() => reject(new Error('timeout')), 1000)
+                        timeout = setTimeout(() => reject(new Error('timeout')), MSG_TIMEOUT)
 
                         this.writeOut(msg.data)
                         break
@@ -156,7 +157,7 @@ MimeEncrypt.prototype = {
                     setTimeout(() => {
                         this.aborted = true
                         reject(new Error('timeout'))
-                    }, 1000)
+                    }, MSG_TIMEOUT)
                 ),
             ])
         )
@@ -194,7 +195,19 @@ MimeEncrypt.prototype = {
     mimeCryptoWriteBlock: function (data, length) {
         if (this.aborted) return
         if (this.foStream) this.foStream.write(data, length)
-        block_on(notifyTools.notifyBackground({ command: 'enc_plain', tabId: this.tabId, data }))
+
+        this.buffer += data
+        this.bufferCount += length
+
+        if (this.bufferCount > MIN_BUFFER) {
+            notifyTools.notifyBackground({
+                command: 'enc_plain',
+                tabId: this.tabId,
+                data: this.buffer,
+            })
+            this.buffer = ''
+            this.bufferCount = 0
+        }
     },
 
     /**
@@ -207,8 +220,17 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     finishCryptoEncapsulation: function (abort, sendReport) {
-        if (this.aborted) return
+        if (this.aborted || abort) return
         DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation()\n`)
+
+        // Flush the remaining buffer.
+        if (this.bufferCount) {
+            notifyTools.notifyBackground({
+                command: 'enc_plain',
+                tabId: this.tabId,
+                data: this.buffer,
+            })
+        }
 
         // Notify background that no new chunks will be coming.
         notifyTools.notifyBackground({ command: 'enc_finalize', tabId: this.tabId })
@@ -217,7 +239,7 @@ MimeEncrypt.prototype = {
             block_on(this.finished)
         } catch (e) {
             ERROR_LOG(e)
-            abort(e)
+            return
         }
 
         notifyTools.removeListener(this.chunkListener)
@@ -269,7 +291,6 @@ MimeEncrypt.prototype = {
     },
 
     writeOut: function (content) {
-        DEBUG_LOG(`mimeEncrypt.jsm: writeOut: wrote ${content.length} bytes\n`)
         this.outStringStream.setData(content, content.length)
         var writeCount = this.outStream.writeFrom(this.outStringStream, content.length)
         if (writeCount < content.length) {

@@ -35,16 +35,14 @@ const MIME_JS_DECRYPTOR_CID = Components.ID('{f3a50b87-b198-42c0-86d9-116aca7180
 const DEBUG_LOG = (str) => Services.console.logStringMessage(`[experiment]: ${str}`)
 const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.stack}`)
 
+// Minimal buffer size before sending buffered data to the background script.
 const MIN_BUFFER = 1024
 
 // Time after which a session is assumed aborted.
 const SESSION_TIMEOUT = 60000
 
-// Maximum time before the next plaintext chunk should be received.
-const PLAIN_TIMEOUT = 1000
-
 // Maximum time before the decryption handler expects an answer to a message.
-const MSG_TIMEOUT = 1000
+const MSG_TIMEOUT = 3000
 
 function MimeDecryptHandler() {
     DEBUG_LOG('mimeDecrypt.jsm: new MimeDecryptHandler()\n')
@@ -111,7 +109,7 @@ MimeDecryptHandler.prototype = {
                             clearTimeout(timeout)
                             timeout = setTimeout(
                                 () => reject(new Error('plaintext chunks timeout exceeded')),
-                                PLAIN_TIMEOUT
+                                MSG_TIMEOUT
                             )
                             // this.mimeProxy.outputDecryptedData(msg.data, msg.data.length)
                             this.foStream.write(msg.data, msg.data.length)
@@ -231,8 +229,8 @@ MimeDecryptHandler.prototype = {
 
         DEBUG_LOG(`mimeDecrypt.jsm: onStopRequest(), aborted: ${this.aborted}\n`)
 
-        // flush the remaining buffer
-        if (this.bufferCount > 0) {
+        // Flush the remaining buffer.
+        if (this.bufferCount) {
             notifyTools.notifyBackground({
                 command: 'dec_ct',
                 msgId: this.msgId,
