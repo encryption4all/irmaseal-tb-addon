@@ -6,15 +6,14 @@ const PKG_URL = 'https://main.irmaseal-pkg.ihub.ru.nl'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 const SENT_COPY_FOLDER = 'Postguard Sent'
 const RECEIVED_COPY_FOLDER = 'Postguard Received'
+const PK_KEY = 'pg-pk'
 
 const i18n = (key: string) => browser.i18n.getMessage(key)
 
 console.log('[background]: irmaseal-tb started.')
 console.log('[background]: loading wasm module and retrieving master public key.')
 
-const pk_promise: Promise<string> = fetch(`${PKG_URL}/v2/parameters`)
-    .then((resp) => resp.json().then((o) => o.publicKey))
-    .catch((e) => console.log(`failed to retrieve public key: ${e.toString()}`))
+const pk_promise: Promise<string> = retrievePublicKey()
 
 const mod_promise = import('@e4a/irmaseal-wasm-bindings')
 
@@ -538,4 +537,29 @@ async function createSessionPopup(
         browser.windows.onRemoved.removeListener(tabClosedListener)
         browser.runtime.onMessage.removeListener(popupListener)
     })
+}
+
+// First tries to download the public key from the PKG.
+// If this fails, it falls back to a public key in localStorage.
+// The public key is stored iff there was no public key or it was different.
+// If no public key is found, either through the PKG or localStorage, the promise rejects.
+async function retrievePublicKey(): Promise<string> {
+    const stored = await browser.storage.local.get(PK_KEY)
+    const storedPublicKey = stored[PK_KEY]
+
+    return fetch(`${PKG_URL}/v2/parameters`)
+        .then((resp) =>
+            resp.json().then(async ({ publicKey }) => {
+                if (storedPublicKey !== publicKey)
+                    await browser.storage.local.set({ [PK_KEY]: publicKey })
+                return publicKey
+            })
+        )
+        .catch((e) => {
+            console.log(
+                `[background]: failed to retrieve public key from PKG: ${e.toString()}, falling back to localStorage`
+            )
+            if (storedPublicKey) return storedPublicKey
+            throw new Error('no public key')
+        })
 }
