@@ -147,21 +147,17 @@ MimeEncrypt.prototype = {
             })
         })
 
-        block_on(
+        this.aborted = block_on(
             Promise.race([
-                notifyTools.notifyBackground({
-                    command: 'enc_init',
-                    tabId: this.tabId,
-                }),
-                new Promise((_, reject) =>
-                    setTimeout(() => {
-                        this.aborted = true
-                        reject(new Error('timeout'))
-                    }, MSG_TIMEOUT)
-                ),
+                new Promise((resolve, _) => setTimeout(resolve, MSG_TIMEOUT, true)),
+                notifyTools
+                    .notifyBackground({
+                        command: 'enc_init',
+                        tabId: this.tabId,
+                    })
+                    .then(() => this.aborted),
             ])
         )
-
         if (this.aborted) return
 
         // Both sides are ready.

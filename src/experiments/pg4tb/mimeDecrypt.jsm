@@ -116,6 +116,7 @@ MimeDecryptHandler.prototype = {
                             this.foStream.write(msg.data, msg.data.length)
                             return
                         case 'dec_finished':
+                            DEBUG_LOG('decryption complete')
                             resolve()
                             return
                         case 'dec_aborted':
@@ -144,18 +145,15 @@ MimeDecryptHandler.prototype = {
         })
 
         // Wait till both sides are ready.
-        block_on(
+        this.aborted = block_on(
             Promise.race([
-                notifyTools.notifyBackground({
-                    command: 'dec_init',
-                    msgId: this.msgId,
-                }),
-                new Promise((_, reject) =>
-                    setTimeout(() => {
-                        this.aborted = true
-                        reject(new Error('timeout after init'))
-                    }, MSG_TIMEOUT)
-                ),
+                new Promise((resolve, _) => setTimeout(resolve, MSG_TIMEOUT, true)),
+                notifyTools
+                    .notifyBackground({
+                        command: 'dec_init',
+                        msgId: this.msgId,
+                    })
+                    .then(() => this.aborted),
             ])
         )
 
