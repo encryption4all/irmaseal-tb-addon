@@ -179,6 +179,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
 
             await messenger.NotifyTools.notifyExperiment({
                 command: 'dec_session_start',
+                msgId: msg.msgId,
             })
 
             const currMsg = await browser.messages.get(msg.msgId)
@@ -208,6 +209,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                             const decoded = new TextDecoder().decode(chunk)
                             await messenger.NotifyTools.notifyExperiment({
                                 command: 'dec_plain',
+                                msgId: msg.msgId,
                                 data: decoded,
                             })
                         },
@@ -233,6 +235,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 // make sure a folder for the plaintext exists
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_session_complete',
+                    msgId: msg.msgId,
                 })
             } catch (e) {
                 failDecryption(msg.msgId, e)
@@ -252,6 +255,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 await allWritten
                 await messenger.NotifyTools.notifyExperiment({
                     command: 'dec_finished',
+                    msgId: msg.msgId,
                 })
             } catch (e) {
                 console.log('[background]: something went wrong during unsealing: ', e.message)
@@ -361,6 +365,7 @@ async function failDecryption(msgId: number, e: Error) {
     await messenger.NotifyTools.notifyExperiment({
         command: 'dec_aborted',
         error: e.message,
+        msgId,
     })
 
     if (msgId in decryptState) delete decryptState[msgId]

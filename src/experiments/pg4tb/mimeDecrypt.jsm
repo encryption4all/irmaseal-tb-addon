@@ -89,6 +89,7 @@ MimeDecryptHandler.prototype = {
                 var timeout = setTimeout(() => reject(new Error('init timeout exceeded')), 10000)
 
                 this.listener = notifyTools.addListener((msg) => {
+                    if (msg.msgId !== this.msgId) return
                     switch (msg.command) {
                         case 'dec_session_start':
                             DEBUG_LOG('session started')
