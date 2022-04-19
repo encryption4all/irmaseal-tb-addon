@@ -12,7 +12,7 @@
 
 'use strict'
 
-var EXPORTED_SYMBOLS = ['PostguardMimeDecrypt']
+var EXPORTED_SYMBOLS = ['PostGuardMimeDecrypt']
 
 const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr, manager: Cm } = Components
 
@@ -50,7 +50,7 @@ function MimeDecryptHandler() {
 }
 
 MimeDecryptHandler.prototype = {
-    classDescription: 'Postguard/MIME JS Decryption Handler',
+    classDescription: 'PostGuard/MIME JS Decryption Handler',
     classID: MIME_JS_DECRYPTOR_CID,
     contractID: MIME_JS_DECRYPTOR_CONTRACTID,
     QueryInterface: ChromeUtils.generateQI([Ci.nsIStreamListener]),
@@ -71,7 +71,7 @@ MimeDecryptHandler.prototype = {
         this.request = request
         this.originalMsgHdr = this.uri.QueryInterface(Ci.nsIMsgMessageUrl).messageHeader
         this.folder = this.originalMsgHdr.folder
-        this.copyReceivedFolderURI = this.folder.URI.replace('INBOX', 'Postguard Received')
+        this.copyReceivedFolderURI = this.folder.URI.replace('INBOX', 'PostGuard Received')
         this.copyReceivedFolder = MailUtils.getExistingFolder(this.copyReceivedFolderURI)
         this.msgId = extension.messageManager.convert(this.originalMsgHdr).id
         this.buffer = ''
@@ -363,7 +363,7 @@ class Factory {
 }
 
 // Exported API that will register and unregister the class Factory
-var PostguardMimeDecrypt = {
+var PostGuardMimeDecrypt = {
     startup: function (reason) {
         try {
             this.factory = new Factory(MimeDecryptHandler)
@@ -376,7 +376,7 @@ var PostguardMimeDecrypt = {
 
             reg.registerFactory(
                 pgpMimeClass,
-                'Postguard Decryption Module',
+                'PostGuard Decryption Module',
                 '@mozilla.org/mimecth;1?type=application/postguard',
                 null
             )

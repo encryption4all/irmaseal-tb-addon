@@ -1,6 +1,6 @@
 {
     "appName": {
-        "message": "Postguard",
+        "message": "PostGuard",
         "description": ""
     },
     "pbdf.sidn-pbdf.email.email": {
@@ -12,11 +12,11 @@
         "description": ""
     },
     "displayMessageTitle": {
-        "message": "Get your Postguard key",
+        "message": "Get your PostGuard key",
         "description": ""
     },
     "displayMessageHeading": {
-        "message": "To decrypt and read the email you need your Postguard key.",
+        "message": "To decrypt and read the email you need your PostGuard key.",
         "description": ""
     },
     "displayMessageQrPrefix": {

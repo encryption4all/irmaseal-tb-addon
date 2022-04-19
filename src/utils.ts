@@ -25,7 +25,7 @@ export function createMIMETransform(): TransformStream<Uint8Array, string> {
         'Content-Transfer-Encoding': '7bit',
     }
     const plain =
-        'This mail has been encrypted using Postguard. For more information, see postguard.mail.'
+        'This mail has been encrypted using PostGuard. For more information, see postguard.mail.'
 
     return new TransformStream({
         start: (controller) => {

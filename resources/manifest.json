@@ -1,8 +1,8 @@
 {
     "manifest_version": 2,
-    "name": "Postguard",
+    "name": "PostGuard",
     "version": "0.1",
-    "description": "Postguard encryption plugin for Thunderbird",
+    "description": "PostGuard encryption plugin for Thunderbird",
     "applications": {
         "gecko": {
             "id": "pg4tb@e4a.org",
