@@ -10,11 +10,10 @@ const PK_KEY = 'pg-pk'
 
 const i18n = (key: string) => browser.i18n.getMessage(key)
 
-console.log('[background]: irmaseal-tb started.')
+console.log('[background]: postguard-tb-addon started.')
 console.log('[background]: loading wasm module and retrieving master public key.')
 
 const pk_promise: Promise<string> = retrievePublicKey()
-
 const mod_promise = import('@e4a/irmaseal-wasm-bindings')
 
 const [pk, mod] = await Promise.all([pk_promise, mod_promise])
@@ -31,6 +30,7 @@ const composeTabs: {
         readable?: ReadableStream<Uint8Array>
         writable?: WritableStream<string>
         allWritten?: Promise<void>
+        copyFolder?: Promise<string>
     }
 } = await (
     await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
@@ -48,7 +48,6 @@ const decryptState: {
         readable?: ReadableStream<Uint8Array>
         writable?: WritableStream<Uint8Array>
         allWritten?: Promise<void>
-        copyFolder?: any
     }
 } = {}
 
@@ -87,9 +86,23 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
     switch (msg.command) {
         case 'enc_start': {
             try {
-                const { policies, readable, writable, allWritten, details } = composeTabs[msg.tabId]
-                if (!policies || !readable || !writable || !allWritten || !details)
+                const { policies, readable, writable, allWritten, details, copyFolder } =
+                    composeTabs[msg.tabId]
+                if (!policies || !readable || !writable || !allWritten || !details || !copyFolder)
                     throw new Error('unexpected')
+
+                copyFolder
+                    .then((folder) => {
+                        messenger.NotifyTools.notifyExperiment({
+                            command: 'enc_copy_folder',
+                            folder,
+                        })
+                    })
+                    .catch((e) => {
+                        console.log(
+                            `[background]: unable to create folder for copy of unencrypted messages: ${e.message}`
+                        )
+                    })
 
                 const mimeTransform: TransformStream<Uint8Array, string> = createMIMETransform()
 
@@ -191,6 +204,20 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
 
             console.log(`[background]: accountId: ${accountId}, recipientId: ${recipientId}\n`)
 
+            getCopyFolder(accountId, RECEIVED_COPY_FOLDER)
+                .then((folder) => {
+                    messenger.NotifyTools.notifyExperiment({
+                        command: 'dec_copy_folder',
+                        folder,
+                        msgId: msg.msgId,
+                    })
+                })
+                .catch((e) => {
+                    console.log(
+                        `[background]: unable to create folder for decrypted messages: ${e.message}. Falling back to decrypting in INBOX`
+                    )
+                })
+
             const myPolicy = hiddenPolicy[recipientId]
             myPolicy.con = myPolicy.con.map(({ t, v }) => {
                 if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
@@ -218,10 +245,6 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                     })
                 })
 
-                const copyFolder = await getCopyFolder(accountId, RECEIVED_COPY_FOLDER).catch(
-                    () => {}
-                )
-
                 const currState = decryptState[msg.msgId]
                 decryptState[msg.msgId] = Object.assign({}, currState, {
                     unsealer,
@@ -229,7 +252,6 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                     usk,
                     writable,
                     allWritten,
-                    copyFolder,
                 })
 
                 // make sure a folder for the plaintext exists
@@ -286,7 +308,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
 
             await displayedPromise
                 .then(() => console.log('[background]: message is being displayed'))
-                .catch(() => console.log('[background]: message not displayed'))
+                .catch((e) => console.log('[background]: message not displayed: ', e.message))
 
             browser.messageDisplay.onMessageDisplayed.removeListener(listener)
 
@@ -387,7 +409,7 @@ async function getCopyFolder(accountId: string, folderName: string): Promise<any
         if (f.name === folderName) return f
     }
     const newFolderPromise = browser.folders.create(acc, folderName)
-    const timeout = new Promise(function (resolve, reject) {
+    const timeout = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('creating folder took too long')), 3000)
     })
 
@@ -401,9 +423,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     if (!composeTabs[tab.id].encrypt) return
 
     const mailId = await browser.identities.get(details.identityId)
-    const copySentFolder = await getCopyFolder(mailId.accountId, SENT_COPY_FOLDER).catch((e) =>
-        console.log("couldn't make folder: ", e.message)
-    )
+    const copyFolder = getCopyFolder(mailId.accountId, SENT_COPY_FOLDER)
 
     const timestamp = Math.round(Date.now() / 1000)
     const policies = details.to.reduce((total, recipient) => {
@@ -465,12 +485,12 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         readable,
         writable,
         allWritten,
+        copyFolder,
     })
 
     // Set the setSecurityInfo (triggering our custom MIME encoder)
     console.log('[background]: setting SecurityInfo')
-    const { accountId, path } = copySentFolder || ({} as { accountId?: string; path?: string })
-    await browser.pg4tb.setSecurityInfo(tab.windowId, tab.id, accountId, path)
+    await browser.pg4tb.setSecurityInfo(tab.windowId, tab.id)
 })
 
 async function checkLocalStorage(pol: Policy, pkg: string): Promise<string> {

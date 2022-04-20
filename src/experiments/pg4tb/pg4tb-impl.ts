@@ -24,19 +24,14 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
     public getAPI(context) {
         return {
             pg4tb: {
-                setSecurityInfo: function (
-                    windowId: number,
-                    tabId: number,
-                    accountId: string,
-                    path: string
-                ) {
+                setSecurityInfo: function (windowId: number, tabId: number) {
                     DEBUG_LOG('pg4tb.js: setSecurityInfo()\n')
                     let compSec = Cc['@e4a/irmaseal/compose-encrypted;1'].createInstance(
                         Ci.nsIMsgComposeSecure
                     )
 
                     compSec = compSec.wrappedJSObject
-                    compSec.init(windowId, tabId, accountId, path)
+                    compSec.init(windowId, tabId)
 
                     // Get window by windowId
                     const windowObject = context.extension.windowManager.get(windowId)

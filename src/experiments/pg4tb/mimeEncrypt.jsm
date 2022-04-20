@@ -65,10 +65,9 @@ MimeEncrypt.prototype = {
     outStringStream: null,
     outBuffer: '',
 
-    init(windowId, tabId, accountId, copyPath) {
+    init(windowId, tabId) {
         this.windowId = windowId
         this.tabId = tabId
-        if (accountId && copyPath) this.copySentFolderURI = folderPathToURI(accountId, copyPath)
     },
 
     /**
@@ -121,13 +120,13 @@ MimeEncrypt.prototype = {
         this.buffer = ''
         this.bufferCount = 0
 
-        if (this.copySentFolderURI) this.initFile()
+        this.initFile()
 
         // After 1 second of not receiving data this promise rejects.
         // This is to make sure it never fully blocks.
         this.finished = new Promise((resolve, reject) => {
             var timeout = setTimeout(() => reject(new Error('timeout')), MSG_TIMEOUT)
-            this.chunkListener = notifyTools.addListener((msg) => {
+            this.listener = notifyTools.addListener((msg) => {
                 switch (msg.command) {
                     case 'enc_ct':
                         clearTimeout(timeout)
@@ -142,6 +141,18 @@ MimeEncrypt.prototype = {
                         this.aborted = true
                         reject(msg.error)
                         break
+                }
+                return
+            })
+        })
+
+        this.copySentFolderPromise = new Promise((resolve, reject) => {
+            const timer = setTimeout(reject, 3000, new Error('waiting for copyFolder too long'))
+            this.copyFolderListener = notifyTools.addListener((msg) => {
+                if (msg.command === 'enc_copy_folder') {
+                    DEBUG_LOG(`got msg: ${msg.folder}`)
+                    clearTimeout(timer)
+                    resolve(msg.folder)
                 }
                 return
             })
@@ -171,7 +182,7 @@ MimeEncrypt.prototype = {
         headers += 'MIME-Version: 1.0\r\n'
         if (msgCompFields.cc) headers += `Cc: ${msgCompFields.cc}\r\n`
 
-        if (this.foStream) this.foStream.write(headers, headers.length)
+        this.foStream.write(headers, headers.length)
         notifyTools.notifyBackground({ command: 'enc_plain', tabId: this.tabId, data: headers })
 
         DEBUG_LOG(`mimeEncrypt.jsm: beginCryptoEncapsulation(): finish\n`)
@@ -189,7 +200,7 @@ MimeEncrypt.prototype = {
      */
     mimeCryptoWriteBlock: function (data, length) {
         if (this.aborted) return
-        if (this.foStream) this.foStream.write(data, length)
+        this.foStream.write(data, length)
 
         this.buffer += data
         this.bufferCount += length
@@ -215,7 +226,11 @@ MimeEncrypt.prototype = {
      * (no return value)
      */
     finishCryptoEncapsulation: function (abort, sendReport) {
-        if (this.aborted || abort) return
+        if (this.aborted || abort) {
+            this.foStream.close()
+            this.tempFile.remove(false)
+            return
+        }
         DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation()\n`)
 
         // Flush the remaining buffer.
@@ -237,50 +252,65 @@ MimeEncrypt.prototype = {
             return
         }
 
-        notifyTools.removeListener(this.chunkListener)
+        notifyTools.removeListener(this.listener)
+        this.foStream.close()
 
         DEBUG_LOG('mimeEncrypt: encryption complete.')
 
-        if (this.foStream) {
-            this.foStream.close()
-            let tempFile = this.tempFile
-            const copyListener = {
-                GetMessageId(messageId) {},
-                OnProgress(progress, progressMax) {},
-                OnStartCopy() {},
-                SetMessageKey(key) {
-                    DEBUG_LOG(
-                        `mimeEncrypt.jsm: copyListener: copyListener: SetMessageKey(${key})\n`
+        this.copySentFolderPromise
+            .then((copySentFolder) => {
+                const { accountId, path } = copySentFolder
+                const copySentFolderURI = folderPathToURI(accountId, path)
+                DEBUG_LOG(`got folder: ${copySentFolderURI}`)
+                let tempFile = this.tempFile
+                if (copySentFolderURI) {
+                    const copyListener = {
+                        GetMessageId(messageId) {},
+                        OnProgress(progress, progressMax) {},
+                        OnStartCopy() {},
+                        SetMessageKey(key) {
+                            DEBUG_LOG(
+                                `mimeEncrypt.jsm: copyListener: copyListener: SetMessageKey(${key})\n`
+                            )
+                        },
+                        OnStopCopy(statusCode) {
+                            if (statusCode !== 0) {
+                                DEBUG_LOG(
+                                    `mimeEncrypt.jsm: copyListener: Error copying message: ${statusCode}\n`
+                                )
+                            }
+                            try {
+                                tempFile.remove(false)
+                            } catch (ex) {
+                                DEBUG_LOG(
+                                    'mimeEncrypt.jsm: copyListener: Could not delete temp file\n'
+                                )
+                                ERROR_LOG(ex)
+                            }
+                        },
+                    }
+
+                    DEBUG_LOG(`Copying to folder with URI ${copySentFolderURI}`)
+
+                    MailServices.copy.copyFileMessage(
+                        this.tempFile,
+                        MailUtils.getExistingFolder(copySentFolderURI),
+                        null,
+                        false,
+                        0,
+                        '',
+                        copyListener,
+                        null
                     )
-                },
-                OnStopCopy(statusCode) {
-                    if (statusCode !== 0) {
-                        DEBUG_LOG(
-                            `mimeEncrypt.jsm: copyListener: Error copying message: ${statusCode}\n`
-                        )
-                    }
-                    try {
-                        tempFile.remove(false)
-                    } catch (ex) {
-                        DEBUG_LOG('mimeEncrypt.jsm: copyListener: Could not delete temp file\n')
-                        ERROR_LOG(ex)
-                    }
-                },
-            }
-
-            DEBUG_LOG(`Copying to folder with URI ${this.copySentFolderURI}`)
-
-            MailServices.copy.copyFileMessage(
-                this.tempFile,
-                MailUtils.getExistingFolder(this.copySentFolderURI),
-                null,
-                false,
-                0,
-                '',
-                copyListener,
-                null
-            )
-        }
+                }
+            })
+            .catch((e) => {
+                DEBUG_LOG(
+                    `unable to retrieve folder for copies of plaintext messages: ${e.message}`
+                )
+                this.tempFile.remove(false)
+            })
+            .finally(() => notifyTools.removeListener(this.copyFolderListener))
 
         DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation(): done\n`)
     },

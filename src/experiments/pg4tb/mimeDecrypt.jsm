@@ -26,7 +26,7 @@ const { MailUtils } = Cu.import('resource:///modules/MailUtils.jsm')
 
 const extension = ExtensionParent.GlobalManager.getExtension('pg4tb@e4a.org')
 const { notifyTools } = Cu.import(extension.rootURI.resolve('pg4tb/notifyTools.js'))
-const { block_on, folderPathToURI } = Cu.import(extension.rootURI.resolve('pg4tb/utils.jsm'))
+const { block_on, folderToURI } = Cu.import(extension.rootURI.resolve('pg4tb/utils.jsm'))
 const { clearTimeout, setTimeout } = ChromeUtils.import('resource://gre/modules/Timer.jsm')
 
 const MIME_JS_DECRYPTOR_CONTRACTID = '@mozilla.org/mime/pgp-mime-js-decrypt;1'
@@ -45,7 +45,7 @@ const SESSION_TIMEOUT = 60000
 const MSG_TIMEOUT = 3000
 
 function MimeDecryptHandler() {
-    DEBUG_LOG('mimeDecrypt.jsm: new MimeDecryptHandler()\n')
+    // DEBUG_LOG('mimeDecrypt.jsm: new MimeDecryptHandler()\n')
     this._init()
 }
 
@@ -71,8 +71,6 @@ MimeDecryptHandler.prototype = {
         this.request = request
         this.originalMsgHdr = this.uri.QueryInterface(Ci.nsIMsgMessageUrl).messageHeader
         this.folder = this.originalMsgHdr.folder
-        this.copyReceivedFolderURI = this.folder.URI.replace('INBOX', 'PostGuard Received')
-        this.copyReceivedFolder = MailUtils.getExistingFolder(this.copyReceivedFolderURI)
         this.msgId = extension.messageManager.convert(this.originalMsgHdr).id
         this.buffer = ''
         this.bufferCount = 0
@@ -80,9 +78,7 @@ MimeDecryptHandler.prototype = {
         this.sessionCompleted = false
         this.aborted = false
 
-        DEBUG_LOG(
-            `mimeDecrypt.jsm: onStartRequest(), id: ${this.msgId}, copy: ${this.copyReceivedFolderURI}`
-        )
+        // DEBUG_LOG(`mimeDecrypt.jsm: onStartRequest(), id: ${this.msgId}`)
 
         this.finishedPromise = new Promise((resolve, reject) => {
             this.sessionPromise = new Promise((resolve2, reject2) => {
@@ -99,13 +95,13 @@ MimeDecryptHandler.prototype = {
                                 () => reject(new Error('session timeout exceeded')),
                                 SESSION_TIMEOUT
                             )
-                            return
+                            break
                         case 'dec_session_complete':
                             DEBUG_LOG('session complete')
                             this.sessionCompleted = true
                             this.initFile()
                             resolve2()
-                            return
+                            break
                         case 'dec_plain':
                             clearTimeout(timeout)
                             timeout = setTimeout(
@@ -114,19 +110,23 @@ MimeDecryptHandler.prototype = {
                             )
                             // this.mimeProxy.outputDecryptedData(msg.data, msg.data.length)
                             this.foStream.write(msg.data, msg.data.length)
-                            return
+                            break
                         case 'dec_finished':
                             DEBUG_LOG('decryption complete')
+                            clearTimeout(timeout)
                             resolve()
                             return
                         case 'dec_aborted':
                             DEBUG_LOG(`decryption aborted due to error: ${msg.error}`)
                             this.aborted = true
+                            clearTimeout(timeout)
                             reject(new Error(msg.error))
                             reject2(new Error(msg.error))
-                            clearTimeout(timeout)
-                            return
+                            break
+                        default:
+                            break
                     }
+                    return
                 })
 
                 this.shutdownObserver = {
@@ -159,9 +159,25 @@ MimeDecryptHandler.prototype = {
 
         if (this.aborted) {
             // aborted after init, ignore the request
-            DEBUG_LOG('aborted after init')
+            // DEBUG_LOG('aborted after init')
             return
         }
+
+        this.copyReceivedFolderPromise = new Promise((resolve, reject) => {
+            const timer = setTimeout(
+                reject,
+                MSG_TIMEOUT,
+                new Error('waiting for copyFolder too long')
+            )
+            this.copyFolderListener = notifyTools.addListener((msg) => {
+                if (msg.msgId !== this.msgId) return
+                else if (msg.command === 'dec_copy_folder') {
+                    clearTimeout(timer)
+                    resolve(msg.folder)
+                }
+                return
+            })
+        })
 
         // Both sides are ready and there was no error during initialization,
         // so start sending (first meta, then regular) data to the background.
@@ -222,6 +238,7 @@ MimeDecryptHandler.prototype = {
     onStopRequest: function (request, status) {
         if (this.aborted) {
             if (this.foStream) this.foStream.close()
+            if (this.tempFile) this.tempFile.remove(false)
             this.removeListeners()
             return
         }
@@ -250,66 +267,81 @@ MimeDecryptHandler.prototype = {
 
         DEBUG_LOG(`mimeDecrypt.jsm: onStopRequest(): succesfully completed: ${!this.aborted}`)
 
-        const file = this.tempFile
-        const newFolder = this.copyReceivedFolder ?? this.folder
-        const originalMsgHdr = this.originalMsgHdr
-        const origMsgId = this.msgId
+        this.copyReceivedFolderPromise
+            .then((copyReceivedFolder) => {
+                const { accountId, path } = copyReceivedFolder
+                const copyReceivedFolderURI = folderPathToURI(accountId, path)
+                return copyReceivedFolderURI
+            })
+            .catch((e) => {
+                return undefined
+            })
+            .then((copyReceivedFolderURI) => {
+                const file = this.tempFile
+                const newFolder = copyReceivedFolderURI
+                    ? MailUtils.getExistingFolder(copyReceivedFolderURI)
+                    : this.folder
+                const originalMsgHdr = this.originalMsgHdr
+                const origMsgId = this.msgId
 
-        let newKey
-        const copyListener = {
-            GetMessageId(messageId) {},
-            OnProgress(progress, progressMax) {},
-            OnStartCopy() {
-                DEBUG_LOG(`mimeDecrypt.jsm: copyListener: OnStartCopy`)
-            },
-            SetMessageKey(key) {
-                DEBUG_LOG(`mimeDecrypt.jsm: copyListener: SetMessageKey(${key})`)
-                newKey = key
-            },
-            OnStopCopy(statusCode) {
-                DEBUG_LOG(`mimeDecrypt.jsm: copyListener: OnStopCopy`)
-                if (statusCode !== 0) {
-                    DEBUG_LOG(`mimeDecrypt.jsm: copyListener: Error copying message: ${statusCode}`)
-                    return
+                let newKey
+                const copyListener = {
+                    GetMessageId(messageId) {},
+                    OnProgress(progress, progressMax) {},
+                    OnStartCopy() {
+                        DEBUG_LOG(`mimeDecrypt.jsm: copyListener: OnStartCopy`)
+                    },
+                    SetMessageKey(key) {
+                        DEBUG_LOG(`mimeDecrypt.jsm: copyListener: SetMessageKey(${key})`)
+                        newKey = key
+                    },
+                    OnStopCopy(statusCode) {
+                        DEBUG_LOG(`mimeDecrypt.jsm: copyListener: OnStopCopy`)
+                        if (statusCode !== 0) {
+                            DEBUG_LOG(
+                                `mimeDecrypt.jsm: copyListener: Error copying message: ${statusCode}`
+                            )
+                            return
+                        }
+                        try {
+                            file.remove(false)
+                        } catch (ex) {
+                            DEBUG_LOG('mimeDecrypt.jsm: copyListener: Could not delete temp file')
+                            ERROR_LOG(ex)
+                        }
+
+                        const newHdr = newFolder.GetMessageHeader(newKey)
+                        const newId = extension.messageManager.convert(newHdr).id
+
+                        // TODO: this does not seem to work.
+                        newHdr.markRead(originalMsgHdr.isRead)
+                        newHdr.markFlagged(originalMsgHdr.isFlagged)
+                        newHdr.subject = originalMsgHdr.subject
+                        newHdr.date = originalMsgHdr.date
+
+                        // Notify the background that copying completed, such that we can display
+                        // this new message.
+                        notifyTools.notifyBackground({
+                            command: 'dec_copy_complete',
+                            msgId: origMsgId,
+                            newMsgId: newId,
+                        })
+                    },
                 }
-                try {
-                    file.remove(false)
-                } catch (ex) {
-                    DEBUG_LOG('mimeDecrypt.jsm: copyListener: Could not delete temp file')
-                    ERROR_LOG(ex)
-                }
 
-                const newHdr = newFolder.GetMessageHeader(newKey)
-                const newId = extension.messageManager.convert(newHdr).id
+                DEBUG_LOG(`Copying to folder with URI: ${newFolder.URI}`)
 
-                // TODO: this does not seem to work.
-                newHdr.markRead(originalMsgHdr.isRead)
-                newHdr.markFlagged(originalMsgHdr.isFlagged)
-                newHdr.subject = originalMsgHdr.subject
-                newHdr.date = originalMsgHdr.date
-
-                // Notify the background that copying completed, such that we can display
-                // this new message.
-                notifyTools.notifyBackground({
-                    command: 'dec_copy_complete',
-                    msgId: origMsgId,
-                    newMsgId: newId,
-                })
-            },
-        }
-
-        DEBUG_LOG(`Copying to folder with URI: ${newFolder.URI}`)
-
-        MailServices.copy.copyFileMessage(
-            file, // aFile
-            newFolder, // dstFolder
-            null, // msgToReplace (msgHdr)
-            false, // isDraftOrTemplate
-            null, // aMsgFlags
-            '', // aMsgKeywords
-            copyListener, // listener
-            null // msgWindow
-        )
+                MailServices.copy.copyFileMessage(
+                    file, // aFile
+                    newFolder, // dstFolder
+                    null, // msgToReplace (msgHdr)
+                    false, // isDraftOrTemplate
+                    null, // aMsgFlags
+                    '', // aMsgKeywords
+                    copyListener, // listener
+                    null // msgWindow
+                )
+            })
     },
 
     initFile: function () {
