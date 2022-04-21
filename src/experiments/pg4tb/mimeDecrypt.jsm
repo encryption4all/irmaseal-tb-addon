@@ -26,7 +26,7 @@ const { MailUtils } = Cu.import('resource:///modules/MailUtils.jsm')
 
 const extension = ExtensionParent.GlobalManager.getExtension('pg4tb@e4a.org')
 const { notifyTools } = Cu.import(extension.rootURI.resolve('pg4tb/notifyTools.js'))
-const { block_on, folderToURI } = Cu.import(extension.rootURI.resolve('pg4tb/utils.jsm'))
+const { block_on, folderPathToURI } = Cu.import(extension.rootURI.resolve('pg4tb/utils.jsm'))
 const { clearTimeout, setTimeout } = ChromeUtils.import('resource://gre/modules/Timer.jsm')
 
 const MIME_JS_DECRYPTOR_CONTRACTID = '@mozilla.org/mime/pgp-mime-js-decrypt;1'
