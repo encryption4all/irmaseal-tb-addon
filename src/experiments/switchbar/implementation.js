@@ -160,7 +160,7 @@ class SwitchBar {
                     position: relative;
                     display: inline-block;
                     width: 40px;
-                    height: 20px;
+                    height: 16px;
                 }
                 .switch input {
                     opacity: 0;
@@ -182,8 +182,8 @@ class SwitchBar {
                     content: "";
                     height: 12px;
                     width: 12px;
-                    left: 4px;
-                    bottom: 4px;
+                    left: 2px;
+                    bottom: 2px;
                     background-color: ${style['slider-color-disabled']};
                     transition: .4s;
                 }
@@ -197,10 +197,10 @@ class SwitchBar {
                     box-shadow: 0 0 1px #2196F3;
                 }
                 input:checked + .slider:before {
-                    transform: translateX(20px);
+                    transform: translateX(24px);
                 }
                 .slider.round {
-                    border-radius: 34px;
+                    border-radius: 8px;
                 }
                 .slider.round:before {
                     border-radius: 50%;
