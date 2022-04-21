@@ -6,7 +6,7 @@
                 "id": "BarProperties",
                 "type": "object",
                 "properties": {
-                    "enabled" : {
+                    "enabled": {
                         "description": "Whether or not the bar is initially enabled.",
                         "type": "boolean"
                     },
@@ -26,12 +26,17 @@
                             }
                         }
                     },
-                    "icon": {
+                    "iconEnabled": {
                         "optional": true,
-                        "description": "Path to an icon to appear on the bar, path must be relative to the extensions root folder. Default is an appropriate icon for the priority level is used.",
+                        "description": "Path to an icon to appear on the bar when the bar is enabled, path must be relative to the extensions root folder. Default is an appropriate icon for the priority level is used.",
                         "type": "string"
                     },
-                    "buttonId": {
+                    "iconDisabled": {
+                        "optional": true,
+                        "description": "Path to an icon to appear on the bar when the bar is disabled, path must be relative to the extensions root folder. Default is an appropriate icon for the priority level is used.",
+                        "type": "string"
+                    },
+                     "buttonId": {
                         "optional": true,
                         "default": "btn-switch",
                         "description": "ID of the switch button",
@@ -51,10 +56,28 @@
                         "additionalProperties": false,
                         "patternProperties": {
                             "^color-enabled$": {
-                                "type": "string"
+                                "type": "string",
+                                "pattern": "^((?!transparent)([a-z]{4,})|-moz-([a-zA-Z\\-]+)|#(?=[a-f0-9]*)(?:.{3}|.{6})|rgb\\s*\\(\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\)|rgb\\s*\\(\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*\\)|rgb\\s*\\(\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*\\))$"
                             },
                             "^color-disabled$": {
-                                "type": "string"
+                                "type": "string",
+                                "pattern": "^((?!transparent)([a-z]{4,})|-moz-([a-zA-Z\\-]+)|#(?=[a-f0-9]*)(?:.{3}|.{6})|rgb\\s*\\(\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\)|rgb\\s*\\(\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*\\)|rgb\\s*\\(\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*\\))$"
+                            },
+                            "^slider-background-color-enabled$": {
+                                "type": "string",
+                                "pattern": "^((?!transparent)([a-z]{4,})|-moz-([a-zA-Z\\-]+)|#(?=[a-f0-9]*)(?:.{3}|.{6})|rgb\\s*\\(\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\)|rgb\\s*\\(\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*\\)|rgb\\s*\\(\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*\\))$"
+                            },
+                            "^slider-background-color-disabled$": {
+                                "type": "string",
+                                "pattern": "^((?!transparent)([a-z]{4,})|-moz-([a-zA-Z\\-]+)|#(?=[a-f0-9]*)(?:.{3}|.{6})|rgb\\s*\\(\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\)|rgb\\s*\\(\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*\\)|rgb\\s*\\(\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*\\))$"
+                            },
+                            "^slider-color-enabled$": {
+                                "type": "string",
+                                "pattern": "^((?!transparent)([a-z]{4,})|-moz-([a-zA-Z\\-]+)|#(?=[a-f0-9]*)(?:.{3}|.{6})|rgb\\s*\\(\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\)|rgb\\s*\\(\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*\\)|rgb\\s*\\(\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*\\))$"
+                            },
+                            "^slider-color-disabled$": {
+                                "type": "string",
+                                "pattern": "^((?!transparent)([a-z]{4,})|-moz-([a-zA-Z\\-]+)|#(?=[a-f0-9]*)(?:.{3}|.{6})|rgb\\s*\\(\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\s*,\\s*(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\\)|rgb\\s*\\(\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*,\\s*(1(\\.0+)?|0|0?\\.[0-9]+)\\s*\\)|rgb\\s*\\(\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*,\\s*(([1-9]{1}[0-9]?|100)%|0%?)\\s*\\))$"
                             },
                             "^font-style$": {
                                 "type": "string",

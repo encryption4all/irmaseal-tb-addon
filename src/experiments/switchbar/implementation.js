@@ -19,14 +19,22 @@ class SwitchBar {
         this.parent = parent
         this.notificationId = notificationId
 
-        const { enabled, buttonId, icon, labels, style, windowId } = properties
+        const { enabled, buttonId, iconEnabled, iconDisabled, labels, style, windowId } = properties
 
-        var iconURL = null
-        if (icon) {
-            if (icon.includes('chrome://')) {
-                iconURL = icon
-            } else if (!icon.includes(':')) {
-                iconURL = parent.extension.baseURI.resolve(icon)
+        var iconEnabledURL = null
+        var iconDisabledURL = null
+        if (iconEnabled) {
+            if (iconEnabled.includes('chrome://')) {
+                iconEnabledURL = iconEnabled
+            } else if (!iconEnabled.includes(':')) {
+                iconEnabledURL = parent.extension.baseURI.resolve(iconEnabled)
+            }
+        }
+        if (iconDisabled) {
+            if (iconDisabled.includes('chrome://')) {
+                iconDisabledURL = iconDisabled
+            } else if (!iconDisabled.includes(':')) {
+                iconDisabledURL = parent.extension.baseURI.resolve(iconDisabled)
             }
         }
 
@@ -49,7 +57,7 @@ class SwitchBar {
             element = this.getNotificationBox().appendNotification(
                 '',
                 `extension-notification-${notificationId}`,
-                iconURL,
+                enabled ? iconEnabledURL : iconDisabledURL,
                 0,
                 buttonSet,
                 notificationBarCallback
@@ -59,7 +67,7 @@ class SwitchBar {
                 `extension-notification-${notificationId}`,
                 {
                     label: '',
-                    image: iconURL,
+                    image: enabled ? iconEnabledURL : iconDisabledURL,
                     priority: 0,
                 },
                 buttonSet,
@@ -126,17 +134,20 @@ class SwitchBar {
             element.style.transition = 'none'
 
             s.innerHTML = `
-                :host(.enabled) {
-                    --message-bar-background-color: ${style['background-color-enabled']};
-                    --message-bar-icon-url: url(${iconURL});
-                    --message-bar-text-color: ${style['color-enabled']};
+                :host {
                     border-radius: 0px;
                 }
+                :host(.enabled) {
+                    --message-bar-icon-url: url(${iconEnabledURL});
+                }
                 :host(.disabled) {
-                    --message-bar-background-color: ${style['background-color-disabled']};
-                    --message-bar-icon-url: url(${iconURL});
-                    --message-bar-text-color: ${style['color-disabled']};
-                    border-radius: 0px;
+                    --message-bar-icon-url: url(${iconDisabledURL});
+                }
+                .infobar > .icon {
+                    padding: 0;
+                    margin: 3px 10px 3px 15px;
+                    width: 64px;
+                    height: 35px; 
                 }
                 .container.infobar {
                     border-radius: 0;
@@ -148,7 +159,7 @@ class SwitchBar {
                 .switch {
                     position: relative;
                     display: inline-block;
-                    width: 34px;
+                    width: 40px;
                     height: 20px;
                 }
                 .switch input {
@@ -163,33 +174,44 @@ class SwitchBar {
                     left: 0;
                     right: 0;
                     bottom: 0;
-                    background-color: #ccc;
+                    background-color: ${style['slider-background-color-disabled']};
                     transition: .4s;
                 }
                 .slider:before {
                     position: absolute;
                     content: "";
-                    height: 16px;
-                    width: 16px;
-                    left: 2px;
-                    bottom: 2px;
-                    background-color: white;
+                    height: 12px;
+                    width: 12px;
+                    left: 4px;
+                    bottom: 4px;
+                    background-color: ${style['slider-color-disabled']};
                     transition: .4s;
                 }
+                input:checked + .slider:before {
+                    background-color: ${style['slider-color-enabled']};
+                }
                 input:checked + .slider {
-                    background-color: #69A597};
+                    background-color: ${style['slider-background-color-enabled']};
                 }
                 input:focus + .slider {
                     box-shadow: 0 0 1px #2196F3;
                 }
                 input:checked + .slider:before {
-                    transform: translateX(14px);
+                    transform: translateX(20px);
                 }
                 .slider.round {
                     border-radius: 34px;
                 }
                 .slider.round:before {
                     border-radius: 50%;
+                }
+                :host(.enabled) .container.infobar {
+                    --message-bar-background-color: ${style['background-color-enabled']};
+                    --message-bar-text-color: ${style['color-enabled']};
+                }
+                :host(.disabled) .container.infobar {
+                    --message-bar-background-color: ${style['background-color-disabled']};
+                    --message-bar-text-color: ${style['color-disabled']};
                 }
             `
 

@@ -339,21 +339,31 @@ messenger.switchbar.onButtonClicked.addListener(
 )
 
 async function addBar(tab): Promise<number> {
+    const currentTheme = await browser.theme.getCurrent()
+    console.log('currentTheme: ', currentTheme)
+    // TODO retrieve darkmode bool from theme
+    const darkMode = false
+
     const notificationId = await messenger.switchbar.create({
         enabled: DEFAULT_ENCRYPT_ON,
         windowId: tab.windowId,
         buttonId: 'btn-switch',
         placement: 'top',
-        icon: 'chrome://messenger/skin/icons/privacy-security.svg',
+        iconEnabled: 'icons/pg_logo.svg',
+        iconDisabled: `icons/pg_logo${darkMode ? '' : '_white'}.svg`,
         labels: {
             enabled: i18n('composeNotificationEnabled'),
             disabled: i18n('composeNotificationDisabled'),
         },
         style: {
-            'color-enabled': 'white',
-            'color-disabled': 'black',
-            'background-color-enabled': '#5DCCAB',
-            'background-color-disabled': '#EED202',
+            'color-enabled': '#022E3D', // text color
+            'color-disabled': '#FFFFFF',
+            'background-color-enabled': '#54D6A7', // background of bar
+            'background-color-disabled': darkMode ? '#FFFFFF' : '#022E3D',
+            'slider-background-color-enabled': '#022E3D', // background of slider
+            'slider-background-color-disabled': darkMode ? '#022E3D' : '#FFFFFF',
+            'slider-color-enabled': '#FFFFFF', // slider itself
+            'slider-color-disabled': darkMode ? '#FFFFFF' : '#022E3D',
         },
     })
 
