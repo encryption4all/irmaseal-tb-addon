@@ -338,11 +338,25 @@ messenger.switchbar.onButtonClicked.addListener(
     }
 )
 
+// Best-effort attempt to detect if darkMode is enabled.
+async function detectMode(): Promise<boolean> {
+    let darkMode = false
+    try {
+        const currentTheme = await browser.theme.getCurrent()
+        const toolbarHSL = currentTheme.colors.toolbar
+        const hslRegExp = /hsl\((\d+),\s*([\d.]+)%,\s*([\d.]+)%\)/gm
+        const found = hslRegExp.exec(toolbarHSL)
+        if (found && found[3]) {
+            darkMode = parseInt(found[3]) < 50
+        }
+    } catch (e) {
+        // fallback to false
+    }
+    return darkMode
+}
+
 async function addBar(tab): Promise<number> {
-    const currentTheme = await browser.theme.getCurrent()
-    console.log('currentTheme: ', currentTheme)
-    // TODO retrieve darkmode bool from theme
-    const darkMode = false
+    const darkMode = await detectMode()
 
     const notificationId = await messenger.switchbar.create({
         enabled: DEFAULT_ENCRYPT_ON,
@@ -357,7 +371,7 @@ async function addBar(tab): Promise<number> {
         },
         style: {
             'color-enabled': '#022E3D', // text color
-            'color-disabled': '#FFFFFF',
+            'color-disabled': darkMode ? '#022E3D' : '#FFFFFF',
             'background-color-enabled': '#54D6A7', // background of bar
             'background-color-disabled': darkMode ? '#FFFFFF' : '#022E3D',
             'slider-background-color-enabled': '#022E3D', // background of slider
