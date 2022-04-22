@@ -287,36 +287,47 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             return
         }
         case 'dec_copy_complete': {
-            // block until the message is rendered (or already is rendered)
-            let listener
-            const displayedPromise = new Promise<void>((resolve, reject) => {
-                listener = async (tab, message) => {
-                    console.log('[background]: onMessageDisplayed', tab, message)
-                    if (message.id in decryptState) resolve()
-                }
-                browser.messageDisplay.onMessageDisplayed.addListener(listener)
-                browser.mailTabs
-                    .getCurrent()
-                    .then((tab) => browser.messageDisplay.getDisplayedMessage(tab.id))
-                    .then((displayed) => {
-                        if (displayed && decryptState[msg.msgId] && msg.msgId === displayed.id) {
-                            resolve()
-                        }
-                    })
-                setTimeout(reject, 2000, new Error('timeout exceeded'))
-            })
+            try {
+                // block until the message is rendered (or already is rendered)
+                let listener
+                const displayedPromise = new Promise<void>((resolve, reject) => {
+                    listener = async (tab, message) => {
+                        console.log('[background]: onMessageDisplayed', tab, message)
+                        if (message.id in decryptState) resolve()
+                    }
+                    browser.messageDisplay.onMessageDisplayed.addListener(listener)
+                    browser.mailTabs
+                        .getCurrent()
+                        .then((tab) => browser.messageDisplay.getDisplayedMessage(tab.id))
+                        .then((displayed) => {
+                            if (
+                                displayed &&
+                                decryptState[msg.msgId] &&
+                                msg.msgId === displayed.id
+                            ) {
+                                resolve()
+                            }
+                        })
+                    setTimeout(reject, 2000, new Error('timeout exceeded'))
+                })
 
-            await displayedPromise
-                .then(() => console.log('[background]: message is being displayed'))
-                .catch((e) => console.log('[background]: message not displayed: ', e.message))
+                await displayedPromise
+                    .then(() => console.log('[background]: message is being displayed'))
+                    .catch((e) => console.log('[background]: message not displayed: ', e.message))
 
-            browser.messageDisplay.onMessageDisplayed.removeListener(listener)
+                browser.messageDisplay.onMessageDisplayed.removeListener(listener)
 
-            await browser.messages.delete([msg.msgId], true)
-            await browser.pg4tb.displayMessage(msg.newMsgId)
-            console.log(`[background]: message deleted, showing new message (id = ${msg.newMsgId})`)
+                await browser.messages.delete([msg.msgId], true)
+                await browser.pg4tb.displayMessage(msg.newMsgId)
+                console.log(
+                    `[background]: message deleted, showing new message (id = ${msg.newMsgId})`
+                )
 
-            delete decryptState[msg.msgId]
+                delete decryptState[msg.msgId]
+            } catch (e) {
+                console.log('[background]: something went wrong during unsealing: ', e.message)
+                await failDecryption(msg.msgId, e)
+            }
 
             return
         }
