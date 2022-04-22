@@ -188,43 +188,43 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 return
             }
 
-            const unsealer = await mod.Unsealer.new(readable)
-
-            await messenger.NotifyTools.notifyExperiment({
-                command: 'dec_session_start',
-                msgId: msg.msgId,
-            })
-
-            const currMsg = await browser.messages.get(msg.msgId)
-            const accountId = currMsg.folder.accountId
-            const defaultIdentity = await browser.identities.getDefault(accountId)
-            const recipientId = toEmail(defaultIdentity.email)
-            const hiddenPolicy = unsealer.get_hidden_policies()
-            const sender = currMsg.author
-
-            console.log(`[background]: accountId: ${accountId}, recipientId: ${recipientId}\n`)
-
-            getCopyFolder(accountId, RECEIVED_COPY_FOLDER)
-                .then((folder) => {
-                    messenger.NotifyTools.notifyExperiment({
-                        command: 'dec_copy_folder',
-                        folder,
-                        msgId: msg.msgId,
-                    })
-                })
-                .catch((e) => {
-                    console.log(
-                        `[background]: unable to create folder for decrypted messages: ${e.message}. Falling back to decrypting in INBOX`
-                    )
-                })
-
-            const myPolicy = hiddenPolicy[recipientId]
-            myPolicy.con = myPolicy.con.map(({ t, v }) => {
-                if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
-                return { t, v }
-            })
-
             try {
+                const unsealer = await mod.Unsealer.new(readable)
+
+                await messenger.NotifyTools.notifyExperiment({
+                    command: 'dec_session_start',
+                    msgId: msg.msgId,
+                })
+
+                const currMsg = await browser.messages.get(msg.msgId)
+                const accountId = currMsg.folder.accountId
+                const defaultIdentity = await browser.identities.getDefault(accountId)
+                const recipientId = toEmail(defaultIdentity.email)
+                const hiddenPolicy = unsealer.get_hidden_policies()
+                const sender = currMsg.author
+
+                console.log(`[background]: accountId: ${accountId}, recipientId: ${recipientId}\n`)
+
+                getCopyFolder(accountId, RECEIVED_COPY_FOLDER)
+                    .then((folder) => {
+                        messenger.NotifyTools.notifyExperiment({
+                            command: 'dec_copy_folder',
+                            folder,
+                            msgId: msg.msgId,
+                        })
+                    })
+                    .catch((e) => {
+                        console.log(
+                            `[background]: unable to create folder for decrypted messages: ${e.message}. Falling back to decrypting in INBOX`
+                        )
+                    })
+
+                const myPolicy = hiddenPolicy[recipientId]
+                myPolicy.con = myPolicy.con.map(({ t, v }) => {
+                    if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
+                    return { t, v }
+                })
+
                 const usk = await checkLocalStorage(myPolicy, PKG_URL).catch((e) =>
                     createSessionPopup(myPolicy, sender, recipientId)
                 )
@@ -303,7 +303,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                             resolve()
                         }
                     })
-                setTimeout(reject, 2000)
+                setTimeout(reject, 2000, new Error('timeout exceeded'))
             })
 
             await displayedPromise
