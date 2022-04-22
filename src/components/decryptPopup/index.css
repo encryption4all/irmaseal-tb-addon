@@ -1,6 +1,6 @@
 @font-face {
-    font-family: 'Karla';
-    src: url('./../../../resources/fonts/Karla-Regular.ttf') format('truetype');
+    font-family: 'Overpass';
+    src: url('./../../../resources/fonts/Overpass-Regular.ttf') format('truetype');
     font-weight: 600;
     font-style: normal;
 }
@@ -8,7 +8,7 @@
 p,
 h1,
 h2 {
-    font-family: 'Karla';
+    font-family: 'Overpass';
 }
 
 body {
