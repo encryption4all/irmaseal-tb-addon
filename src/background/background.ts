@@ -24,7 +24,8 @@ const composeTabs: {
     [tabId: number]: {
         tab: any
         encrypt: boolean
-        notificationId: number
+        barId: number
+        notificationId?: number
         details?: any
         policies?: any
         readable?: ReadableStream<Uint8Array>
@@ -35,8 +36,8 @@ const composeTabs: {
 } = await (
     await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
 ).reduce(async (tabs, tab) => {
-    const notificationId = await addBar(tab)
-    return { ...tabs, [tab.id]: { encrypt: true, tab, notificationId } }
+    const barId = await addBar(tab)
+    return { ...tabs, [tab.id]: { encrypt: true, tab, barId } }
 }, {})
 
 // Keeps track of decryptions state (per message).
@@ -336,18 +337,29 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
 
 // Listen for notificationbar switch button clicks.
 messenger.switchbar.onButtonClicked.addListener(
-    async (windowId: number, notificationId: number, buttonId: string, enabled: boolean) => {
+    async (windowId: number, barId: number, buttonId: string, enabled: boolean) => {
         if (['btn-switch'].includes(buttonId)) {
-            const tabId = Object.keys(composeTabs).find(
-                (key) => composeTabs[key]?.notificationId === notificationId
-            )
+            const tabId = Object.keys(composeTabs).find((key) => composeTabs[key]?.barId === barId)
             if (tabId) {
                 composeTabs[tabId].encrypt = enabled
+                // Remove the notification if PostGuard is turned off.
+                if (composeTabs[tabId].notificationId && !enabled) {
+                    await messenger.notificationbar.clear(composeTabs[tabId].notificationId)
+                    composeTabs[tabId].notificationId = undefined
+                }
             }
             return { close: false }
         }
     }
 )
+
+// Remove the notification on dismiss.
+messenger.notificationbar.onDismissed.addListener((windowId, notificationId) => {
+    const tabId = Object.keys(composeTabs).find(
+        (key) => composeTabs[key]?.notificationId === notificationId
+    )
+    if (tabId) composeTabs[tabId].notificationId = undefined
+})
 
 // Best-effort attempt to detect if darkMode is enabled.
 async function detectMode(): Promise<boolean> {
@@ -377,8 +389,8 @@ async function addBar(tab): Promise<number> {
         iconEnabled: 'icons/pg_logo.svg',
         iconDisabled: `icons/pg_logo${darkMode ? '' : '_white'}.svg`,
         labels: {
-            enabled: i18n('composeNotificationEnabled'),
-            disabled: i18n('composeNotificationDisabled'),
+            enabled: i18n('composeSwitchBarEnabled'),
+            disabled: i18n('composeSwitchBarDisabled'),
         },
         style: {
             'color-enabled': '#022E3D', // text color
@@ -402,12 +414,12 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
     // Check the windowType of the tab.
     if (win.type === WIN_TYPE_COMPOSE) {
-        const notificationId = await addBar(tab)
+        const barId = await addBar(tab)
 
         // Register the tab.
         composeTabs[tab.id] = {
             encrypt: DEFAULT_ENCRYPT_ON,
-            notificationId,
+            barId,
             tab,
         }
     }
@@ -456,6 +468,20 @@ async function getCopyFolder(accountId: string, folderName: string): Promise<any
 browser.compose.onBeforeSend.addListener(async (tab, details) => {
     console.log('[background]: onBeforeSend: ', tab, details)
     if (!composeTabs[tab.id].encrypt) return
+
+    if (details.bcc.length) {
+        if (!composeTabs[tab.id].notificationId) {
+            const notificationId = await messenger.notificationbar.create({
+                windowId: tab.windowId,
+                label: i18n('composeBccWarning'),
+                placement: 'top',
+                style: { margin: '0px' },
+                priority: messenger.notificationbar.PRIORITY_WARNING_HIGH,
+            })
+            composeTabs[tab.id].notificationId = notificationId
+        }
+        return { cancel: true }
+    }
 
     const mailId = await browser.identities.get(details.identityId)
     const copyFolder = getCopyFolder(mailId.accountId, SENT_COPY_FOLDER)

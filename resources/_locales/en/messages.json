@@ -27,12 +27,16 @@
         "message": "Not yet downloaded the IRMA-app?",
         "description": ""
     },
-    "composeNotificationEnabled": {
+    "composeSwitchBarEnabled": {
         "message": "The contents and attachments of this email will be encrypted.",
         "description": ""
     },
-    "composeNotificationDisabled": {
+    "composeSwitchBarDisabled": {
         "message": "The contents and attachments of this email will not be encrypted.",
+        "description": ""
+    },
+    "composeBccWarning": {
+        "message": "PostGuard does not support BCC. Either remove BCC or disable PostGuard.",
         "description": ""
     }
 }
