@@ -37,7 +37,7 @@ const composeTabs: {
     await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
 ).reduce(async (tabs, tab) => {
     const barId = await addBar(tab)
-    return { ...tabs, [tab.id]: { encrypt: true, tab, barId } }
+    return { ...tabs, [tab.id]: { encrypt: DEFAULT_ENCRYPT_ON, tab, barId } }
 }, {})
 
 // Keeps track of decryptions state (per message).
