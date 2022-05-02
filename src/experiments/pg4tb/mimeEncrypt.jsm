@@ -150,7 +150,6 @@ MimeEncrypt.prototype = {
             const timer = setTimeout(reject, 3000, new Error('waiting for copyFolder too long'))
             this.copyFolderListener = notifyTools.addListener((msg) => {
                 if (msg.command === 'enc_copy_folder') {
-                    DEBUG_LOG(`got msg: ${msg.folder}`)
                     clearTimeout(timer)
                     resolve(msg.folder)
                 }
