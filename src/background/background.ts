@@ -180,13 +180,9 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             return
         }
         case 'dec_metadata': {
-            const { readable } = decryptState[msg.msgId]
-            if (!readable) {
-                await failDecryption(msg.msgId, new Error('not initialized'))
-                return
-            }
-
             try {
+                const { readable } = decryptState[msg.msgId]
+                if (!readable) throw new Error('not initialized')
                 const unsealer = await mod.Unsealer.new(readable)
 
                 await messenger.NotifyTools.notifyExperiment({
@@ -259,7 +255,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                     msgId: msg.msgId,
                 })
             } catch (e) {
-                failDecryption(msg.msgId, e)
+                failDecryption(msg.msgId, e, !e.message.includes('tab closed'))
                 return
             }
 
@@ -287,6 +283,8 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
         }
         case 'dec_copy_complete': {
             try {
+                if (!msg.success) throw new Error('copying of the message failed')
+
                 // block until the message is rendered (or already is rendered)
                 let listener
                 const displayedPromise = new Promise<void>((resolve, reject) => {
@@ -307,7 +305,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                                 resolve()
                             }
                         })
-                    setTimeout(reject, 2000, new Error('timeout exceeded'))
+                    setTimeout(reject, 500, new Error('timeout exceeded'))
                 })
 
                 await displayedPromise

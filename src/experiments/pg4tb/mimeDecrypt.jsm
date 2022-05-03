@@ -301,6 +301,10 @@ MimeDecryptHandler.prototype = {
                             DEBUG_LOG(
                                 `mimeDecrypt.jsm: copyListener: Error copying message: ${statusCode}`
                             )
+                            notifyTools.notifyBackground({
+                                command: 'dec_copy_complete',
+                                success: false,
+                            })
                             return
                         }
                         try {
@@ -323,6 +327,7 @@ MimeDecryptHandler.prototype = {
                         // this new message.
                         notifyTools.notifyBackground({
                             command: 'dec_copy_complete',
+                            success: true,
                             msgId: origMsgId,
                             newMsgId: newId,
                         })
