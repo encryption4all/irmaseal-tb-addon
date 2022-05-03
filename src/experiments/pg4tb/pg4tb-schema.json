@@ -14,6 +14,10 @@
                     {
                         "name": "tabId",
                         "type": "integer"
+                    },
+                    {
+                        "name": "originalSubject",
+                        "type": "string"
                     }
                 ]
             },

@@ -7,6 +7,7 @@ const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
 const PK_KEY = 'pg-pk'
+const POSTGUARD_SUBJECT = 'PostGuard Encrypted Email'
 
 const i18n = (key: string) => browser.i18n.getMessage(key)
 
@@ -478,6 +479,12 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     console.log('[background]: onBeforeSend: ', tab, details)
     if (!composeTabs[tab.id].encrypt) return
 
+    const originalSubject = details.subject
+    details.subject = POSTGUARD_SUBJECT
+
+    if (!details.isPlainText) details.plainTextBody = null
+    else details.body = null
+
     if (details.bcc.length) {
         if (!composeTabs[tab.id].notificationId) {
             const notificationId = await messenger.notificationbar.create({
@@ -560,7 +567,9 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     // Set the setSecurityInfo (triggering our custom MIME encoder)
     console.log('[background]: setting SecurityInfo')
-    await browser.pg4tb.setSecurityInfo(tab.windowId, tab.id)
+    await browser.pg4tb.setSecurityInfo(tab.windowId, tab.id, originalSubject)
+
+    return { cancel: false, details }
 })
 
 async function checkLocalStorage(pol: Policy, pkg: string): Promise<string> {

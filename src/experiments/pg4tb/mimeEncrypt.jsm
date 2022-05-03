@@ -65,9 +65,10 @@ MimeEncrypt.prototype = {
     outStringStream: null,
     outBuffer: '',
 
-    init(windowId, tabId) {
+    init(windowId, tabId, originalSubject) {
         this.windowId = windowId
         this.tabId = tabId
+        this.originalSubject = originalSubject
     },
 
     /**
@@ -177,7 +178,7 @@ MimeEncrypt.prototype = {
         headers += `Date: ${new Date().toUTCString()}\r\n`
         headers += `From: ${msgCompFields.from}\r\n`
         headers += `To: ${msgCompFields.to}\r\n`
-        headers += `Subject: ${msgCompFields.subject}\r\n`
+        headers += `Subject: ${this.originalSubject}\r\n`
         headers += 'MIME-Version: 1.0\r\n'
         if (msgCompFields.cc) headers += `Cc: ${msgCompFields.cc}\r\n`
 
