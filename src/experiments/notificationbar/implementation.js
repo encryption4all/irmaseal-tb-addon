@@ -93,6 +93,8 @@ class Notification {
                 element.style[cssPropertyName] = style[cssPropertyName]
             }
         }
+
+        element.shadowRoot.querySelector('div.container.infobar').style['border-radius'] = '0px'
     }
 
     getThunderbirdVersion() {

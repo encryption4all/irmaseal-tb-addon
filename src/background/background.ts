@@ -122,62 +122,58 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             return
         }
         case 'dec_init': {
-            if (Object.keys(decryptState).length > 0) {
-                console.log('currently decrypting: ', Object.keys(decryptState))
-                await failDecryption(msg.msgId, new Error('already decrypting a message'))
-                return
-            }
-            if (!currSelectedMessages.includes(msg.msgId)) {
-                await failDecryption(msg.msgId, new Error('only decrypting selected messages'))
-                return
-            }
+            try {
+                if (Object.keys(decryptState).length > 0)
+                    throw new Error('already decrypting a message')
 
-            const mail = await browser.messages.get(msg.msgId)
-            const folder = mail.folder
-            if (folder['type'] !== 'inbox') {
-                await failDecryption(
-                    msg.msgId,
-                    new Error('only decrypting messages in inbox type folders')
-                )
-                return
-            }
+                if (!currSelectedMessages.includes(msg.msgId))
+                    throw new Error('only decrypting selected messages')
 
-            let listener
-            let readable: ReadableStream<Uint8Array> | undefined
-            const closed = new Promise<void>((resolve) => {
-                readable = new ReadableStream<Uint8Array>({
-                    start: (controller) => {
-                        listener = async (msg2: {
-                            command: string
-                            msgId: number
-                            data: string
-                        }) => {
-                            if (msg.msgId !== msg2.msgId) return
-                            switch (msg2.command) {
-                                case 'dec_ct': {
-                                    const array = Buffer.from(msg2.data, 'base64')
-                                    controller.enqueue(array)
-                                    return
-                                }
-                                case 'dec_finalize': {
-                                    controller.close()
-                                    resolve()
-                                    return
+                const mail = await browser.messages.get(msg.msgId)
+                const folder = mail.folder
+                if (folder['type'] !== 'inbox')
+                    throw Error('only decrypting messages in inbox type folders')
+
+                let listener
+                let readable: ReadableStream<Uint8Array> | undefined
+                const closed = new Promise<void>((resolve) => {
+                    readable = new ReadableStream<Uint8Array>({
+                        start: (controller) => {
+                            listener = async (msg2: {
+                                command: string
+                                msgId: number
+                                data: string
+                            }) => {
+                                if (msg.msgId !== msg2.msgId) return
+                                switch (msg2.command) {
+                                    case 'dec_ct': {
+                                        const array = Buffer.from(msg2.data, 'base64')
+                                        controller.enqueue(array)
+                                        return
+                                    }
+                                    case 'dec_finalize': {
+                                        controller.close()
+                                        resolve()
+                                        return
+                                    }
                                 }
                             }
-                        }
-                        messenger.NotifyTools.onNotifyBackground.addListener(listener)
-                    },
+                            messenger.NotifyTools.onNotifyBackground.addListener(listener)
+                        },
+                    })
                 })
-            })
 
-            closed.then(() => {
-                console.log('[background]: readable closed, removing listener')
-                messenger.NotifyTools.onNotifyBackground.removeListener(listener)
-            })
+                closed.then(() => {
+                    console.log('[background]: readable closed, removing listener')
+                    messenger.NotifyTools.onNotifyBackground.removeListener(listener)
+                })
 
-            decryptState[msg.msgId] = {
-                readable,
+                decryptState[msg.msgId] = {
+                    readable,
+                }
+            } catch (e) {
+                // Do not notify the user as this 'dec_init' can be triggered in the background.
+                await failDecryption(msg.msgId, e, false)
             }
 
             return
@@ -221,6 +217,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                     })
 
                 const myPolicy = hiddenPolicy[recipientId]
+                if (!myPolicy) throw new Error('recipient identifier not found in header')
                 myPolicy.con = myPolicy.con.map(({ t, v }) => {
                     if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
                     return { t, v }
@@ -430,14 +427,26 @@ browser.mailTabs.onSelectedMessagesChanged.addListener((tab, selectedMessages) =
     console.log('[background]: currSelectedMessages: ', currSelectedMessages)
 })
 
-async function failDecryption(msgId: number, e: Error) {
+async function failDecryption(msgId: number, e: Error, notifyUser = true) {
     await messenger.NotifyTools.notifyExperiment({
         command: 'dec_aborted',
         error: e.message,
         msgId,
     })
-
     if (msgId in decryptState) delete decryptState[msgId]
+    if (notifyUser) await notifyDecryptionFailed(e)
+}
+
+async function notifyDecryptionFailed(e: Error) {
+    const activeMailTabs = await browser.tabs.query({ mailTab: true, active: true })
+    if (activeMailTabs.length === 1)
+        await messenger.notificationbar.create({
+            windowId: activeMailTabs[0].windowId,
+            label: `Decryption failed: ${e.message}.`,
+            placement: 'message',
+            style: { margin: '0px' },
+            priority: messenger.notificationbar.PRIORITY_CRITICAL_HIGH,
+        })
 }
 
 // Remove tab if it was closed.
