@@ -501,7 +501,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     const copyFolder = getCopyFolder(mailId.accountId, SENT_COPY_FOLDER)
 
     const timestamp = Math.round(Date.now() / 1000)
-    const policies = details.to.reduce((total, recipient) => {
+    const policies = [...details.to, ...details.cc].reduce((total, recipient) => {
         const recipient_id = toEmail(recipient)
         total[recipient_id] = {
             ts: timestamp,
