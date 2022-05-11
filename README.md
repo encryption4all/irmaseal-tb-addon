@@ -24,8 +24,11 @@ organisation](https://github.com/encryption4all/irmaseal).
 
 ## Prerequisites
 
-The `yarn` package manager, or alternatively `npm`, is required to build this
-addon.
+Node and a package manager like `yarn`, or alternatively `npm`, are required to
+build the addon. Building the addon was tested on:
+
+-   node `v17.9.0`,
+-   yarn `v1.22.18`.
 
 ## Building
 
