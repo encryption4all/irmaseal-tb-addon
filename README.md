@@ -58,6 +58,37 @@ The addon currently uses four experiments:
 -   the [notificationbar API](https://github.com/jobisoft/notificationbar-API) to show warning/error notifications.
 -   the `switchbar` experiment, which is a modification of the notificationbar API that implements a switchable toolbar inside the compose window. This experiment uses `innerHTML` to adjust the bar. This can probably be avoided, but the input is not user input, rather developer input. For now, no plans are made to publish the experiment, since it is tailored specific to our UX needs.
 
+## Self-distribution & updates
+
+To self-distribute (and update the addon) make sure that the following is present in the manifest:
+
+```
+"browser_specific_settings": {
+    "gecko": {
+        "update_url": "<UPDATE_URL>/updates.json"
+    }
+}
+```
+
+At this URL a file (see, `dist/updates.json`) should be hosted. This file
+contains updates consisting of a version, a download URL for this specific
+version and optionally, version restrictions.
+
+```json
+{
+    "addons": {
+        "pg4tb@e4a.org": {
+            "updates": [
+                {
+                    "version": "0.1",
+                    "update_link": "<DOWNLOAD_URL>/postguard-tb-addon-0.1.xpi"
+                }
+            ]
+        }
+    }
+}
+```
+
 ## Funding
 
 PostGuard is being developed by a multidisciplinary (cyber security, UX) team from

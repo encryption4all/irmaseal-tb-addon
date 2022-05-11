@@ -4,11 +4,12 @@ module.exports = (grunt) => {
     const srcDir = 'src/'
     const outDir = 'dist/'
     const outDirExtracted = `${outDir}/release/`
-    const outXpi = `${outDir}/postguard-tb-addon.xpi`
+    const outXpi = `${outDir}/postguard-tb-addon-<%= manifest.version %>.xpi`
     const resourceDir = 'resources/'
 
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
+        manifest: grunt.file.readJSON('resources/manifest.json'),
 
         clean: [outDir],
         copy: {
@@ -17,8 +18,14 @@ module.exports = (grunt) => {
                     {
                         expand: true,
                         cwd: 'resources/',
-                        src: ['**'],
+                        src: ['**', '!updates.json'],
                         dest: outDirExtracted,
+                    },
+                    {
+                        expand: true,
+                        cwd: 'resources/',
+                        src: ['updates.json'],
+                        dest: outDir,
                     },
                     {
                         expand: true,
