@@ -1,4 +1,6 @@
-export function createMIMETransform(): TransformStream<Uint8Array, string> {
+import { ComposeMail } from '@e4a/irmaseal-mail-utils'
+
+export function createMIMETransform(sender: string): TransformStream<Uint8Array, string> {
     // The number of chars a base64 encoded line should contain according to RFC 1421.
     // For more information see, https://datatracker.ietf.org/doc/html/rfc1421.
     const LINE_CHARS = 76
@@ -12,6 +14,11 @@ export function createMIMETransform(): TransformStream<Uint8Array, string> {
     let buf_tail = 0
 
     const boundary = generateBoundary()
+    const altBoundary = generateBoundary()
+
+    const composer = new ComposeMail()
+    composer.setSender(sender)
+
     const outerHeaders = {
         'Content-Type': `multipart/mixed; boundary="${boundary}"`,
     }
@@ -24,19 +31,39 @@ export function createMIMETransform(): TransformStream<Uint8Array, string> {
         'Content-Type': 'text/plain; charset=utf-8',
         'Content-Transfer-Encoding': '7bit',
     }
-    const plain =
-        'This mail has been encrypted using PostGuard. For more information, see postguard.eu.'
+    const htmlHeaders = {
+        'Content-Type': 'text/html; charset=utf-8',
+    }
+
+    const plain = composer.getPlainText()
+    const html = composer.getHtmlText()
 
     return new TransformStream({
         start: (controller) => {
             for (const [k, v] of Object.entries(outerHeaders)) {
                 controller.enqueue(`${k}: ${v}\r\n`)
             }
+            controller.enqueue(`\r\n`)
             controller.enqueue(`--${boundary}\r\n`)
+
+            controller.enqueue(
+                `Content-Type: multipart/alternative; boundary="${altBoundary}"\r\n\r\n`
+            )
+            controller.enqueue(`--${altBoundary}\r\n`)
+
             for (const [k, v] of Object.entries(plainHeaders)) {
                 controller.enqueue(`${k}: ${v}\r\n`)
             }
-            controller.enqueue(`\r\n${plain}\r\n--${boundary}\r\n`)
+            controller.enqueue(`\r\n${plain}\r\n\r\n`)
+
+            controller.enqueue(`--${altBoundary}\r\n`)
+
+            for (const [k, v] of Object.entries(htmlHeaders)) {
+                controller.enqueue(`${k}: ${v}\r\n`)
+            }
+            controller.enqueue(`\r\n${html}\r\n\r\n`)
+            controller.enqueue(`--${altBoundary}\r\n`)
+            controller.enqueue(`--${boundary}\r\n`)
 
             for (const [k, v] of Object.entries(encryptedHeaders)) {
                 controller.enqueue(`${k}: ${v}\r\n`)
@@ -66,7 +93,7 @@ export function createMIMETransform(): TransformStream<Uint8Array, string> {
         flush: (controller) => {
             const b64string = buf.slice(0, buf_tail).toString('base64')
             const formatted = b64string.replace(/(.{76})/g, '$1\r\n')
-            controller.enqueue(formatted + '\r\n')
+            controller.enqueue(formatted + '\r\n\r\n')
             controller.enqueue(`--${boundary}--\r\n`)
         },
     })

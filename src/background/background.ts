@@ -106,7 +106,9 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                         )
                     })
 
-                const mimeTransform: TransformStream<Uint8Array, string> = createMIMETransform()
+                const mimeTransform: TransformStream<Uint8Array, string> = createMIMETransform(
+                    toEmail(details.from)
+                )
 
                 await mod.seal(pk, policies, readable, withTransform(writable, mimeTransform))
                 await allWritten

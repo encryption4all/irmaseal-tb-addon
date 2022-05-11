@@ -37,6 +37,7 @@
         "webpack": "^5.24.2"
     },
     "dependencies": {
+        "@e4a/irmaseal-mail-utils": "0.0.3",
         "@e4a/irmaseal-wasm-bindings": "0.2.0-beta.6",
         "@privacybydesign/irma-client": "^0.3.3",
         "@privacybydesign/irma-core": "^0.3.3",

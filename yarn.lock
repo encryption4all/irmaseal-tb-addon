@@ -23,6 +23,11 @@
     chalk "^2.0.0"
     js-tokens "^4.0.0"
 
+"@e4a/irmaseal-mail-utils@0.0.3":
+  version "0.0.3"
+  resolved "https://registry.npmjs.org/@e4a/irmaseal-mail-utils/-/irmaseal-mail-utils-0.0.3.tgz#b6210ace4b92f3ab08521ea3a9b15f164d4d352b"
+  integrity sha512-f6AooaENqXqZmovF+t0Lv4BGId8wxk53rSNBsBGVMxlFTPLMmaqHaikHx1Fa64ZlXJNAweO8zWWsf1B/LWcHRQ==
+
 "@e4a/irmaseal-wasm-bindings@0.2.0-beta.6":
   version "0.2.0-beta.6"
   resolved "https://registry.npmjs.org/@e4a/irmaseal-wasm-bindings/-/irmaseal-wasm-bindings-0.2.0-beta.6.tgz#a84bb91f63683fcfbdfcf9a429a58285038b3502"
