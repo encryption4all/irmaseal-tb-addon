@@ -11,7 +11,7 @@ module.exports = (grunt) => {
         pkg: grunt.file.readJSON('package.json'),
         manifest: grunt.file.readJSON('resources/manifest.json'),
 
-        clean: [outDir],
+        clean: { initial: [outDir], after: [outDirExtracted] },
         copy: {
             main: {
                 files: [
@@ -99,7 +99,21 @@ module.exports = (grunt) => {
     grunt.loadNpmTasks('grunt-contrib-watch')
 
     // Default task(s).
-    grunt.registerTask('default', ['clean', 'copy', 'webpack:dev', 'compress', 'eslint'])
+    grunt.registerTask('default', [
+        'clean:initial',
+        'copy',
+        'webpack:dev',
+        'compress',
+        'clean:after',
+        'eslint',
+    ])
 
-    grunt.registerTask('release', ['clean', 'copy', 'webpack:release', 'compress', 'eslint'])
+    grunt.registerTask('release', [
+        'clean:initial',
+        'copy',
+        'webpack:release',
+        'compress',
+        'clean:after',
+        'eslint',
+    ])
 }
