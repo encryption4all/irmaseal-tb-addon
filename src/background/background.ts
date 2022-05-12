@@ -434,11 +434,9 @@ browser.tabs.onCreated.addListener(async (tab) => {
 browser.mailTabs.onSelectedMessagesChanged.addListener((tab, selectedMessages) => {
     lastSelectMessage = Date.now()
     currSelectedMessages = selectedMessages.messages.map((m) => m.id)
-    console.log('[background]: currSelectedMessages: ', currSelectedMessages)
 })
 
 browser.mailTabs.onDisplayedFolderChanged.addListener(() => {
-    console.log('[background]: onDisplayedFolderChanged')
     lastSelectFolder = Date.now()
 })
 
