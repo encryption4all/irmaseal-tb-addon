@@ -64,6 +64,11 @@ let currSelectedMessages: number[] = await (
         .catch(() => [])
 }, [])
 
+// Previous selection time of folders and messages.
+// We track this because sometimes opening a folder automatically selects a message.
+let lastSelectFolder = 0
+let lastSelectMessage = Number.MAX_SAFE_INTEGER
+
 console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
 console.log('[background]: startup currSelectedMessages: ', currSelectedMessages)
 
@@ -131,6 +136,9 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
 
                 if (!currSelectedMessages.includes(msg.msgId))
                     throw new Error('only decrypting selected messages')
+
+                if (lastSelectMessage - lastSelectFolder < 50)
+                    throw new Error('automatic message selection')
 
                 const mail = await browser.messages.get(msg.msgId)
                 const folder = mail.folder
@@ -424,8 +432,14 @@ browser.tabs.onCreated.addListener(async (tab) => {
 })
 
 browser.mailTabs.onSelectedMessagesChanged.addListener((tab, selectedMessages) => {
+    lastSelectMessage = Date.now()
     currSelectedMessages = selectedMessages.messages.map((m) => m.id)
     console.log('[background]: currSelectedMessages: ', currSelectedMessages)
+})
+
+browser.mailTabs.onDisplayedFolderChanged.addListener(() => {
+    console.log('[background]: onDisplayedFolderChanged')
+    lastSelectFolder = Date.now()
 })
 
 async function failDecryption(msgId: number, e: Error, notifyUser = true) {
