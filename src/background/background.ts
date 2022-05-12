@@ -133,10 +133,10 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
             try {
                 if (Object.keys(decryptState).length > 0)
                     throw new Error('already decrypting a message')
-
+                if (currSelectedMessages.length > 1)
+                    throw new Error('more than one message selected')
                 if (!currSelectedMessages.includes(msg.msgId))
                     throw new Error('only decrypting selected messages')
-
                 if (lastSelectMessage - lastSelectFolder < 50)
                     throw new Error('automatic message selection')
 
