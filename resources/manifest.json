@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "PostGuard",
-    "version": "0.2",
+    "version": "0.1",
     "description": "PostGuard encryption plugin for Thunderbird",
     "icons": {
         "48": "icons/pg_logo_no_text.svg",
@@ -12,7 +12,7 @@
             "id": "pg4tb@e4a.org",
             "strict_min_version": "88.0",
             "strict_max_version": "91.*",
-            "update_url": "https://postguard.eu/downloads/tb-updates.json"
+            "update_url": "https://postguard.eu/downloads/updates.json"
         }
     },
     "default_locale": "en",
