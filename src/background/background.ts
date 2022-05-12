@@ -223,7 +223,7 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
                 })
 
                 const usk = await checkLocalStorage(myPolicy, PKG_URL).catch((e) =>
-                    createSessionPopup(myPolicy, sender, recipientId)
+                    createSessionPopup(myPolicy, toEmail(sender), recipientId)
                 )
 
                 let writable: WritableStream<Uint8Array> | undefined
@@ -605,8 +605,8 @@ async function createSessionPopup(
     const popupWindow = await messenger.windows.create({
         url: 'decryptPopup.html',
         type: 'popup',
-        height: 500,
-        width: 420,
+        height: 650,
+        width: 620,
     })
 
     const popupId = popupWindow.id

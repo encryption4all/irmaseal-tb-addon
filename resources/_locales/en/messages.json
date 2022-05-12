@@ -1,42 +1,54 @@
 {
-    "appName": {
-        "message": "PostGuard",
-        "description": ""
-    },
-    "pbdf.sidn-pbdf.email.email": {
-        "message": "Email address",
-        "description": ""
-    },
-    "pbdf.pbdf.mobilenumber.mobilenumber": {
-        "message": "Mobile number",
-        "description": ""
-    },
-    "displayMessageTitle": {
-        "message": "Get your PostGuard key",
-        "description": ""
-    },
-    "displayMessageHeading": {
-        "message": "To decrypt and read the email you need your PostGuard key.",
-        "description": ""
-    },
-    "displayMessageQrPrefix": {
-        "message": "Scan the QR code with the IRMA app to disclose your e-mail address.",
-        "description": ""
-    },
-    "displayMessageIrmaHelp": {
-        "message": "Not yet downloaded the IRMA-app?",
-        "description": ""
-    },
-    "composeSwitchBarEnabled": {
-        "message": "The contents and attachments of this email will be encrypted.",
-        "description": ""
-    },
-    "composeSwitchBarDisabled": {
-        "message": "The contents and attachments of this email will not be encrypted.",
-        "description": ""
-    },
-    "composeBccWarning": {
-        "message": "PostGuard does not support BCC. Either remove BCC or disable PostGuard.",
-        "description": ""
-    }
+	"appName": {
+		"message": "PostGuard",
+		"description": ""
+	},
+	"pbdf.sidn-pbdf.email.email": {
+		"message": "Email address",
+		"description": ""
+	},
+	"pbdf.pbdf.mobilenumber.mobilenumber": {
+		"message": "Mobile number",
+		"description": ""
+	},
+	"displayMessageTitle": {
+		"message": "You received a PostGuard encrypted email from",
+		"description": ""
+	},
+	"displayMessageHeading": {
+		"message": "You need to prove who you are to decrypt and read this email.",
+		"description": ""
+	},
+	"displayMessageQrPrefix": {
+		"message": "Scan the QR code with the IRMA app to disclose your e-mail address.",
+		"description": ""
+	},
+	"displayMessageIrmaHelpHeader": {
+		"message": "What is the IRMA app?",
+		"description": ""
+	},
+	"displayMessageIrmaHelpBody": {
+		"message": "The IRMA app is a separate privacy-friendly authentication app (which is used also for other authentication purposes).",
+		"description": ""
+	},
+	"displayMessageIrmaHelpLinkText": {
+		"message": "More information about IRMA",
+		"description": ""
+	},
+	"displayMessageIrmaHelpDownloadHeader": {
+		"message": "Download the free IRMA app",
+		"description": ""
+	},
+	"composeSwitchBarEnabled": {
+		"message": "The contents and attachments of this email will be encrypted.",
+		"description": ""
+	},
+	"composeSwitchBarDisabled": {
+		"message": "The contents and attachments of this email will not be encrypted.",
+		"description": ""
+	},
+	"composeBccWarning": {
+		"message": "PostGuard does not support BCC. Either remove BCC or disable PostGuard.",
+		"description": ""
+	}
 }

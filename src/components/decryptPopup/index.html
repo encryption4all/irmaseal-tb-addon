@@ -1,45 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <title>PostGuard Decrypt</title>
-    </head>
-    <body>
-        <div id="topbar">
-            <img src="icons/pg_logo.svg" />
-            <h1 id="name"></h1>
-        </div>
-        <!--
-        <div class="center" id="postguard_svg">
-            <img src="icons/pg_logo.svg" />
-        </div>
-        <!-->
-        <div class="center">
-            <p id="postguard_txt"></p>
-        </div>
-        <h1 class="center" id="display_message_title"></h1>
-        <h2 class="center" id="msg_header"></h2>
-        <!--
-                <div id="attributes">
-                    <table class="smaller" id="attribute_table"></table>
-                </div>
-                -->
-        <div id="qr_container">
-            <img class="left" src="images/irma_logo.svg" />
-            <section class="irma-web-center-child" id="irma-web-form"></section>
-        </div>
-        <div id="download_irma">
-            <p id="irma_help"></p>
-            <div id="irma_flex">
-                <a
-                    href="https://play.google.com/store/apps/details?id=org.irmacard.cardemu&hl=en&gl=US&pcampaignid=pcampaignidMKT-Other-global-all-co-prtnr-py-PartBadge-Mar2515-1"
-                    ><img alt="Get it on Google Play" src="images/google-play-badge.png"
-                /></a>
-                <a
-                    href="https://apps.apple.com/us/app/irma-authentication/id1294092994?itsct=apps_box_badge&amp;itscg=30200"
-                    ><img src="images/appstore_badge.svg" alt="Download on the App Store"
-                /></a>
-            </div>
-        </div>
-    </body>
+	<head>
+		<meta charset="utf-8" />
+		<title>PostGuard Decrypt</title>
+	</head>
+	<body>
+		<div id="topbar">
+			<img src="icons/pg_logo_white.svg" />
+			<h1 id="name"></h1>
+		</div>
+		<div class="center">
+			<p id="postguard-txt"></p>
+		</div>
+		<h2 class="center" id="display-message-title"></h2>
+		<h3 class="center" id="sender"></h3>
+		<h3 class="center" id="msg-header"></h3>
+		<div id="qr-container">
+			<img class="left" id="irma-logo" src="images/irma_logo.svg" />
+			<section class="irma-web-center-child" id="irma-web-form"></section>
+		</div>
+		<div id="irma-app">
+			<div class="irma">
+				<div id="what-is-irma">
+					<h3 id="irma-help-header"></h3>
+					<p id="irma-help-body"></p>
+					<a id="irma-help-link" href="https://irma.app"></a>
+				</div>
+				<div id="download-irma">
+					<h3 id="irma-help-download-header"></h3>
+					<a href="https://play.google.com/store/apps/details?id=org.irmacard.cardemu">
+						<img alt="Get it on Google Play" src="images/google-play-badge.png" />
+					</a>
+					&nbsp;&nbsp;&nbsp;
+					<a href="https://apps.apple.com/us/app/irma-authentication/id1294092994">
+						<img src="images/appstore_badge.svg" alt="Download on the App Store" />
+					</a>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>

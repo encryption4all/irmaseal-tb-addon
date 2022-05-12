@@ -11,12 +11,29 @@
     font-weight: 700;
     font-style: bold;
 }
+
 p,
-h1,
-h2 {
+h2,
+h3 {
     font-family: 'Overpass';
-    font-style: bold;
+    font-style: normal;
     color: #022e3d;
+}
+
+a {
+    color: #338265;
+}
+
+h2 {
+    font-weight: 700;
+    font-size: 24px;
+    line-height: 24px;
+}
+
+h3 {
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 18px;
 }
 
 body {
@@ -30,47 +47,10 @@ p {
     font-weight: 300;
 }
 
-h1 {
-    font-size: 21px;
-}
-
-h2 {
-    font-size: 14px;
-    display: flex;
-    justify-content: center;
-}
-
-.blue {
-    color: #0074df;
-}
-
-.smaller {
-    font-size: 12px;
-}
-
-.gray {
-    color: #808080;
-    margin-top: 4px;
-}
-
-.instructions_container {
-    width: 300px;
-    display: flex;
-    justify-content: center;
-    margin: 15px auto auto auto;
-}
-
 .left {
     display: flex;
     justify-content: right;
     width: 50px;
-    height: 40px;
-}
-
-.right {
-    display: flex;
-    justify-content: left;
-    width: 364px;
     height: 40px;
 }
 
@@ -82,7 +62,7 @@ h2 {
 #topbar {
     width: 100%;
     height: 40px;
-    background-color: #54d6a7;
+    background-color: #022e3d;
     overflow: hidden;
 }
 
@@ -99,49 +79,52 @@ h1#name {
     margin: auto auto auto 10px;
 }
 
-#postguard_svg {
-    margin-top: 15px;
-}
-
-#postguard_txt {
+#postguard-txt {
     margin-top: 4px;
     font-weight: 700;
     font-size: 14px;
     color: #004c92;
 }
 
+#sender {
+    font-weight: 18px;
+    color: #338265;
+}
+
+#irma-logo {
+    width: 48px;
+    height: 48px;
+}
+
 #logo {
     width: 40px;
 }
 
-#attributes {
-    margin-top: 15px;
-}
-
-#qr_container {
+#qr-container {
     width: 300px;
     display: flex;
     justify-content: center;
     gap: 10px;
-    margin: auto auto auto 45px;
+    margin: auto auto auto 141px;
 }
 
-#download_irma {
+#irma-app h3 {
+    margin: 0;
+    padding: 0;
+}
+
+.irma {
+    text-align: left;
+    margin-left: 20%;
+    margin-right: 20%;
+    margin-top: 10px;
+}
+
+#download-irma {
     margin-top: 12px;
 }
 
-#download_irma img {
+#download-irma img {
     height: 30px;
     margin-top: 12px;
-}
-
-#irma_flex {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    margin: 0 auto;
-}
-
-#irma_help {
-    text-align: center;
 }

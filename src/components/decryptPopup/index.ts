@@ -100,17 +100,19 @@ async function onLoad() {
     const title = browser.i18n.getMessage('displayMessageTitle')
     const appName = browser.i18n.getMessage('appName')
     const header = browser.i18n.getMessage('displayMessageHeading')
-    const helper = browser.i18n.getMessage('displayMessageIrmaHelp')
+    const irmaHelpHeader = browser.i18n.getMessage('displayMessageIrmaHelpHeader')
+    const irmaHelpBody = browser.i18n.getMessage('displayMessageIrmaHelpBody')
+    const irmaHelpLink = browser.i18n.getMessage('displayMessageIrmaHelpLinkText')
+    const irmaHelpDownloadHeader = browser.i18n.getMessage('displayMessageIrmaHelpDownloadHeader')
 
     document.getElementById('name')!.innerText = appName
-    // document.getElementById('sender')!.innerText = data.senderId
-    document.getElementById('msg_header')!.innerText = header
-    document.getElementById('irma_help')!.innerText = helper
-    document.getElementById('display_message_title')!.innerText = title
-    // document.getElementById('qr_prefix')!.innerText = qrPrefix
-
-    //const table = document.getElementById('attribute_table')
-    //if (table) fillTable(table, data)
+    document.getElementById('display-message-title')!.innerText = title
+    document.getElementById('sender')!.innerText = data.senderId
+    document.getElementById('msg-header')!.innerText = header
+    document.getElementById('irma-help-header')!.innerText = irmaHelpHeader
+    document.getElementById('irma-help-body')!.innerText = irmaHelpBody
+    document.getElementById('irma-help-link')!.innerText = irmaHelpLink
+    document.getElementById('irma-help-download-header')!.innerText = irmaHelpDownloadHeader
 
     doSession(data.policy, data.hostname)
         .then((usk) => {
@@ -123,7 +125,7 @@ async function onLoad() {
             setTimeout(async () => {
                 const win = await messenger.windows.getCurrent()
                 messenger.windows.remove(win.id)
-            }, 1000)
+            }, 750)
         )
 }
 
