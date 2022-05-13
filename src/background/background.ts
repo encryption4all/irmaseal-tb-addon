@@ -395,8 +395,8 @@ async function addBar(tab): Promise<number> {
         iconEnabled: 'icons/pg_logo.svg',
         iconDisabled: `icons/pg_logo${darkMode ? '' : '_white'}.svg`,
         labels: {
-            enabled: i18n('composeSwitchBarEnabled'),
-            disabled: i18n('composeSwitchBarDisabled'),
+            enabled: i18n('composeSwitchBarEnabledHtml'),
+            disabled: i18n('composeSwitchBarDisabledHtml'),
         },
         style: {
             'color-enabled': '#022E3D', // text color

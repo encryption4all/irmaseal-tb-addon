@@ -38,6 +38,8 @@ class SwitchBar {
             }
         }
 
+        var fontURL = parent.extension.baseURI.resolve('fonts/Overpass-Regular.tff')
+
         const buttonSet = new Map()
         const notificationBarCallback = (event) => {
             // Every dismissed notification will also generate a removed notification
@@ -99,7 +101,7 @@ class SwitchBar {
             const message = shadowroot.querySelector('label.notification-message')
             const buttonContainer = element.buttonContainer
             message.parentNode.insertBefore(buttonContainer, message)
-            message.textContent = enabled ? labels.enabled : labels.disabled
+            message.innerHTML = enabled ? labels.enabled : labels.disabled
 
             // change the button to a switch
             const label = document.createElement('label')
@@ -113,8 +115,6 @@ class SwitchBar {
             label.replaceChildren(input, span)
             buttonContainer.replaceChildren(label)
 
-            const s = element.ownerDocument.createElement('style')
-
             input.addEventListener('input', (e) => {
                 const enabled = e.target.checked
 
@@ -126,14 +126,21 @@ class SwitchBar {
                     e.target.checked
                 )
 
-                message.textContent = enabled ? labels.enabled : labels.disabled
+                message.innerHTML = enabled ? labels.enabled : labels.disabled
                 element.classList.remove(enabled ? 'disabled' : 'enabled')
                 element.classList.add(enabled ? 'enabled' : 'disabled')
             })
 
             element.style.transition = 'none'
 
+            const s = element.ownerDocument.createElement('style')
             s.innerHTML = `
+               @font-face {
+                    font-family: 'Overpass';
+                    src: url(${fontURL}) format('truetype');
+                    font-weight: 600;
+                    font-style: normal;
+                } 
                 :host {
                     border-radius: 0px;
                 }
@@ -142,6 +149,11 @@ class SwitchBar {
                 }
                 :host(.disabled) {
                     --message-bar-icon-url: url(${iconDisabledURL});
+                }
+                .infobar p {
+                    font-family: 'Overpass';
+                    font-style: normal;
+                    margin: 0;
                 }
                 .infobar > .icon {
                     padding: 0;

@@ -39,12 +39,12 @@
 		"message": "Download the free IRMA app",
 		"description": ""
 	},
-	"composeSwitchBarEnabled": {
-		"message": "The contents and attachments of this email will be encrypted.",
+	"composeSwitchBarEnabledHtml": {
+		"message": "<p>Email encryption is turned <b>on</b>. Only the intended recipient(s) can decrypt and read the contents, subject and attachment(s).</p>",
 		"description": ""
 	},
-	"composeSwitchBarDisabled": {
-		"message": "The contents and attachments of this email will not be encrypted.",
+	"composeSwitchBarDisabledHtml": {
+		"message": "<p>Email encryption is turned <b>off</b>. Sensitive content? Turn PostGuard on.</p>",
 		"description": ""
 	},
 	"composeBccWarning": {
