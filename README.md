@@ -89,6 +89,10 @@ version and optionally, version restrictions.
 }
 ```
 
+A new version can be prepared for auto-updating by bumping the version in the
+manifest and providing an extra `update` entry in `updates.json`. Make sure
+that both files are publicly available at the URLs mentioned above.
+
 ## Funding
 
 PostGuard is being developed by a multidisciplinary (cyber security, UX) team from
