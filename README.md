@@ -62,7 +62,7 @@ The addon currently uses four experiments:
 
 To self-distribute (and update the addon) make sure that the following is present in the manifest:
 
-```
+```json
 "browser_specific_settings": {
     "gecko": {
         "update_url": "<UPDATE_URL>/updates.json"
