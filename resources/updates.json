@@ -5,10 +5,6 @@
                 {
                     "version": "0.1",
                     "update_link": "https://postguard.eu/downloads/postguard-tb-addon-0.1.xpi"
-                },
-                {
-                    "version": "0.2",
-                    "update_link": "https://postguard.eu/downloads/postguard-tb-addon-0.2.xpi"
                 }
             ]
         }
