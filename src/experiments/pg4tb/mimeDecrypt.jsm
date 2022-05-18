@@ -181,7 +181,7 @@ MimeDecryptHandler.prototype = {
 
         // Both sides are ready and there was no error during initialization,
         // so start sending (first meta, then regular) data to the background.
-        notifyTools.notifyBackground({ command: 'dec_metadata', msgId: this.msgId })
+        block_on(notifyTools.notifyBackground({ command: 'dec_metadata', msgId: this.msgId }))
     },
 
     onDataAvailable: function (req, stream, offset, count) {
@@ -224,11 +224,13 @@ MimeDecryptHandler.prototype = {
         this.bufferCount += count
 
         if (this.bufferCount > MIN_BUFFER) {
-            notifyTools.notifyBackground({
-                command: 'dec_ct',
-                msgId: this.msgId,
-                data: this.buffer,
-            })
+            block_on(
+                notifyTools.notifyBackground({
+                    command: 'dec_ct',
+                    msgId: this.msgId,
+                    data: this.buffer,
+                })
+            )
 
             this.buffer = ''
             this.bufferCount = 0
@@ -255,8 +257,10 @@ MimeDecryptHandler.prototype = {
         }
 
         try {
-            if (!this.sessionCompleted) block_on(this.sessionPromise)
-            notifyTools.notifyBackground({ command: 'dec_start', msgId: this.msgId })
+            if (!this.sessionCompleted) {
+                block_on(this.sessionPromise)
+                notifyTools.notifyBackground({ command: 'dec_start', msgId: this.msgId })
+            }
             notifyTools.notifyBackground({ command: 'dec_finalize', msgId: this.msgId })
             block_on(this.finishedPromise)
         } finally {
