@@ -164,6 +164,7 @@ class SwitchBar {
                 .container.infobar {
                     border-radius: 0;
                     padding: 3px;
+                    -moz-transition: background-color 0.33s linear;
                 }
                 label.notification-message {
                     margin-inline-start: 8px;
