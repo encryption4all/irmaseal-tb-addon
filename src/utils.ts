@@ -1,5 +1,15 @@
 import { ComposeMail } from '@e4a/irmaseal-mail-utils'
 
+function enqueueHeaders(
+    headers: { [key: string]: string },
+    controller: TransformStreamDefaultController
+) {
+    for (const [k, v] of Object.entries(headers)) {
+        controller.enqueue(`${k}: ${v}\r\n`)
+    }
+    controller.enqueue(`\r\n`)
+}
+
 export function createMIMETransform(sender: string): TransformStream<Uint8Array, string> {
     // The number of chars a base64 encoded line should contain according to RFC 1421.
     // For more information see, https://datatracker.ietf.org/doc/html/rfc1421.
@@ -19,56 +29,55 @@ export function createMIMETransform(sender: string): TransformStream<Uint8Array,
     const composer = new ComposeMail()
     composer.setSender(sender)
 
+    // The sent message has the following MIME structure:
+    // - multipart/mixed
+    //      - multipart/alternative
+    //          - text/plain
+    //          - text/html
+    //      - application/postguard
+
     const outerHeaders = {
         'Content-Type': `multipart/mixed; boundary="${boundary}"`,
+    }
+    const alternativeHeaders = {
+        'Content-Type': `multipart/alternative; boundary="${altBoundary}"`,
+    }
+    const plainHeaders = {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Transfer-Encoding': 'base64',
+    }
+    const htmlHeaders = {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Transfer-Encoding': 'base64',
     }
     const encryptedHeaders = {
         'Content-Type': 'application/postguard; name="postguard.encrypted"',
         'Content-Disposition': 'attachment; filename="postguard.encrypted"',
         'Content-Transfer-Encoding': 'base64',
     }
-    const plainHeaders = {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Content-Transfer-Encoding': '7bit',
-    }
-    const htmlHeaders = {
-        'Content-Type': 'text/html; charset=utf-8',
-    }
 
-    const plain = composer.getPlainText()
-    const html = composer.getHtmlText()
+    const plain = composer.getPlainTextB64()
+    const html = composer.getHtmlTextB64()
 
     return new TransformStream({
         start: (controller) => {
-            for (const [k, v] of Object.entries(outerHeaders)) {
-                controller.enqueue(`${k}: ${v}\r\n`)
-            }
-            controller.enqueue(`\r\n`)
+            enqueueHeaders(outerHeaders, controller)
             controller.enqueue(`--${boundary}\r\n`)
 
-            controller.enqueue(
-                `Content-Type: multipart/alternative; boundary="${altBoundary}"\r\n\r\n`
-            )
+            enqueueHeaders(alternativeHeaders, controller)
             controller.enqueue(`--${altBoundary}\r\n`)
 
-            for (const [k, v] of Object.entries(plainHeaders)) {
-                controller.enqueue(`${k}: ${v}\r\n`)
-            }
-            controller.enqueue(`\r\n${plain}\r\n\r\n`)
-
+            enqueueHeaders(plainHeaders, controller)
+            controller.enqueue(`${plain}\r\n\r\n`)
             controller.enqueue(`--${altBoundary}\r\n`)
 
-            for (const [k, v] of Object.entries(htmlHeaders)) {
-                controller.enqueue(`${k}: ${v}\r\n`)
-            }
-            controller.enqueue(`\r\n${html}\r\n\r\n`)
-            controller.enqueue(`--${altBoundary}\r\n`)
+            enqueueHeaders(htmlHeaders, controller)
+            controller.enqueue(`${html}\r\n\r\n`)
+            controller.enqueue(`--${altBoundary}--\r\n`)
+
             controller.enqueue(`--${boundary}\r\n`)
 
-            for (const [k, v] of Object.entries(encryptedHeaders)) {
-                controller.enqueue(`${k}: ${v}\r\n`)
-            }
-            controller.enqueue('\r\n')
+            enqueueHeaders(encryptedHeaders, controller)
         },
         transform: (chunk, controller) => {
             while (chunk.byteLength != 0) {
@@ -94,7 +103,7 @@ export function createMIMETransform(sender: string): TransformStream<Uint8Array,
             const b64string = buf.slice(0, buf_tail).toString('base64')
             const formatted = b64string.replace(/(.{76})/g, '$1\r\n')
             controller.enqueue(formatted + '\r\n\r\n')
-            controller.enqueue(`--${boundary}--\r\n`)
+            controller.enqueue(`--${boundary}--\r\n\r\n`)
         },
     })
 }
