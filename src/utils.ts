@@ -174,3 +174,14 @@ export async function hashString(message: string): Promise<string> {
     const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
     return hashHex
 }
+
+export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+    const timeout: Promise<T> = new Promise((_, reject) => {
+        const timer = setTimeout(() => {
+            clearTimeout(timer)
+            reject(new Error(`timeout of ${ms} ms exceeded`))
+        }, ms)
+    })
+
+    return Promise.race([p, timeout])
+}
