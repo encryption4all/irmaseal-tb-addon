@@ -110,6 +110,7 @@ class SwitchBar {
             input.setAttribute('type', 'checkbox')
             input.checked = enabled
             element.classList.add(enabled ? 'enabled' : 'disabled')
+            element.classList.add('initial')
             span.setAttribute('class', 'slider round')
             label.setAttribute('class', 'switch')
             label.replaceChildren(input, span)
@@ -129,6 +130,7 @@ class SwitchBar {
                 message.innerHTML = enabled ? labels.enabled : labels.disabled
                 element.classList.remove(enabled ? 'disabled' : 'enabled')
                 element.classList.add(enabled ? 'enabled' : 'disabled')
+                element.classList.remove('initial')
             })
 
             element.style.transition = 'none'
@@ -164,7 +166,6 @@ class SwitchBar {
                 .container.infobar {
                     border-radius: 0;
                     padding: 3px;
-                    -moz-transition: background-color 0.33s linear;
                 }
                 label.notification-message {
                     margin-inline-start: 8px;
@@ -225,6 +226,9 @@ class SwitchBar {
                 :host(.disabled) .container.infobar {
                     --message-bar-background-color: ${style['background-color-disabled']};
                     --message-bar-text-color: ${style['color-disabled']};
+                }
+                :host(:not(.initial)) .container.infobar {
+                    -moz-transition: background-color 0.33s linear;
                 }
             `
 
