@@ -147,7 +147,12 @@ MimeDecryptHandler.prototype = {
         // Wait till both sides are ready.
         this.aborted = block_on(
             Promise.race([
-                new Promise((resolve, _) => setTimeout(resolve, MSG_TIMEOUT, true)),
+                new Promise((resolve, _) => {
+                    const timer = setTimeout(() => {
+                        clearTimeout(timer)
+                        resolve(true)
+                    }, MSG_TIMEOUT)
+                }),
                 notifyTools
                     .notifyBackground({
                         command: 'dec_init',
@@ -181,7 +186,7 @@ MimeDecryptHandler.prototype = {
 
         // Both sides are ready and there was no error during initialization,
         // so start sending (first meta, then regular) data to the background.
-        block_on(notifyTools.notifyBackground({ command: 'dec_metadata', msgId: this.msgId }))
+        notifyTools.notifyBackground({ command: 'dec_metadata', msgId: this.msgId })
     },
 
     onDataAvailable: function (req, stream, offset, count) {

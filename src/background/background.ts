@@ -80,19 +80,19 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
     if (msg.data) console.log('[background]: data len: ', msg.data.length)
     switch (msg.command) {
         case 'enc_start':
-            enc_start_handler(msg)
+            await enc_start_handler(msg)
             break
         case 'dec_init':
-            dec_init_handler(msg)
+            await dec_init_handler(msg)
             break
         case 'dec_metadata':
-            dec_metadata_handler(msg)
+            await dec_metadata_handler(msg)
             break
         case 'dec_start':
-            dec_start_handler(msg)
+            await dec_start_handler(msg)
             break
         case 'dec_copy_complete':
-            dec_copy_complete_handler(msg)
+            await dec_copy_complete_handler(msg)
             break
     }
     return
