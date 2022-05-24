@@ -8,17 +8,18 @@ declare const Components
 const { classes: Cc, interfaces: Ci, utils: Cu } = Components
 
 const { ExtensionCommon } = Cu.import('resource://gre/modules/ExtensionCommon.jsm')
-const { Services } = Cu.import('resource://gre/modules/Services.jsm')
 const { ExtensionParent } = Cu.import('resource://gre/modules/ExtensionParent.jsm')
+const { ExtensionUtils } = Cu.import('resource://gre/modules/ExtensionUtils.jsm')
+const { ExtensionError } = ExtensionUtils
+const { Services } = Cu.import('resource://gre/modules/Services.jsm')
 const { MailUtils } = Cu.import('resource:///modules/MailUtils.jsm')
+
 const extension = ExtensionParent.GlobalManager.getExtension('pg4tb@e4a.org')
 
-// To load and unload modules
-const loadJsm = (path: string) => Cu.import(extension.rootURI.resolve(path))
-const unloadJsm = (path: string) => Cu.unload(extension.rootURI.resolve(path))
+const NAMESPACE = 'pg4tb'
+const FOLDER = 'modules/'
 
 const DEBUG_LOG = (str: string) => Services.console.logStringMessage(`[EXPERIMENT]: ${str}`)
-const ERROR_LOG = (ex) => DEBUG_LOG(`exception: ${ex.toString()}, stack: ${ex.stack}`)
 
 export default class pg4tb extends ExtensionCommon.ExtensionAPI {
     public getAPI(context) {
@@ -62,37 +63,48 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
     }
 
     public onStartup(): void {
-        try {
-            DEBUG_LOG('starting experiment')
-            const { PostGuardMimeEncrypt } = loadJsm('pg4tb/mimeEncrypt.jsm')
-            const { PostGuardMimeDecrypt } = loadJsm('pg4tb/mimeDecrypt.jsm')
-            PostGuardMimeEncrypt.startup()
-            PostGuardMimeDecrypt.startup()
-            DEBUG_LOG('all modules loaded')
-        } catch (ex) {
-            ERROR_LOG(ex)
-        }
+        DEBUG_LOG('starting pg4tb experiment')
+
+        const resProto = Cc['@mozilla.org/network/protocol;1?name=resource'].getService(
+            Ci.nsISubstitutingProtocolHandler
+        )
+
+        if (resProto.hasSubstitution(NAMESPACE))
+            throw new ExtensionError(
+                `There is already a resource:// url for the namespace "${NAMESPACE}"`
+            )
+
+        const uri = Services.io.newURI(FOLDER, null, extension.rootURI)
+        resProto.setSubstitutionWithFlags(NAMESPACE, uri, resProto.ALLOW_CONTENT_ACCESS)
+
+        DEBUG_LOG('loading modules')
+        const { PostGuardMimeEncrypt } = Cu.import('resource://pg4tb/mimeEncrypt.jsm')
+        const { PostGuardMimeDecrypt } = Cu.import('resource://pg4tb/mimeDecrypt.jsm')
+        PostGuardMimeEncrypt.startup()
+        PostGuardMimeDecrypt.startup()
+        DEBUG_LOG('all modules loaded and started')
     }
 
     public onShutdown(isAppShutdown: boolean): void {
+        DEBUG_LOG('shutting down pg4tb experiment')
         if (isAppShutdown) {
-            DEBUG_LOG('shutting down experiment')
             return
         }
 
-        try {
-            DEBUG_LOG('unloading modules')
-            const { PostGuardMimeEncrypt } = loadJsm('pg4tb/mimeEncrypt.jsm')
-            const { PostGuardMimeDecrypt } = loadJsm('pg4tb/mimeDecrypt.jsm')
-            PostGuardMimeEncrypt.shutdown()
-            PostGuardMimeDecrypt.shutdown()
-            unloadJsm('pg4tb/mimeEncrypt.jsm')
-            unloadJsm('pg4tb/mimeDecrypt.jsm')
-            DEBUG_LOG('invalidating startup cache')
-            Services.obs.notifyObservers(null, 'startupcache-invalidate', null)
-            DEBUG_LOG('succesfully shutdown experiment')
-        } catch (ex) {
-            ERROR_LOG(ex)
-        }
+        const { PostGuardMimeEncrypt } = Cu.import('resource://pg4tb/mimeEncrypt.jsm')
+        const { PostGuardMimeDecrypt } = Cu.import('resource://pg4tb/mimeDecrypt.jsm')
+        PostGuardMimeEncrypt.shutdown()
+        PostGuardMimeDecrypt.shutdown()
+        Cu.unload('resource://pg4tb/mimeEncrypt.jsm')
+        Cu.unload('resource://pg4tb/mimeDecrypt.jsm')
+
+        DEBUG_LOG('all modules shutdown')
+
+        const resProto = Cc['@mozilla.org/network/protocol;1?name=resource'].getService(
+            Ci.nsISubstitutingProtocolHandler
+        )
+
+        DEBUG_LOG(`unloading namespace "${NAMESPACE}"`)
+        resProto.setSubstitution(NAMESPACE, null)
     }
 }

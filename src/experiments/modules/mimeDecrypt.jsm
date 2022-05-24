@@ -19,15 +19,15 @@ const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr, manager: Cm } = Com
 Cm.QueryInterface(Ci.nsIComponentRegistrar)
 
 const Services = Cu.import('resource://gre/modules/Services.jsm').Services
-const { ExtensionCommon } = ChromeUtils.import('resource://gre/modules/ExtensionCommon.jsm')
-const { ExtensionParent } = ChromeUtils.import('resource://gre/modules/ExtensionParent.jsm')
+const { ExtensionCommon } = Cu.import('resource://gre/modules/ExtensionCommon.jsm')
+const { ExtensionParent } = Cu.import('resource://gre/modules/ExtensionParent.jsm')
 const { MailServices } = Cu.import('resource:///modules/MailServices.jsm')
 const { MailUtils } = Cu.import('resource:///modules/MailUtils.jsm')
 
 const extension = ExtensionParent.GlobalManager.getExtension('pg4tb@e4a.org')
-const { notifyTools } = Cu.import(extension.rootURI.resolve('pg4tb/notifyTools.js'))
-const { block_on, folderPathToURI } = Cu.import(extension.rootURI.resolve('pg4tb/utils.jsm'))
-const { clearTimeout, setTimeout } = ChromeUtils.import('resource://gre/modules/Timer.jsm')
+const { notifyTools } = Cu.import('resource://pg4tb/notifyTools.jsm')
+const { block_on, folderPathToURI } = Cu.import('resource://pg4tb/utils.jsm')
+const { clearTimeout, setTimeout } = Cu.import('resource://gre/modules/Timer.jsm')
 
 const MIME_JS_DECRYPTOR_CONTRACTID = '@mozilla.org/mime/pgp-mime-js-decrypt;1'
 const MIME_JS_DECRYPTOR_CID = Components.ID('{f3a50b87-b198-42c0-86d9-116aca7180b3}')
