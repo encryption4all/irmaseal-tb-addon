@@ -283,7 +283,8 @@ async function dec_init_handler(msg) {
         }
     } catch (e) {
         // Do not notify the user as this 'dec_init' can be triggered in the background.
-        await failDecryption(msg.msgId, e, false)
+        // Also, do not reset for the same resason.
+        await failDecryption(msg.msgId, e, false, false)
     }
 }
 
@@ -402,9 +403,8 @@ async function dec_copy_complete_handler(msg) {
                 .getCurrent()
                 .then((tab) => browser.messageDisplay.getDisplayedMessage(tab.id))
                 .then((displayed) => {
-                    if (displayed && decryptState[msg.msgId] && msg.msgId === displayed.id) {
+                    if (displayed && decryptState[msg.msgId] && msg.msgId === displayed.id)
                         resolve()
-                    }
                 })
         })
 
@@ -548,13 +548,18 @@ async function addBar(tab): Promise<number> {
     return notificationId
 }
 
-async function failDecryption(msgId: number, e: Error, notifyUser = true) {
+async function failDecryption(
+    msgId: number,
+    e: Error,
+    notifyUser = true,
+    resetDecryptState = true
+) {
     await messenger.NotifyTools.notifyExperiment({
         command: 'dec_aborted',
         error: e.message,
         msgId,
     })
-    if (msgId in decryptState) delete decryptState[msgId]
+    if (resetDecryptState && msgId in decryptState) delete decryptState[msgId]
     if (notifyUser) await notifyDecryptionFailed(e)
 }
 
