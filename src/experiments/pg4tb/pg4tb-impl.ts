@@ -100,6 +100,8 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
 
         DEBUG_LOG('all modules shutdown')
 
+        Services.obs.notifyObservers(null, 'startupcache-invalidate')
+
         const resProto = Cc['@mozilla.org/network/protocol;1?name=resource'].getService(
             Ci.nsISubstitutingProtocolHandler
         )
