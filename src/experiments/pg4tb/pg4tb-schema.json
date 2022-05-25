@@ -18,7 +18,8 @@
                     {
                         "name": "originalSubject",
                         "type": "string"
-                    }
+                    },
+                    { "name": "plaintextCopies", "type": "boolean" }
                 ]
             },
             {

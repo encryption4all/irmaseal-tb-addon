@@ -1,0 +1,91 @@
+@font-face {
+    font-family: 'Overpass';
+    src: url('./../../../resources/fonts/Overpass-Regular.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Overpass';
+    src: url('./../../../resources/fonts/Overpass-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: bold;
+}
+
+:root {
+    --pg-light-green: #54d6a7;
+    --pg-dark-green: #022e3d;
+}
+
+label {
+    font-style: normal;
+    color: var(--pg-dark-green);
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+li {
+    display: flex;
+    margin-bottom: 0.5em;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 16px;
+    margin-right: 0.5em;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--pg-dark-green);
+    transition: 0.4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: '';
+    height: 12px;
+    width: 12px;
+    left: 2px;
+    bottom: 2px;
+    background-color: lightgray;
+    transition: 0.4s;
+}
+
+input:checked + .slider:before {
+    background-color: var(--pg-light-green);
+}
+
+input:checked + .slider {
+    background-color: var(--pg-dark-green);
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px #2196f3;
+}
+
+input:checked + .slider:before {
+    transform: translateX(24px);
+}
+.slider.round {
+    border-radius: 8px;
+}
+.slider.round:before {
+    border-radius: 50%;
+}

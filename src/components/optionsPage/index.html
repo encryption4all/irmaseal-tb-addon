@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+    </head>
+    <body>
+        <form>
+            <ul>
+                <li>
+                    <label class="switch">
+                        <input type="checkbox" id="encrypt-default" />
+                        <span class="slider round"></span>
+                    </label>
+                    <label>Encrypt mails by default.</label>
+                </li>
+                <li>
+                    <label class="switch">
+                        <input type="checkbox" id="ct-copies" />
+                        <span class="slider round"></span>
+                    </label>
+                    <label>Remove ciphertext after decryption.</label>
+                </li>
+                <li>
+                    <label class="switch">
+                        <input type="checkbox" id="pt-copies" />
+                        <span class="slider round"></span>
+                    </label>
+                    <label>Keep plaintext copies on send.</label>
+                </li>
+                <li>
+                    <label class="switch">
+                        <input type="checkbox" id="encrypt-subject" />
+                        <span class="slider round"></span>
+                    </label>
+                    <label>Encrypt the subject.</label>
+                </li>
+               <button type="submit">Save</button>
+            </ul>
+        </form>
+    </body>
+</html>

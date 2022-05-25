@@ -1,4 +1,5 @@
 import { ComposeMail } from '@e4a/irmaseal-mail-utils'
+import { OPTIONS_KEY, DEFAULT_OPTIONS } from './constants'
 
 function enqueueHeaders(
     headers: { [key: string]: string },
@@ -167,6 +168,13 @@ function generateBoundary(): string {
     return boundary
 }
 
+export async function hashCon(con: AttributeCon): Promise<string> {
+    const sorted = con.sort(
+        (att1: AttributeRequest, att2: AttributeRequest) =>
+            att1.t.localeCompare(att2.t) || att1.v.localeCompare(att2.v)
+    )
+    return await hashString(JSON.stringify(sorted))
+}
 export async function hashString(message: string): Promise<string> {
     const msgArray = new TextEncoder().encode(message)
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgArray)
@@ -184,4 +192,19 @@ export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
     })
 
     return Promise.race([p, timeout])
+}
+
+// Loads the options from storage.local
+export async function loadOptions(): Promise<Options> {
+    const stored = await browser.storage.local.get(OPTIONS_KEY)
+    const storedOptions = stored[OPTIONS_KEY]
+    if (!storedOptions) {
+        await browser.storage.local.set({ [OPTIONS_KEY]: DEFAULT_OPTIONS })
+        return DEFAULT_OPTIONS
+    }
+    return Object.assign({}, DEFAULT_OPTIONS, storedOptions)
+}
+
+export async function storeOptions(options: Options): Promise<void> {
+    await browser.storage.local.set({ [OPTIONS_KEY]: options })
 }

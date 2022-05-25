@@ -65,10 +65,11 @@ MimeEncrypt.prototype = {
     outStringStream: null,
     outBuffer: '',
 
-    init(windowId, tabId, originalSubject) {
+    init(windowId, tabId, originalSubject, plaintextCopies) {
         this.windowId = windowId
         this.tabId = tabId
         this.originalSubject = originalSubject
+        this.plaintextCopies = plaintextCopies
     },
 
     /**
@@ -147,16 +148,17 @@ MimeEncrypt.prototype = {
             })
         })
 
-        this.copySentFolderPromise = new Promise((resolve, reject) => {
-            const timer = setTimeout(reject, 3000, new Error('waiting for copyFolder too long'))
-            this.copyFolderListener = notifyTools.addListener((msg) => {
-                if (msg.command === 'enc_copy_folder') {
-                    clearTimeout(timer)
-                    resolve(msg.folder)
-                }
-                return
+        if (this.plaintextCopies)
+            this.copySentFolderPromise = new Promise((resolve, reject) => {
+                const timer = setTimeout(reject, 3000, new Error('waiting for copyFolder too long'))
+                this.copyFolderListener = notifyTools.addListener((msg) => {
+                    if (msg.command === 'enc_copy_folder') {
+                        clearTimeout(timer)
+                        resolve(msg.folder)
+                    }
+                    return
+                })
             })
-        })
 
         this.aborted = block_on(
             Promise.race([
@@ -257,11 +259,42 @@ MimeEncrypt.prototype = {
 
         DEBUG_LOG('mimeEncrypt: encryption complete.')
 
+        // Schedule the message to be copied if specified once the folder resolves.
+        if (this.plaintextCopies) this.copyMessage()
+
+        DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation(): done\n`)
+    },
+
+    writeOut: function (content) {
+        this.outStringStream.setData(content, content.length)
+        var writeCount = this.outStream.writeFrom(this.outStringStream, content.length)
+        if (writeCount < content.length) {
+            DEBUG_LOG(
+                `mimeEncrypt.jsm: writeOut: wrote ${writeCount} instead of  ${content.length} bytes\n`
+            )
+        }
+    },
+
+    initFile: function () {
+        this.tempFile = Services.dirsvc.get('TmpD', Ci.nsIFile)
+        this.tempFile.append('message.eml')
+        this.tempFile.createUnique(0, 0o600)
+
+        // ensure that file gets deleted on exit, if something goes wrong ...
+        let extAppLauncher = Cc['@mozilla.org/mime;1'].getService(Ci.nsPIExternalAppLauncher)
+        this.foStream = Cc['@mozilla.org/network/file-output-stream;1'].createInstance(
+            Ci.nsIFileOutputStream
+        )
+        this.foStream.init(this.tempFile, 2, 0x200, false) // open as "write only"
+
+        extAppLauncher.deleteTemporaryFileOnExit(this.tempFile)
+    },
+
+    copyMessage: function () {
         this.copySentFolderPromise
             .then((copySentFolder) => {
                 const { accountId, path } = copySentFolder
                 const copySentFolderURI = folderPathToURI(accountId, path)
-                DEBUG_LOG(`got folder: ${copySentFolderURI}`)
                 let tempFile = this.tempFile
                 if (copySentFolderURI) {
                     const copyListener = {
@@ -311,33 +344,6 @@ MimeEncrypt.prototype = {
                 this.tempFile.remove(false)
             })
             .finally(() => notifyTools.removeListener(this.copyFolderListener))
-
-        DEBUG_LOG(`mimeEncrypt.jsm: finishCryptoEncapsulation(): done\n`)
-    },
-
-    writeOut: function (content) {
-        this.outStringStream.setData(content, content.length)
-        var writeCount = this.outStream.writeFrom(this.outStringStream, content.length)
-        if (writeCount < content.length) {
-            DEBUG_LOG(
-                `mimeEncrypt.jsm: writeOut: wrote ${writeCount} instead of  ${content.length} bytes\n`
-            )
-        }
-    },
-
-    initFile: function () {
-        this.tempFile = Services.dirsvc.get('TmpD', Ci.nsIFile)
-        this.tempFile.append('message.eml')
-        this.tempFile.createUnique(0, 0o600)
-
-        // ensure that file gets deleted on exit, if something goes wrong ...
-        let extAppLauncher = Cc['@mozilla.org/mime;1'].getService(Ci.nsPIExternalAppLauncher)
-        this.foStream = Cc['@mozilla.org/network/file-output-stream;1'].createInstance(
-            Ci.nsIFileOutputStream
-        )
-        this.foStream.init(this.tempFile, 2, 0x200, false) // open as "write only"
-
-        extAppLauncher.deleteTemporaryFileOnExit(this.tempFile)
     },
 }
 

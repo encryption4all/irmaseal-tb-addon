@@ -1,13 +1,14 @@
-import { createMIMETransform, toEmail, withTransform, hashString, withTimeout } from './../utils'
-
-const DEFAULT_ENCRYPT_ON = false
-const WIN_TYPE_COMPOSE = 'messageCompose'
-const PKG_URL = 'https://stable.irmaseal-pkg.ihub.ru.nl'
-const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
-const SENT_COPY_FOLDER = 'PostGuard Sent'
-const RECEIVED_COPY_FOLDER = 'PostGuard Received'
-const PK_KEY = 'pg-pk'
-const POSTGUARD_SUBJECT = 'PostGuard Encrypted Email'
+import {
+    createMIMETransform,
+    toEmail,
+    withTransform,
+    withTimeout,
+    loadOptions,
+    storeOptions,
+    hashCon,
+} from './../utils'
+import * as Constants from './../constants'
+import jwtDecode, { JwtPayload } from 'jwt-decode'
 
 const i18n = (key: string) => browser.i18n.getMessage(key)
 
@@ -18,6 +19,8 @@ const pk_promise: Promise<string> = retrievePublicKey()
 const mod_promise = import('@e4a/irmaseal-wasm-bindings')
 
 const [pk, mod] = await Promise.all([pk_promise, mod_promise])
+
+let options = await loadOptions()
 
 // Keeps track of which tabs (messageCompose type) should use encryption.
 // Also, add a bar to any existing compose windows.
@@ -35,10 +38,10 @@ const composeTabs: {
         copyFolder?: Promise<string>
     }
 } = await (
-    await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
+    await browser.tabs.query({ type: Constants.WIN_TYPE_COMPOSE })
 ).reduce(async (tabs, tab) => {
     const barId = await addBar(tab)
-    return { ...tabs, [tab.id]: { encrypt: DEFAULT_ENCRYPT_ON, tab, barId } }
+    return { ...tabs, [tab.id]: { encrypt: options.encryptDefault, tab, barId } }
 }, {})
 
 // Keeps track of decryptions state (per message).
@@ -71,10 +74,12 @@ let lastSelectMessage = Number.MAX_SAFE_INTEGER
 
 console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
 console.log('[background]: startup currSelectedMessages: ', currSelectedMessages)
+console.log('[background]: startup options: ', options)
 
 // Run the cleanup every 10 minutes.
 setInterval(cleanUp, 600000)
 
+// Communication with the encryption/decryption handlers in the experiment.
 messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
     console.log('[background]: received command: ', msg.command)
     if (msg.data) console.log('[background]: data len: ', msg.data.length)
@@ -98,13 +103,21 @@ messenger.NotifyTools.onNotifyBackground.addListener(async (msg) => {
     return
 })
 
+browser.runtime.onMessage.addListener((req) => {
+    if (req.command === 'storeOptions') {
+        options = req.options
+        return storeOptions(req.options)
+    } else if (req.command === 'loadOptions') return loadOptions()
+    else return false
+})
+
 // Watch for outgoing mails. The encryption process starts here and is further handled by `enc_start_handler`.
 browser.compose.onBeforeSend.addListener(async (tab, details) => {
     console.log('[background]: onBeforeSend: ', tab, details)
     if (!composeTabs[tab.id].encrypt) return
 
     const originalSubject = details.subject
-    details.subject = POSTGUARD_SUBJECT
+    if (options.encryptSubject) details.subject = Constants.POSTGUARD_SUBJECT
 
     if (!details.isPlainText) details.plainTextBody = null
     else details.body = null
@@ -124,46 +137,40 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     }
 
     const mailId = await browser.identities.get(details.identityId)
-    const copyFolder = getCopyFolder(mailId.accountId, SENT_COPY_FOLDER)
+
+    const copyFolder = options.plaintextCopies
+        ? getCopyFolder(mailId.accountId, Constants.SENT_COPY_FOLDER)
+        : Promise.reject()
 
     const timestamp = Math.round(Date.now() / 1000)
     const policies = [...details.to, ...details.cc].reduce((total, recipient) => {
         const recipient_id = toEmail(recipient)
         total[recipient_id] = {
             ts: timestamp,
-            con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
+            con: [{ t: Constants.EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
         }
         return total
     }, {})
 
-    let listener
-    let readable: ReadableStream<Uint8Array> | undefined
-
-    const closed = new Promise<void>((resolve) => {
-        readable = new ReadableStream<Uint8Array>({
-            start: (controller) => {
-                listener = async (msg2) => {
-                    switch (msg2.command) {
-                        case 'enc_plain': {
-                            const encoded: Uint8Array = new TextEncoder().encode(msg2.data)
-                            controller.enqueue(encoded)
-                            break
-                        }
-                        case 'enc_finalize': {
-                            controller.close()
-                            resolve()
-                            break
-                        }
+    const readable = new ReadableStream<Uint8Array>({
+        start: (controller) => {
+            const listener = async (msg2) => {
+                switch (msg2.command) {
+                    case 'enc_plain': {
+                        const encoded: Uint8Array = new TextEncoder().encode(msg2.data)
+                        controller.enqueue(encoded)
+                        break
+                    }
+                    case 'enc_finalize': {
+                        controller.close()
+                        console.log('[background]: removing listener for plaintext chunks')
+                        messenger.NotifyTools.onNotifyBackground.removeListener(listener)
+                        break
                     }
                 }
-                messenger.NotifyTools.onNotifyBackground.addListener(listener)
-            },
-        })
-    })
-
-    closed.then(() => {
-        console.log('[background]: removing listener for plaintext chunks')
-        messenger.NotifyTools.onNotifyBackground.removeListener(listener)
+            }
+            messenger.NotifyTools.onNotifyBackground.addListener(listener)
+        },
     })
 
     let writable: WritableStream<string> | undefined
@@ -189,9 +196,14 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         copyFolder,
     })
 
-    // Set the setSecurityInfo (triggering our custom MIME encoder)
+    // Set the SecurityInfo (triggering our custom MIME encryption handler)
     console.log('[background]: setting SecurityInfo')
-    await browser.pg4tb.setSecurityInfo(tab.windowId, tab.id, originalSubject)
+    await browser.pg4tb.setSecurityInfo(
+        tab.windowId,
+        tab.id,
+        originalSubject,
+        options.plaintextCopies
+    )
 
     return { cancel: false, details }
 })
@@ -203,18 +215,15 @@ async function enc_start_handler(msg) {
         if (!policies || !readable || !writable || !allWritten || !details || !copyFolder)
             throw new Error('unexpected')
 
-        copyFolder
-            .then((folder) => {
-                messenger.NotifyTools.notifyExperiment({
-                    command: 'enc_copy_folder',
-                    folder,
+        if (options.plaintextCopies)
+            copyFolder
+                .then((folder) => {
+                    messenger.NotifyTools.notifyExperiment({
+                        command: 'enc_copy_folder',
+                        folder,
+                    })
                 })
-            })
-            .catch((e) => {
-                console.log(
-                    `[background]: unable to create folder for copy of unencrypted messages: ${e.message}`
-                )
-            })
+                .catch(() => {})
 
         const mimeTransform: TransformStream<Uint8Array, string> = createMIMETransform(
             toEmail(details.from)
@@ -305,11 +314,35 @@ async function dec_metadata_handler(msg) {
         const defaultIdentity = await browser.identities.getDefault(accountId)
         const recipientId = toEmail(defaultIdentity.email)
         const hiddenPolicy = unsealer.get_hidden_policies()
+        const myPolicy = hiddenPolicy[recipientId]
         const sender = currMsg.author
 
         console.log(`[background]: accountId: ${accountId}, recipientId: ${recipientId}\n`)
 
-        getCopyFolder(accountId, RECEIVED_COPY_FOLDER)
+        if (!myPolicy) throw new Error('recipient identifier not found in header')
+        myPolicy.con = myPolicy.con.map(({ t, v }) => {
+            if (t === Constants.EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
+            return { t, v }
+        })
+
+        // Check localStorage, otherwise create a popup to retrieve a JWT.
+        const jwt = await checkLocalStorage(myPolicy.con).catch(() =>
+            createSessionPopup(myPolicy, toEmail(sender), recipientId).then((encoded) => {
+                // Store the fresh JWT.
+                const decoded = jwtDecode<JwtPayload>(encoded)
+                hashCon(myPolicy.con).then((hash) => {
+                    browser.storage.local.set({
+                        [hash]: { encoded, exp: decoded.exp },
+                    })
+                })
+                return encoded
+            })
+        )
+
+        /// Use the JWT to retrieve a USK.
+        const usk = await getUSK(jwt, myPolicy.ts)
+
+        getCopyFolder(accountId, Constants.RECEIVED_COPY_FOLDER)
             .then((folder) => {
                 messenger.NotifyTools.notifyExperiment({
                     command: 'dec_copy_folder',
@@ -317,22 +350,7 @@ async function dec_metadata_handler(msg) {
                     msgId: msg.msgId,
                 })
             })
-            .catch((e) => {
-                console.log(
-                    `[background]: unable to create folder for decrypted messages: ${e.message}. Falling back to decrypting in INBOX`
-                )
-            })
-
-        const myPolicy = hiddenPolicy[recipientId]
-        if (!myPolicy) throw new Error('recipient identifier not found in header')
-        myPolicy.con = myPolicy.con.map(({ t, v }) => {
-            if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
-            return { t, v }
-        })
-
-        const usk = await checkLocalStorage(myPolicy, PKG_URL).catch((e) =>
-            createSessionPopup(myPolicy, toEmail(sender), recipientId)
-        )
+            .catch(() => {})
 
         let writable: WritableStream<Uint8Array> | undefined
         const allWritten = new Promise<void>((resolve, reject) => {
@@ -414,7 +432,7 @@ async function dec_copy_complete_handler(msg) {
 
         browser.messageDisplay.onMessageDisplayed.removeListener(listener)
 
-        await browser.messages.delete([msg.msgId], true)
+        if (options.removeCiphertexts) await browser.messages.delete([msg.msgId], true)
         await browser.pg4tb.displayMessage(msg.newMsgId)
         console.log(`[background]: message deleted, showing new message (id = ${msg.newMsgId})`)
 
@@ -453,16 +471,15 @@ messenger.notificationbar.onDismissed.addListener((windowId, notificationId) => 
 
 // Keep track of all the compose tabs created.
 browser.tabs.onCreated.addListener(async (tab) => {
-    console.log('[background]: tab opened: ', tab)
     const win = await browser.windows.get(tab.windowId)
 
     // Check the windowType of the tab.
-    if (win.type === WIN_TYPE_COMPOSE) {
+    if (win.type === Constants.WIN_TYPE_COMPOSE) {
         const barId = await addBar(tab)
 
         // Register the tab.
         composeTabs[tab.id] = {
-            encrypt: DEFAULT_ENCRYPT_ON,
+            encrypt: options.encryptDefault,
             barId,
             tab,
         }
@@ -492,7 +509,7 @@ async function cleanUp(): Promise<void> {
     const now = Date.now() / 1000
     for (const [hash, val] of Object.entries(all)) {
         if (val) {
-            const { encoded, exp } = val as { encoded: string; exp: number }
+            const { exp } = val as { exp: number }
             if (now > exp) await browser.storage.local.remove(hash)
         }
     }
@@ -523,7 +540,7 @@ async function addBar(tab): Promise<number> {
     const white = '#FFFFFF'
 
     const notificationId = await messenger.switchbar.create({
-        enabled: DEFAULT_ENCRYPT_ON,
+        enabled: options.encryptDefault,
         windowId: tab.windowId,
         buttonId: 'btn-switch',
         placement: 'top',
@@ -588,23 +605,24 @@ async function getCopyFolder(accountId: string, folderName: string): Promise<any
     return withTimeout(newFolderPromise, 3000)
 }
 
-async function checkLocalStorage(pol: Policy, pkg: string): Promise<string> {
-    const serializedCon = JSON.stringify(pol.con)
-    const hash = await hashString(serializedCon)
+// Check localStorage for a conjunction.
+async function checkLocalStorage(con: AttributeCon): Promise<string> {
+    const hash = await hashCon(con)
 
-    return browser.storage.local
-        .get(hash)
-        .then((cached) => {
-            if (Object.keys(cached).length === 0) throw new Error('not found in localStorage')
-            const jwt = cached[hash]
-            if (Date.now() / 1000 > jwt.exp) throw new Error('jwt has expired')
+    return browser.storage.local.get(hash).then((cached) => {
+        if (Object.keys(cached).length === 0) throw new Error('not found in localStorage')
+        const jwt = cached[hash]
+        if (Date.now() / 1000 > jwt.exp) throw new Error('jwt has expired')
+        return jwt.encoded
+    })
+}
 
-            return fetch(`${pkg}/v2/request/key/${pol.ts.toString()}`, {
-                headers: {
-                    Authorization: `Bearer ${jwt.encoded}`,
-                },
-            })
-        })
+async function getUSK(jwt: string, ts: number): Promise<string> {
+    return fetch(`${Constants.PKG_URL}/v2/request/key/${ts.toString()}`, {
+        headers: {
+            Authorization: `Bearer ${jwt}`,
+        },
+    })
         .then((r) => r.json())
         .then((json) => {
             if (json.status !== 'DONE' || json.proofStatus !== 'VALID')
@@ -629,18 +647,18 @@ async function createSessionPopup(
     await messenger.windows.update(popupId, { drawAttention: true, focused: true })
 
     let popupListener, tabClosedListener
-    const uskPromise = new Promise<string>((resolve, reject) => {
-        popupListener = (req, sender, sendResponse) => {
+    const jwtPromise = new Promise<string>((resolve, reject) => {
+        popupListener = (req, sender) => {
             if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
                 return Promise.resolve({
-                    hostname: PKG_URL,
+                    hostname: Constants.PKG_URL,
                     policy: pol,
                     senderId,
                     recipientId,
                 })
             } else if (sender.tab.windowId == popupId && req && req.command === 'popup_done') {
-                if (req.usk) resolve(req.usk)
-                else reject(new Error('no usk'))
+                if (req.jwt) resolve(req.jwt)
+                else reject(new Error('no jwt'))
                 return Promise.resolve()
             }
             return false
@@ -654,7 +672,7 @@ async function createSessionPopup(
         browser.windows.onRemoved.addListener(tabClosedListener)
     })
 
-    return uskPromise.finally(() => {
+    return jwtPromise.finally(() => {
         browser.windows.onRemoved.removeListener(tabClosedListener)
         browser.runtime.onMessage.removeListener(popupListener)
     })
@@ -665,14 +683,14 @@ async function createSessionPopup(
 // The public key is stored iff there was no public key or it was different.
 // If no public key is found, either through the PKG or localStorage, the promise rejects.
 async function retrievePublicKey(): Promise<string> {
-    const stored = await browser.storage.local.get(PK_KEY)
-    const storedPublicKey = stored[PK_KEY]
+    const stored = await browser.storage.local.get(Constants.PK_KEY)
+    const storedPublicKey = stored[Constants.PK_KEY]
 
-    return fetch(`${PKG_URL}/v2/parameters`)
+    return fetch(`${Constants.PKG_URL}/v2/parameters`)
         .then((resp) =>
             resp.json().then(async ({ publicKey }) => {
                 if (storedPublicKey !== publicKey)
-                    await browser.storage.local.set({ [PK_KEY]: publicKey })
+                    await browser.storage.local.set({ [Constants.PK_KEY]: publicKey })
                 return publicKey
             })
         )

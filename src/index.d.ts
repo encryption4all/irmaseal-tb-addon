@@ -1,13 +1,27 @@
 declare const browser, messenger
 
-interface PopupData {
-    hostname: string
+type Options = {
+    encryptDefault: boolean
+    removeCiphertexts: boolean
+    plaintextCopies: boolean
+    encryptSubject: boolean
+}
+
+type PopupData = {
     policy: Policy
+    hostname: string
     senderId: string
     recipientId: string
 }
 
-interface Policy {
-    con: { t: string; v: string }[]
+type Policy = {
+    con: AttributeCon
     ts: number
+}
+
+type AttributeCon = [AttributeRequest]
+type AttributeRequest = {
+    t: string
+    v: string
+    notNull?: boolean
 }

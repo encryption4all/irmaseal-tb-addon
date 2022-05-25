@@ -22,6 +22,7 @@ module.exports = [
         entry: {
             background: './src/background/background.ts',
             decryptPopup: './src/components/decryptPopup/index.ts',
+            options: './src/components/optionsPage/index.ts',
         },
         experiments: { syncWebAssembly: true, topLevelAwait: true },
         output: { path: outputPath },
@@ -59,6 +60,12 @@ module.exports = [
                 template: './src/components/decryptPopup/index.html',
                 filename: 'decryptPopup.html',
                 chunks: ['decryptPopup'],
+            }),
+            new HtmlWebpackPlugin({
+                title: 'Postguard options',
+                template: './src/components/optionsPage/index.html',
+                filename: 'options.html',
+                chunks: ['options'],
             }),
         ],
     },
