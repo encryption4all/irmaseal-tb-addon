@@ -626,6 +626,7 @@ async function createSessionPopup(
     })
 
     const popupId = popupWindow.id
+    await messenger.windows.update(popupId, { drawAttention: true, focused: true })
 
     let popupListener, tabClosedListener
     const uskPromise = new Promise<string>((resolve, reject) => {
