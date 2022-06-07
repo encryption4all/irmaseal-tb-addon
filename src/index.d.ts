@@ -11,3 +11,9 @@ interface Policy {
     con: { t: string; v: string }[]
     ts: number
 }
+
+interface Version {
+    major: number
+    minor: number
+    revision: number
+}

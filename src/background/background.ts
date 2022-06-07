@@ -19,6 +19,15 @@ const mod_promise = import('@e4a/irmaseal-wasm-bindings')
 
 const [pk, mod] = await Promise.all([pk_promise, mod_promise])
 
+const version: Version = browser.runtime.getBrowserInfo().then(({ version }) => {
+    const parts = version.split('.')
+    return {
+        major: parseInt(parts[0]),
+        minor: parseInt(parts[1]),
+        revision: parts.length > 2 ? parseInt(parts[2]) : 0,
+    }
+})
+
 // Keeps track of which tabs (messageCompose type) should use encryption.
 // Also, add a bar to any existing compose windows.
 const composeTabs: {
