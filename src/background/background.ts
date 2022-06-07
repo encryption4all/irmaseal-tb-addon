@@ -417,7 +417,7 @@ async function dec_copy_complete_handler(msg) {
                 })
         })
 
-        await withTimeout(displayedPromise, 500)
+        await withTimeout(displayedPromise, 100)
             .then(() => console.log('[background]: message is being displayed'))
             .catch((e) => console.log('[background]: message not displayed: ', e.message))
 
