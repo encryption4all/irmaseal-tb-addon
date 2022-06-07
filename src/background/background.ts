@@ -19,7 +19,7 @@ const mod_promise = import('@e4a/irmaseal-wasm-bindings')
 
 const [pk, mod] = await Promise.all([pk_promise, mod_promise])
 
-const version: Version = browser.runtime.getBrowserInfo().then(({ version }) => {
+const version: Version = await browser.runtime.getBrowserInfo().then(({ version }) => {
     const parts = version.split('.')
     return {
         major: parseInt(parts[0]),
