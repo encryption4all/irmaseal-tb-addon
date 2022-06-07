@@ -19,6 +19,8 @@ const extension = ExtensionParent.GlobalManager.getExtension('pg4tb@e4a.org')
 const NAMESPACE = 'pg4tb'
 const FOLDER = 'modules/'
 
+let pgpEnabled: boolean
+
 const DEBUG_LOG = (str: string) => Services.console.logStringMessage(`[EXPERIMENT]: ${str}`)
 
 export default class pg4tb extends ExtensionCommon.ExtensionAPI {
@@ -65,6 +67,15 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
     public onStartup(): void {
         DEBUG_LOG('starting pg4tb experiment')
 
+        Services.prefs.setBoolPref('mail.server.default.mime_parts_on_demand', false)
+
+        // Store the openPGP preference.
+        pgpEnabled = Services.prefs.getBoolPref('mail.openpgp.enable', false)
+        DEBUG_LOG(`found openPGP setting: ${pgpEnabled}`)
+
+        // Disable openPGP in Thunderbird.
+        Services.prefs.setBoolPref('mail.openpgp.enable', false)
+
         const resProto = Cc['@mozilla.org/network/protocol;1?name=resource'].getService(
             Ci.nsISubstitutingProtocolHandler
         )
@@ -87,6 +98,10 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
 
     public onShutdown(isAppShutdown: boolean): void {
         DEBUG_LOG('shutting down pg4tb experiment')
+
+        // Restore openPGP preference.
+        Services.prefs.setBoolPref('mail.openpgp.enable', pgpEnabled)
+
         if (isAppShutdown) {
             return
         }
