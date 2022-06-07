@@ -424,7 +424,10 @@ async function dec_copy_complete_handler(msg) {
         browser.messageDisplay.onMessageDisplayed.removeListener(listener)
 
         await browser.messages.delete([msg.msgId], true)
-        await browser.pg4tb.displayMessage(msg.newMsgId)
+
+        if (version.major >= 102) await browser.messageDisplay.open({ messageId: msg.newMsgId })
+        else await browser.pg4tb.displayMessage(msg.newMsgId)
+
         console.log(`[background]: message deleted, showing new message (id = ${msg.newMsgId})`)
 
         delete decryptState[msg.msgId]
