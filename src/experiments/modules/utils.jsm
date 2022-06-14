@@ -3,10 +3,20 @@
 const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr, manager: Cm } = Components
 
 const { MailServices } = Cu.import('resource:///modules/MailServices.jsm')
+const { Services } = Cu.import('resource://gre/modules/Services.jsm')
 
-var EXPORTED_SYMBOLS = ['block_on', 'getFolder', 'folderPathToURI']
+var EXPORTED_SYMBOLS = ['block_on', 'getFolder', 'folderPathToURI', 'getThunderbirdVersion']
 
 var inspector
+
+var getThunderbirdVersion = function () {
+    let parts = Services.appinfo.version.split('.')
+    return {
+        major: parseInt(parts[0]),
+        minor: parseInt(parts[1]),
+        revision: parts.length > 2 ? parseInt(parts[2]) : 0,
+    }
+}
 
 var block_on = function (promise) {
     if (!inspector) {

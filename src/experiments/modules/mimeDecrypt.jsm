@@ -26,7 +26,7 @@ const { MailUtils } = Cu.import('resource:///modules/MailUtils.jsm')
 
 const extension = ExtensionParent.GlobalManager.getExtension('pg4tb@e4a.org')
 const { notifyTools } = Cu.import('resource://pg4tb/notifyTools.jsm')
-const { block_on, folderPathToURI } = Cu.import('resource://pg4tb/utils.jsm')
+const { block_on, folderPathToURI, getThunderbirdVersion } = Cu.import('resource://pg4tb/utils.jsm')
 const { clearTimeout, setTimeout } = Cu.import('resource://gre/modules/Timer.jsm')
 
 const MIME_JS_DECRYPTOR_CONTRACTID = '@mozilla.org/mime/pgp-mime-js-decrypt;1'
@@ -384,6 +384,10 @@ class Factory {
     constructor(component) {
         this.component = component
         this.register()
+
+        const version = getThunderbirdVersion()
+        if (version.major >= 102) this.createInstance = this.createInstance102
+
         Object.freeze(this)
     }
 
@@ -391,6 +395,10 @@ class Factory {
         if (outer) {
             throw Cr.NS_ERROR_NO_AGGREGATION
         }
+        return new this.component()
+    }
+
+    createInstance102(iid) {
         return new this.component()
     }
 
@@ -427,7 +435,7 @@ var PostGuardMimeDecrypt = {
                 null
             )
         } catch (ex) {
-            DEBUG_LOG(ex.message)
+            DEBUG_LOG(`Failure setting op decryption handler: ${ex.message}`)
         }
     },
 
