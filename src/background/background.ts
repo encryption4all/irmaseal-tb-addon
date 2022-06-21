@@ -390,6 +390,8 @@ async function dec_start_handler(msg) {
             command: 'dec_finished',
             msgId: msg.msgId,
         })
+
+        delete decryptState[msg.msgId]
     } catch (e) {
         console.log('[background]: something went wrong during unsealing: ', e.message)
         await failDecryption(msg.msgId, e)
@@ -429,10 +431,8 @@ async function dec_copy_complete_handler(msg) {
         else await browser.pg4tb.displayMessage(msg.newMsgId)
 
         console.log(`[background]: message deleted, showing new message (id = ${msg.newMsgId})`)
-
-        delete decryptState[msg.msgId]
     } catch (e) {
-        console.log('[background]: something went wrong during unsealing: ', e.message)
+        console.log('[background]: something went wrong during copying of the message: ', e.message)
         await failDecryption(msg.msgId, e)
     }
 }
@@ -596,8 +596,8 @@ async function getCopyFolder(accountId: string, folderName: string): Promise<any
     }
     const newFolderPromise = browser.folders.create(acc, folderName)
 
-    // Since newFolderPromise can stall indefinitely, we give up after a timeout seconds
-    return withTimeout(newFolderPromise, 3000)
+    // Since newFolderPromise can stall indefinitely, we give up after a timeout.
+    return withTimeout(newFolderPromise, 300)
 }
 
 async function checkLocalStorage(pol: Policy, pkg: string): Promise<string> {
