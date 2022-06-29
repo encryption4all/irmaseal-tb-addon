@@ -227,9 +227,11 @@ class SwitchBar {
                     --message-bar-background-color: ${style['background-color-disabled']};
                     --message-bar-text-color: ${style['color-disabled']};
                 }
+                /*
                 :host(:not(.initial)) .container.infobar {
                     -moz-transition: background-color 0.33s linear;
                 }
+                */
             `
 
             // Add the styles to the shadow root.
