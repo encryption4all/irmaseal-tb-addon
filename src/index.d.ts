@@ -1,19 +1,27 @@
 declare const browser, messenger
 
-interface PopupData {
-    hostname: string
+interface Version {
+    raw: string
+    major: number
+    minor: number
+    revision: number
+}
+
+type PopupData = {
     policy: Policy
+    hostname: string
     senderId: string
     recipientId: string
 }
 
-interface Policy {
-    con: { t: string; v: string }[]
+type Policy = {
+    con: AttributeCon
     ts: number
 }
 
-interface Version {
-    major: number
-    minor: number
-    revision: number
+type AttributeCon = [AttributeRequest]
+type AttributeRequest = {
+    t: string
+    v: string
+    notNull?: boolean
 }

@@ -1,25 +1,9 @@
 import * as IrmaCore from '@privacybydesign/irma-core'
 import * as IrmaClient from '@privacybydesign/irma-client'
 import * as IrmaWeb from '@privacybydesign/irma-web'
-import { hashString } from './../../utils'
-import jwtDecode, { JwtPayload } from 'jwt-decode'
 import './index.css'
 
 window.addEventListener('load', onLoad)
-
-function fillTable(table: HTMLElement, data: PopupData) {
-    for (const { t, v } of data.policy.con) {
-        const row = document.createElement('tr')
-        const tdtype = document.createElement('td')
-        const tdvalue = document.createElement('td')
-        tdtype.innerText = browser.i18n.getMessage(t) ?? t
-        tdvalue.innerText = t === 'pbdf.sidn-pbdf.email.email' ? data.recipientId : v
-        tdvalue.classList.add('blue')
-        row.appendChild(tdtype)
-        row.appendChild(tdvalue)
-        table.appendChild(row)
-    }
-}
 
 // If hours <  4: seconds till 4 AM today.
 // If hours >= 4: seconds till 4 AM tomorrow.
@@ -58,31 +42,7 @@ async function doSession(pol: Policy, pkg: string): Promise<string> {
             },
             result: {
                 url: (o, { sessionToken }) => `${o.url}/v2/request/jwt/${sessionToken}`,
-                parseResponse: (r) => {
-                    return r
-                        .text()
-                        .then((encoded: string) => {
-                            const decoded = jwtDecode<JwtPayload>(encoded)
-                            const serializedCon = JSON.stringify(pol.con)
-                            hashString(serializedCon).then((hash) => {
-                                browser.storage.local.set({
-                                    [hash]: { encoded, exp: decoded.exp },
-                                })
-                            })
-
-                            return fetch(`${pkg}/v2/request/key/${pol.ts.toString()}`, {
-                                headers: {
-                                    Authorization: `Bearer ${encoded}`,
-                                },
-                            })
-                        })
-                        .then((r) => r.json())
-                        .then((json) => {
-                            if (json.status !== 'DONE' || json.proofStatus !== 'VALID')
-                                throw new Error('not done and valid')
-                            return json.key
-                        })
-                },
+                parseResponse: (r) => r.text(),
             },
         },
     })
@@ -115,10 +75,10 @@ async function onLoad() {
     document.getElementById('irma-help-download-header')!.innerText = irmaHelpDownloadHeader
 
     doSession(data.policy, data.hostname)
-        .then((usk) => {
+        .then((jwt) => {
             browser.runtime.sendMessage({
                 command: 'popup_done',
-                usk: usk,
+                jwt: jwt,
             })
         })
         .finally(() =>

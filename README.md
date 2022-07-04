@@ -53,10 +53,9 @@ replaced with `unsafe-wasm-eval` in a newer version of Firefox/Thunderbird.
 
 The addon currently uses four experiments:
 
--   the `pg4tb` experiment, which registers encryption and decryption handlers for the `application/postguard` parts. This is based on older technology, and it might soon not be neccessary, but allows for more finegrained control over the encryption/decryption process. It seems to work well in current and older versions. Before bumping the `strict_max_version` in the manifest to a new major release version, this should of course first be tested.
--   the [notifyTools](https://github.com/thundernest/addon-developer-support/tree/master/auxiliary-apis/NotifyTools) experiment. Used for communication between the background script and the encrypted/decryption handlers registerd in the `pg4tb` experiment.
--   the [notificationbar API](https://github.com/jobisoft/notificationbar-API) to show warning/error notifications.
+-   the `pg4tb` experiment, which has a temporary file API and an experimental way to display messages.
 -   the `switchbar` experiment, which is a modification of the notificationbar API that implements a switchable toolbar inside the compose window. This experiment uses `innerHTML` to adjust the bar. This can probably be avoided, but the input is not user input, rather developer input. For now, no plans are made to publish the experiment, since it is tailored specific to our UX needs.
+-   the [notificationbar API](https://github.com/jobisoft/notificationbar-API) to show warning/error notifications.
 
 ## Self-distribution & updates
 
