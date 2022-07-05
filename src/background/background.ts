@@ -88,11 +88,13 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     // Create the inner mime from the details.
 
+    let innerContenType = ''
     let boundary = ''
     let contentType = `${details.isPlainText ? 'text/plain' : 'text/html'}; charset=utf-8`
     const attachmentLen = attachments.length
 
     if (attachmentLen > 0) {
+        innerContenType = contentType
         boundary = generateBoundary()
         contentType = `multipart/mixed; boundary="${boundary}"`
     }
@@ -107,8 +109,11 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     if (details.cc.length > 0) innerMime += `Cc: ${String(details.cc)}\r\n`
     innerMime += `Content-Type: ${contentType}\r\n`
     innerMime += '\r\n'
-    innerMime += details.isPlainText ? details.plainTextBody : details.body
-    innerMime += '\r\n'
+
+    let innerBody = details.isPlainText ? details.plainTextBody : details.body
+    if (attachmentLen > 0)
+        innerBody = `--${boundary}\r\nContent-Type: ${innerContenType}\r\n\r\n${innerBody}\r\n`
+    innerMime += innerBody
 
     const tempFile = await browser.pg4tb.createTempFile()
     await browser.pg4tb.writeToFile(tempFile, innerMime)
