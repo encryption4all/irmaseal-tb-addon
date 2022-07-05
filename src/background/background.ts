@@ -321,11 +321,11 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
 
     browser.pg4tb
         .copyFileMessage(tempFile, copyFolder, msg.id)
-        .then(async (newId: number) => {
-            await browser.messages.delete([msg.id], true)
-            if (version.major >= 102) await browser.messageDisplay.open({ messageId: newId })
-            else await browser.pg4tb.displayMessage(newId)
+        .then((newId: number) => {
+            if (version.major >= 102) browser.messageDisplay.open({ messageId: newId })
+            else browser.pg4tb.displayMessage(newId)
         })
+        .then(() => browser.messages.delete([msg.id], true))
         .catch((e: Error) => {
             console.log("couldn't copy message: ", e)
             // TODO: maybe fallback to show using the displayScripts?
@@ -343,9 +343,7 @@ browser.mailTabs.onDisplayedFolderChanged.addListener(() => {
 // Remove tab if it was closed.
 browser.tabs.onRemoved.addListener((tabId: number) => {
     lastTabDeleted = Date.now()
-    if (tabId in composeTabs) {
-        delete composeTabs[tabId]
-    }
+    if (tabId in composeTabs) delete composeTabs[tabId]
 })
 
 // Cleans up the local storage.
