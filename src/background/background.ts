@@ -116,35 +116,34 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     innerMime += innerBody
 
     const tempFile = await browser.pg4tb.createTempFile()
-    await browser.pg4tb.writeToFile(tempFile, innerMime)
-
-    for (const att of attachments) {
-        const isLast = att.id === attachments[attachmentLen - 1].id
-        const file: File =
-            version.major >= 102
-                ? await browser.compose.getAttachmentFile(att.id)
-                : await att.getFile()
-        const buf = await file.arrayBuffer()
-        const b64 = Buffer.from(buf).toString('base64')
-        const formatted = b64.replace(/(.{76})/g, '$1\r\n')
-
-        let attMime = ''
-        attMime += `--${boundary}\r\nContent-Type: ${file.type}; name="${file.name}"\r\nContent-Disposition: attachment; filename="${file.name}"\r\nContent-Transfer-Encoding: base64\r\n\r\n`
-        attMime += formatted
-        attMime += isLast ? `\r\n--${boundary}--\r\n` : '\r\n'
-
-        innerMime += attMime
-        await browser.pg4tb.writeToFile(tempFile, attMime)
-        await browser.compose.removeAttachment(tab.id, att.id)
-    }
-
-    const total = performance.now() - start
-    console.log(`MIME preprocessing: ${total} ms`)
-
     const encoder = new TextEncoder()
     const readable = new ReadableStream<Uint8Array>({
         start: async (controller: ReadableStreamController<Uint8Array>) => {
             controller.enqueue(encoder.encode(innerMime))
+
+            await browser.pg4tb.writeToFile(tempFile, innerMime)
+
+            for (const att of attachments) {
+                const isLast = att.id === attachments[attachmentLen - 1].id
+                const file: File = await (version.major >= 102
+                    ? browser.compose.getAttachmentFile(att.id)
+                    : att.getFile())
+                const buf = await file.arrayBuffer()
+                const b64 = Buffer.from(buf).toString('base64')
+                const formatted = b64.replace(/(.{76})/g, '$1\r\n')
+
+                let attMime = ''
+                attMime += `--${boundary}\r\nContent-Type: ${file.type}; name="${file.name}"\r\n`
+                attMime += `Content-Disposition: attachment; filename="${file.name}"\r\n`
+                attMime += `Content-Transfer-Encoding: base64\r\n\r\n`
+                attMime += formatted
+                attMime += isLast ? `\r\n--${boundary}--\r\n` : '\r\n'
+
+                controller.enqueue(encoder.encode(attMime))
+                await browser.pg4tb.writeToFile(tempFile, attMime)
+                await browser.compose.removeAttachment(tab.id, att.id)
+            }
+
             controller.close()
         },
     })
@@ -169,7 +168,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     const tEncStart = performance.now()
     await mod.seal(pk, policies, readable, writable)
-    console.log(`Encryption: ${performance.now() - tEncStart} ms`)
+    console.log(`Encryption took ${performance.now() - tEncStart} ms`)
 
     // Create the attachment
     const encryptedFile = new File([encrypted], `postguard.encrypted`, {
