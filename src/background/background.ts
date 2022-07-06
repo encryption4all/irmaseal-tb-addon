@@ -10,6 +10,7 @@ const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
 const PK_KEY = 'pg-pk'
 const POSTGUARD_SUBJECT = 'PostGuard Encrypted Email'
+const MSG_VIEW_THRESHOLD = 250
 
 const i18n = (key: string) => browser.i18n.getMessage(key)
 
@@ -52,10 +53,11 @@ const composeTabs: {
 }, {})
 
 // Previous selection time of folders and messages.
-// We track this because sometimes opening a folder automatically selects a message.
+// We track this because sometimes opening a folder automatically renders a message.
 let lastSelectFolder = 0
 let lastTabDeleted = 0
-let lastSelectMessage = Number.MAX_SAFE_INTEGER
+let lastWindowFocused = 0
+let lastSelectMessage = 0
 
 console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
 
@@ -99,7 +101,6 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         contentType = `multipart/mixed; boundary="${boundary}"`
     }
 
-    const start = performance.now()
     let innerMime = ''
     innerMime += `Date: ${date.toUTCString()}\r\n`
     innerMime += 'MIME-Version: 1.0\r\n'
@@ -250,6 +251,8 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
 // Main decryption code.
 browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
+    const now = Date.now()
+
     const attachments = await browser.messages.listAttachments(msg.id)
     const filtered = attachments.filter((att) => att.name === 'postguard.encrypted')
     if (filtered.length !== 1) return
@@ -262,8 +265,10 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
     }
 
     if (
-        Math.abs(lastSelectMessage - lastSelectFolder) < 50 ||
-        Math.abs(lastSelectMessage - lastTabDeleted) < 50
+        Math.abs(now - lastSelectFolder) < MSG_VIEW_THRESHOLD ||
+        Math.abs(now - lastTabDeleted) < MSG_VIEW_THRESHOLD ||
+        Math.abs(now - lastWindowFocused) < MSG_VIEW_THRESHOLD ||
+        Math.abs(now - lastSelectMessage) > MSG_VIEW_THRESHOLD
     ) {
         console.log('message might not deliberately be selected')
         return
@@ -337,6 +342,10 @@ browser.mailTabs.onSelectedMessagesChanged.addListener(() => {
 
 browser.mailTabs.onDisplayedFolderChanged.addListener(() => {
     lastSelectFolder = Date.now()
+})
+
+browser.windows.onFocusChanged.addListener(() => {
+    lastWindowFocused = Date.now()
 })
 
 // Remove tab if it was closed.
