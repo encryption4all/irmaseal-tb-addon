@@ -233,7 +233,6 @@ messenger.notificationbar.onDismissed.addListener((windowId, notificationId) => 
 
 // Keep track of all the compose tabs created.
 browser.tabs.onCreated.addListener(async (tab) => {
-    console.log('[background]: tab opened: ', tab)
     const win = await browser.windows.get(tab.windowId)
 
     // Check the windowType of the tab.
@@ -264,6 +263,9 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
         return
     }
 
+    // Generally, when a message is displayed too fast after a user action, it is probably
+    // not the intention to trigger the decryption.
+    // Adjust accordingly.
     if (
         Math.abs(now - lastSelectFolder) < MSG_VIEW_THRESHOLD ||
         Math.abs(now - lastTabDeleted) < MSG_VIEW_THRESHOLD ||
@@ -321,19 +323,19 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
 
     await unsealer.unseal(recipientId, usk, writable)
 
-    const copyFolder = await getCopyFolder(accountId, RECEIVED_COPY_FOLDER)
+    let copyFolder = undefined
+    try {
+        copyFolder = await getCopyFolder(accountId, RECEIVED_COPY_FOLDER)
+    } catch {
+        // if no folder is found, just copy in the same folder as the original message.
+    }
 
-    browser.pg4tb
-        .copyFileMessage(tempFile, copyFolder, msg.id)
-        .then((newId: number) => {
-            if (version.major >= 102) browser.messageDisplay.open({ messageId: newId })
-            else browser.pg4tb.displayMessage(newId)
-        })
-        .then(() => browser.messages.delete([msg.id], true))
-        .catch((e: Error) => {
-            console.log("couldn't copy message: ", e)
-            // TODO: maybe fallback to show using the displayScripts?
-        })
+    const newId = await browser.pg4tb.copyFileMessage(tempFile, copyFolder, msg.id)
+
+    if (version.major >= 102) await browser.messageDisplay.open({ messageId: newId })
+    else await browser.pg4tb.displayMessage(newId)
+
+    await browser.messages.delete([msg.id], true)
 })
 
 browser.mailTabs.onSelectedMessagesChanged.addListener(() => {

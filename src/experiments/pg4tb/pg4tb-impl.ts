@@ -44,11 +44,11 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
     public getAPI(context) {
         return {
             pg4tb: {
-                displayMessage: function (msgId: number) {
+                displayMessage: async function (msgId: number) {
                     const msgHdr = context.extension.messageManager.get(msgId)
                     MailUtils.displayMessageInFolderTab(msgHdr)
                 },
-                createTempFile: function (): number {
+                createTempFile: async function (): Promise<number> {
                     const tempFile = Services.dirsvc.get('TmpD', Ci.nsIFile)
                     tempFile.append('temp.eml')
                     tempFile.createUnique(0, 0o600)
@@ -66,22 +66,28 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
                     files[fileId] = { file: tempFile, stream: foStream }
                     return fileId++
                 },
-                writeToFile: function (fileId: number, data: string) {
+                writeToFile: async function (fileId: number, data: string) {
                     const { stream } = files[fileId]
+                    if (!stream) throw new ExtensionError('file not found')
                     stream.write(data, data.length)
                 },
-                copyFileMessage: function (fileId: number, folder?: any, originalMsgId?: number) {
+                copyFileMessage: function (
+                    fileId: number,
+                    folder?: any,
+                    originalMsgId?: number
+                ): Promise<number> {
                     return new Promise((resolve, reject) => {
                         const { file, stream } = files[fileId]
+                        if (!file || !stream) throw new ExtensionError('file not found')
                         stream.close()
 
                         // Handle two cases:
                         // 1. no folder is given: copy in the same folder as original message,
                         // 2. a folder is given: copy to that folder.
 
-                        let originalMsgHdr: any
-                        if (originalMsgId)
-                            originalMsgHdr = context.extension.messageManager.get(originalMsgId)
+                        const originalMsgHdr = originalMsgId
+                            ? context.extension.messageManager.get(originalMsgId)
+                            : undefined
 
                         let newFolder: any
                         if (folder) {
@@ -91,7 +97,7 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
                             newFolder = originalMsgHdr.folder
                         } else {
                             file.remove(false)
-                            return
+                            throw new ExtensionError('no destination folder')
                         }
 
                         let newKey: number
@@ -106,7 +112,9 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
                             },
                             OnStopCopy(statusCode: number) {
                                 if (statusCode !== 0) {
-                                    reject(new Error(`error copying message: ${statusCode}`))
+                                    reject(
+                                        new ExtensionError(`error copying message: ${statusCode}`)
+                                    )
                                 }
                                 file.remove(false)
 
@@ -121,6 +129,7 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
                                 }
 
                                 delete files[fileId]
+                                newFolder.updateFolder(null)
                                 resolve(newMsgId)
                             },
                         }
@@ -132,7 +141,7 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
                             newFolder, // dstFolder
                             null, // msgToReplace (msgHdr)
                             false, // isDraftOrTemplate
-                            null, // aMsgFlags
+                            0, // aMsgFlags
                             '', // aMsgKeywords
                             copyListener, // listener
                             null // msgWindow
