@@ -384,6 +384,7 @@ async function addBar(tab): Promise<number> {
         placement: 'top',
         iconEnabled: 'icons/pg_logo.svg',
         iconDisabled: `icons/pg_logo${darkMode ? '' : '_white'}.svg`,
+        buttons: [{ id: 'postguard-configure', label: 'Select attributes', accesskey: 'test' }],
         labels: {
             enabled: i18n('composeSwitchBarEnabledHtml'),
             disabled: i18n('composeSwitchBarDisabledHtml'),
@@ -544,3 +545,58 @@ async function retrievePublicKey(): Promise<string> {
             throw new Error('no public key')
         })
 }
+
+async function createAttributeSelectionPopup(initialRecipients: any): Promise<string> {
+    const popupWindow = await messenger.windows.create({
+        url: 'attributeSelection.html',
+        type: 'popup',
+        height: 600,
+        width: 800,
+    })
+
+    const popupId = popupWindow.id
+    await messenger.windows.update(popupId, { drawAttention: true, focused: true })
+
+    let popupListener, tabClosedListener
+    const policyPromise = new Promise<string>((resolve, reject) => {
+        popupListener = (req, sender) => {
+            if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
+                return Promise.resolve({
+                    initialRecipients,
+                })
+            } else if (sender.tab.windowId == popupId && req && req.command === 'popup_done') {
+                if (req.policies) resolve(req.policies)
+                else reject(new Error('no policies'))
+                return Promise.resolve()
+            }
+            return false
+        }
+
+        tabClosedListener = (windowId: number) => {
+            if (windowId === popupId) reject(new Error('tab closed'))
+        }
+        browser.runtime.onMessage.addListener(popupListener)
+        browser.windows.get(popupId).catch((e) => reject(e))
+        browser.windows.onRemoved.addListener(tabClosedListener)
+    })
+
+    return policyPromise.finally(() => {
+        browser.windows.onRemoved.removeListener(tabClosedListener)
+        browser.runtime.onMessage.removeListener(popupListener)
+    })
+}
+
+browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, buttonId) => {
+    console.log(windowId, notificationId, buttonId)
+    if (buttonId === 'postguard-configure') {
+        console.log('windowId', windowId)
+        const tabs = await browser.tabs.query({ windowId: windowId, windowType: WIN_TYPE_COMPOSE })
+        console.log('tabs: ', tabs)
+        const tabId = tabs[0].id
+        console.log('tabid: ', tabId)
+        const state = await browser.compose.getComposeDetails(tabId)
+        console.log('state: ', state)
+        const popupId = await createAttributeSelectionPopup(state.to)
+        console.log('popupId: ', popupId)
+    }
+})

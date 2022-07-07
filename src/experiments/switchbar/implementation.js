@@ -19,7 +19,8 @@ class SwitchBar {
         this.parent = parent
         this.notificationId = notificationId
 
-        const { enabled, buttonId, iconEnabled, iconDisabled, labels, style, windowId } = properties
+        const { enabled, buttonId, iconEnabled, iconDisabled, labels, style, windowId, buttons } =
+            properties
 
         var iconEnabledURL = null
         var iconDisabledURL = null
@@ -40,7 +41,27 @@ class SwitchBar {
 
         var fontURL = parent.extension.baseURI.resolve('fonts/Overpass-Regular.tff')
 
-        const buttonSet = new Map()
+        const buttonSet = buttons.map(({ id, label, accesskey }) => ({
+            id,
+            label,
+            accesskey,
+            callback: () => {
+                // Fire the event and keep the notification open, decided to close it
+                // based on the return values later.
+                this.parent.emitter.emit('buttonclicked', windowId, notificationId, id)
+                //.then((rv) => {
+                //    let keepOpen = rv.some((value) => value?.close === false)
+                //    if (!keepOpen) {
+                //        this.remove(/* closedByUser */ true)
+                //    }
+                //})
+
+                // Keep the notification box open until we hear from the event
+                // handlers.
+                return true
+            },
+        }))
+
         const notificationBarCallback = (event) => {
             // Every dismissed notification will also generate a removed notification
             if (event === 'dismissed') {
@@ -99,7 +120,7 @@ class SwitchBar {
 
             // swap the button and text
             const message = shadowroot.querySelector('label.notification-message')
-            const buttonContainer = element.buttonContainer
+            const buttonContainer = element.buttonContainer.cloneNode()
             message.parentNode.insertBefore(buttonContainer, message)
             message.innerHTML = enabled ? labels.enabled : labels.disabled
 

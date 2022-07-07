@@ -14,6 +14,8 @@ type PopupData = {
     recipientId: string
 }
 
+type Policies = { [key: string]: Policy }
+
 type Policy = {
     con: AttributeCon
     ts: number
