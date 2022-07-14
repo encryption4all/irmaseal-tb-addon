@@ -126,9 +126,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
             for (const att of attachments) {
                 const isLast = att.id === attachments[attachmentLen - 1].id
-                const file: File = await (version.major >= 102
-                    ? browser.compose.getAttachmentFile(att.id)
-                    : att.getFile())
+                const file: File = await browser.compose.getAttachmentFile(att.id)
                 const buf = await file.arrayBuffer()
                 const b64 = Buffer.from(buf).toString('base64')
                 const formatted = b64.replace(/(.{76})/g, '$1\r\n')
@@ -173,7 +171,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     // Create the attachment
     const encryptedFile = new File([encrypted], `postguard.encrypted`, {
-        type: 'application/postguard; charset=UTF-8',
+        type: 'application/postguard; charset=utf-8',
     })
 
     // Add the encrypted file attachment
@@ -181,19 +179,9 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     const compose = new ComposeMail()
     compose.setSender(details.from)
-    if (version.major >= 102) {
-        details.deliveryFormat = 'both'
-        details.plainTextBody = compose.getPlainText()
-        details.body = compose.getHtmlText()
-    } else {
-        if (details.isPlainText) {
-            details.body = null
-            details.plainTextBody = compose.getPlainText()
-        } else {
-            details.body = compose.getHtmlText()
-            details.plainTextBody = null
-        }
-    }
+    details.deliveryFormat = 'both'
+    details.plainTextBody = compose.getPlainText()
+    details.body = compose.getHtmlText()
 
     // Save a copy of the message in the sent folder.
     browser.identities
@@ -331,10 +319,7 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
     }
 
     const newId = await browser.pg4tb.copyFileMessage(tempFile, copyFolder, msg.id)
-
-    if (version.major >= 102) await browser.messageDisplay.open({ messageId: newId })
-    else await browser.pg4tb.displayMessage(newId)
-
+    await browser.messageDisplay.open({ messageId: newId })
     await browser.messages.delete([msg.id], true)
 })
 
