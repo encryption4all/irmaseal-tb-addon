@@ -37,10 +37,25 @@ module.exports = [
                     test: /\.(woff|woff2|eot|ttf|otf)$/i,
                     type: 'asset/resource',
                 },
+                {
+                    test: /\.(svelte)$/,
+                    use: 'svelte-loader',
+                },
+                {
+                    // required to prevent errors from Svelte on Webpack 5+, omit on Webpack 4
+                    test: /node_modules\/svelte\/.*\.mjs$/,
+                    resolve: {
+                        fullySpecified: false,
+                    },
+                },
             ],
         },
         resolve: {
-            extensions: extensions,
+            alias: {
+                svelte: path.resolve('node_modules', 'svelte'),
+            },
+            extensions: ['.ts', '.mjs', '.js', '.svelte'],
+            mainFields: ['svelte', 'browser', 'module', 'main'],
             fallback: {
                 http: false,
                 https: false,
@@ -62,7 +77,7 @@ module.exports = [
                 chunks: ['decryptPopup'],
             }),
             new HtmlWebpackPlugin({
-                title: 'Postguard Attribute Selection',
+                title: 'Postguard attribute selection',
                 template: './src/components/attributeSelection/index.html',
                 filename: 'attributeSelection.html',
                 chunks: ['attributeSelection'],

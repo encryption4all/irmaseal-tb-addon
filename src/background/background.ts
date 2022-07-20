@@ -4,7 +4,7 @@ import jwtDecode, { JwtPayload } from 'jwt-decode'
 
 const DEFAULT_ENCRYPT_ON = false
 const WIN_TYPE_COMPOSE = 'messageCompose'
-const PKG_URL = 'https://stable.irmaseal-pkg.ihub.ru.nl'
+const PKG_URL = 'http://localhost:8087' //'https://stable.irmaseal-pkg.ihub.ru.nl'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
@@ -44,6 +44,7 @@ const composeTabs: {
         encrypt: boolean
         barId: number
         notificationId?: number
+        policy?: Policy
     }
 } = await (
     await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
@@ -165,6 +166,15 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         return total
     }, {})
 
+    const extraPolicies = composeTabs[tab.id].policy
+    if (extraPolicies) {
+        for (const [id, con] of Object.entries(extraPolicies)) {
+            policies[id].con = [...policies[id].con, ...con]
+        }
+    }
+
+    console.log('final policies: ', policies)
+
     const tEncStart = performance.now()
     await mod.seal(pk, policies, readable, writable)
     console.log(`Encryption took ${performance.now() - tEncStart} ms`)
@@ -278,8 +288,11 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
 
     myPolicy.con = myPolicy.con.map(({ t, v }) => {
         if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
-        return { t, v }
+        else if (v === '') return { t }
+        else return { t, v }
     })
+
+    console.log('myPolicy: ', myPolicy)
 
     // Check localStorage, otherwise create a popup to retrieve a JWT.
     const jwt = await checkLocalStorage(myPolicy.con).catch(() =>
@@ -493,7 +506,7 @@ async function createSessionPopup(
             if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
                 return Promise.resolve({
                     hostname: PKG_URL,
-                    policy: pol,
+                    con: pol.con,
                     senderId,
                     recipientId,
                 })
@@ -546,7 +559,7 @@ async function retrievePublicKey(): Promise<string> {
         })
 }
 
-async function createAttributeSelectionPopup(initialRecipients: any): Promise<string> {
+async function createAttributeSelectionPopup(initialRecipients: any): Promise<Policy> {
     const popupWindow = await messenger.windows.create({
         url: 'attributeSelection.html',
         type: 'popup',
@@ -558,7 +571,7 @@ async function createAttributeSelectionPopup(initialRecipients: any): Promise<st
     await messenger.windows.update(popupId, { drawAttention: true, focused: true })
 
     let popupListener, tabClosedListener
-    const policyPromise = new Promise<string>((resolve, reject) => {
+    const policyPromise = new Promise<Policy>((resolve, reject) => {
         popupListener = (req, sender) => {
             if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
                 return Promise.resolve({
@@ -590,13 +603,13 @@ browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, b
     console.log(windowId, notificationId, buttonId)
     if (buttonId === 'postguard-configure') {
         console.log('windowId', windowId)
-        const tabs = await browser.tabs.query({ windowId: windowId, windowType: WIN_TYPE_COMPOSE })
+        const tabs = await browser.tabs.query({ windowId, windowType: WIN_TYPE_COMPOSE })
         console.log('tabs: ', tabs)
         const tabId = tabs[0].id
         console.log('tabid: ', tabId)
         const state = await browser.compose.getComposeDetails(tabId)
         console.log('state: ', state)
-        const popupId = await createAttributeSelectionPopup(state.to)
-        console.log('popupId: ', popupId)
+        const policy: Policy = await createAttributeSelectionPopup([...state.to, ...state.cc])
+        composeTabs[tabId].policy = policy
     }
 })

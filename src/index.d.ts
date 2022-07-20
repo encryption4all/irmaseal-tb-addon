@@ -8,22 +8,17 @@ interface Version {
 }
 
 type PopupData = {
-    policy: Policy
+    con: AttributeCon
     hostname: string
     senderId: string
     recipientId: string
 }
 
-type Policies = { [key: string]: Policy }
+type Policy = { [key: string]: AttributeCon }
 
-type Policy = {
-    con: AttributeCon
-    ts: number
-}
+type AttributeCon = AttributeRequest[]
 
-type AttributeCon = [AttributeRequest]
 type AttributeRequest = {
     t: string
     v: string
-    notNull?: boolean
 }

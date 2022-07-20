@@ -15,7 +15,7 @@ function secondsTill4AM(): number {
     return secondsTill4AM % (24 * 60 * 60)
 }
 
-async function doSession(pol: Policy, pkg: string): Promise<string> {
+async function doSession(con: AttributeCon, pkg: string): Promise<string> {
     const lang = browser.i18n.getUILanguage()
     const irma = new IrmaCore({
         debugging: true,
@@ -31,12 +31,13 @@ async function doSession(pol: Policy, pkg: string): Promise<string> {
                 url: (o) => `${o.url}/v2/request/start`,
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ con: pol.con, validity: secondsTill4AM() }),
+                body: JSON.stringify({ con, validity: secondsTill4AM() }),
             },
             mapping: {
                 sessionPtr: (r) => {
                     const ptr = r.sessionPtr
-                    ptr.u = `https://ihub.ru.nl/irma/1/${ptr.u}`
+                    if (ptr.u.includes('https:://ihub.ru.nl'))
+                        ptr.u = `https://ihub.ru.nl/irma/1/${ptr.u}`
                     return ptr
                 },
             },
@@ -74,7 +75,7 @@ async function onLoad() {
     document.getElementById('irma-help-link')!.innerText = irmaHelpLink
     document.getElementById('irma-help-download-header')!.innerText = irmaHelpDownloadHeader
 
-    doSession(data.policy, data.hostname)
+    doSession(data.con, data.hostname)
         .then((jwt) => {
             browser.runtime.sendMessage({
                 command: 'popup_done',

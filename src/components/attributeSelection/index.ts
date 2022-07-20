@@ -1,54 +1,40 @@
-import './index.css'
+import AttributeForm from 'pg-components/AttributeForm/AttributeForm.svelte'
+import type { Policy } from 'pg-components/AttributeForm.svelte'
 
-const ALLOWED_ATTRIBUTE_TYPES = {
-    mobile: ['sidn.sidn-pbdf.mobilenumber.mobilenumber'],
-    personalData: [
-        'pbdf.gemeente.personalData.initials',
-        'pbdf.gemeente.personalData.firstnames',
-        'pbdf.gemeente.personalData.prefix',
-        'pbdf.gemeente.personalData.familyname',
-        'pbdf.gemeente.personalData.fullname',
-        'pbdf.gemeente.personalData.gender',
-        'pbdf.gemeente.personalData.nationality',
-        'pbdf.gemeente.personalData.surname',
-        'pbdf.gemeente.personalData.dateofbirth',
-        'pbdf.gemeente.personalData.cityofbirth',
-        'pbdf.gemeente.personalData.countryofbirth',
-        'pbdf.gemeente.personalData.over12',
-        'pbdf.gemeente.personalData.over16',
-        'pbdf.gemeente.personalData.over18',
-        'pbdf.gemeente.personalData.over21',
-        'pbdf.gemeente.personalData.over65',
-        'pbdf.gemeente.personalData.bsn',
-        'pbdf.gemeente.personalData.digidlevel',
-    ],
-}
+import { toEmail } from '../../utils'
+import './index.css'
 
 window.addEventListener('load', onLoad)
 
-// TODO: receive updates about the recipients
+const finish = async (policy: Policy) => {
+    browser.runtime
+        .sendMessage({
+            command: 'popup_done',
+            policies: policy,
+        })
+        .finally(async () => {
+            const win = await messenger.windows.getCurrent()
+            messenger.windows.remove(win.id)
+        })
+}
 
 async function onLoad() {
+    const el = document.querySelector('#root')
+    if (!el) return
+
     const data = await browser.runtime.sendMessage({
         command: 'popup_init',
     })
-    console.log('initial data: ', data)
 
-    // TODO: populate a form
+    const init = data.initialRecipients.reduce((policies, next) => {
+        const email = toEmail(next)
+        policies[email] = []
+        return policies
+    }, [])
 
-    document.addEventListener('onClick', () => {
-        // collect policies
-        browser.runtime
-            .sendMessage({
-                command: 'popup_done',
-                policies: {},
-            })
-            .finally(() =>
-                setTimeout(async () => {
-                    const win = await messenger.windows.getCurrent()
-                    messenger.windows.remove(win.id)
-                }, 750)
-            )
+    new AttributeForm({
+        target: el,
+        props: { initialPolicy: init, onSubmit: finish },
     })
 }
 
