@@ -137,6 +137,8 @@ class SwitchBar {
             label.replaceChildren(input, span)
             buttonContainer.replaceChildren(label)
 
+            const attributeButton = shadowroot.querySelector('.notification-button')
+
             input.addEventListener('input', (e) => {
                 const enabled = e.target.checked
 
@@ -148,6 +150,7 @@ class SwitchBar {
                     e.target.checked
                 )
 
+                attributeButton.disabled = !enabled
                 message.innerHTML = enabled ? labels.enabled : labels.disabled
                 element.classList.remove(enabled ? 'disabled' : 'enabled')
                 element.classList.add(enabled ? 'enabled' : 'disabled')
