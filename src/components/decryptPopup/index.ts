@@ -36,8 +36,7 @@ async function doSession(con: AttributeCon, pkg: string): Promise<string> {
             mapping: {
                 sessionPtr: (r) => {
                     const ptr = r.sessionPtr
-                    if (ptr.u.includes('https:://ihub.ru.nl'))
-                        ptr.u = `https://ihub.ru.nl/irma/1/${ptr.u}`
+                    ptr.u = `https://ihub.ru.nl/irma/1/${ptr.u}`
                     return ptr
                 },
             },

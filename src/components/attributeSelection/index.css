@@ -8,26 +8,6 @@ h3 {
     color: #022e3d;
 }
 
-a {
-    color: #338265;
-}
-
-h2 {
-    font-weight: 700;
-    font-size: 24px;
-    line-height: 24px;
-}
-
-h3 {
-    font-weight: 700;
-    font-size: 14px;
-    line-height: 18px;
-}
-
-body {
-    margin: 15px;
-}
-
 div,
 p {
     margin: 0px;
@@ -35,9 +15,12 @@ p {
     font-weight: 300;
 }
 
-.center {
+#root {
+    margin-top: 15px;
+    overflow-y: auto;
     display: flex;
     justify-content: center;
+    align-items: center;
 }
 
 #topbar {
@@ -51,15 +34,4 @@ p {
     margin: 2px 10px 2px 10px;
     width: 64px;
     height: 36px;
-}
-
-h1#name {
-    overflow: auto;
-    color: white;
-    text-align: left;
-    margin: auto auto auto 10px;
-}
-
-#logo {
-    width: 40px;
 }

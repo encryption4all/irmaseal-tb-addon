@@ -1,5 +1,5 @@
 import AttributeForm from 'pg-components/AttributeForm/AttributeForm.svelte'
-import type { Policy } from 'pg-components/AttributeForm.svelte'
+import type { Policy } from 'pg-components/AttributeForm/AttributeForm.svelte'
 
 import { toEmail } from '../../utils'
 import './index.css'

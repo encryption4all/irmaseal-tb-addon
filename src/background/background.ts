@@ -4,7 +4,7 @@ import jwtDecode, { JwtPayload } from 'jwt-decode'
 
 const DEFAULT_ENCRYPT_ON = false
 const WIN_TYPE_COMPOSE = 'messageCompose'
-const PKG_URL = 'http://localhost:8087' //'https://stable.irmaseal-pkg.ihub.ru.nl'
+const PKG_URL = 'https://main.irmaseal-pkg.ihub.ru.nl'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
@@ -600,16 +600,12 @@ async function createAttributeSelectionPopup(initialRecipients: any): Promise<Po
 }
 
 browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, buttonId) => {
-    console.log(windowId, notificationId, buttonId)
     if (buttonId === 'postguard-configure') {
-        console.log('windowId', windowId)
         const tabs = await browser.tabs.query({ windowId, windowType: WIN_TYPE_COMPOSE })
-        console.log('tabs: ', tabs)
         const tabId = tabs[0].id
-        console.log('tabid: ', tabId)
         const state = await browser.compose.getComposeDetails(tabId)
-        console.log('state: ', state)
         const policy: Policy = await createAttributeSelectionPopup([...state.to, ...state.cc])
+        console.log('updated policies:', policy)
         composeTabs[tabId].policy = policy
     }
 })
