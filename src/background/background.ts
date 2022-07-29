@@ -274,66 +274,71 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
         return
     }
 
-    const file = await browser.messages.getAttachmentFile(msg.id, pgPartName)
-    const readable = file.stream()
-    const unsealer = await mod.Unsealer.new(readable)
-    const accountId = msg.folder.accountId
-    const defaultIdentity = await browser.identities.getDefault(accountId)
-    const recipientId = toEmail(defaultIdentity.email)
-    const hiddenPolicy = unsealer.get_hidden_policies()
-    const sender = msg.author
-
-    const myPolicy = hiddenPolicy[recipientId]
-    if (!myPolicy) throw new Error('recipient identifier not found in header')
-
-    myPolicy.con = myPolicy.con.map(({ t, v }) => {
-        if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
-        else if (v === '') return { t }
-        else return { t, v }
-    })
-
-    console.log('myPolicy: ', myPolicy)
-
-    // Check localStorage, otherwise create a popup to retrieve a JWT.
-    const jwt = await checkLocalStorage(myPolicy.con).catch(() =>
-        createSessionPopup(myPolicy, toEmail(sender), recipientId).then((encoded) => {
-            // Store the fresh JWT.
-            const decoded = jwtDecode<JwtPayload>(encoded)
-            hashCon(myPolicy.con).then((hash) => {
-                browser.storage.local.set({
-                    [hash]: { encoded, exp: decoded.exp },
-                })
-            })
-            return encoded
-        })
-    )
-
-    /// Use the JWT to retrieve a USK.
-    const usk = await getUSK(jwt, myPolicy.ts)
-
-    const tempFile = await browser.pg4tb.createTempFile()
-    const decoder = new TextDecoder()
-    const writable = new WritableStream({
-        write: async (chunk: Uint8Array) => {
-            const decoded = decoder.decode(chunk, { stream: true })
-            await browser.pg4tb.writeToFile(tempFile, decoded)
-        },
-    })
-    const finalDecoded = decoder.decode()
-    await browser.pg4tb.writeToFile(tempFile, finalDecoded)
-
-    await unsealer.unseal(recipientId, usk, writable)
-
-    let copyFolder = undefined
     try {
-        copyFolder = await getCopyFolder(accountId, RECEIVED_COPY_FOLDER)
-    } catch {
-        // if no folder is found, just copy in the same folder as the original message.
-    }
+        const file = await browser.messages.getAttachmentFile(msg.id, pgPartName)
+        const readable = file.stream()
+        const unsealer = await mod.Unsealer.new(readable)
+        const accountId = msg.folder.accountId
+        const defaultIdentity = await browser.identities.getDefault(accountId)
+        const recipientId = toEmail(defaultIdentity.email)
+        const hiddenPolicy = unsealer.get_hidden_policies()
+        const sender = msg.author
 
-    const newId = await browser.pg4tb.copyFileMessage(tempFile, copyFolder, msg.id)
-    await browser.messageDisplay.open({ messageId: newId })
-    await browser.messages.delete([msg.id], true)
+        const myPolicy = hiddenPolicy[recipientId]
+        if (!myPolicy) throw new Error('recipient identifier not found in header')
+
+        myPolicy.con = myPolicy.con.map(({ t, v }) => {
+            if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
+            else if (v === '') return { t }
+            else return { t, v }
+        })
+
+        console.log('myPolicy: ', myPolicy)
+
+        // Check localStorage, otherwise create a popup to retrieve a JWT.
+        const jwt = await checkLocalStorage(myPolicy.con).catch(() =>
+            createSessionPopup(myPolicy, toEmail(sender), recipientId)
+        )
+        /// Use the JWT to retrieve a USK.
+        const usk = await getUSK(jwt, myPolicy.ts)
+
+        const tempFile = await browser.pg4tb.createTempFile()
+        const decoder = new TextDecoder()
+        const writable = new WritableStream({
+            write: async (chunk: Uint8Array) => {
+                const decoded = decoder.decode(chunk, { stream: true })
+                await browser.pg4tb.writeToFile(tempFile, decoded)
+            },
+        })
+        const finalDecoded = decoder.decode()
+        await browser.pg4tb.writeToFile(tempFile, finalDecoded)
+
+        await unsealer.unseal(recipientId, usk, writable)
+
+        // Store the JWT if decryption succeeded.
+        const decoded = jwtDecode<JwtPayload>(jwt)
+        hashCon(myPolicy.con).then((hash) => {
+            browser.storage.local.set({
+                [hash]: { jwt, exp: decoded.exp },
+            })
+        })
+
+        let copyFolder = undefined
+        try {
+            copyFolder = await getCopyFolder(accountId, RECEIVED_COPY_FOLDER)
+        } catch (e) {
+            // if no folder is found, just copy in the same folder as the original message.
+        }
+
+        const newId = await browser.pg4tb.copyFileMessage(tempFile, copyFolder, msg.id)
+        await browser.messageDisplay.open({ messageId: newId })
+        await browser.messages.delete([msg.id], true)
+    } catch (e) {
+        if (e.name === 'OperationError')
+            await notifyDecryptionFailed(
+                'This message was not encrypted for the disclosed identity'
+            )
+    }
 })
 
 browser.mailTabs.onSelectedMessagesChanged.addListener(() => {
@@ -417,17 +422,17 @@ async function addBar(tab): Promise<number> {
     return notificationId
 }
 
-//async function notifyDecryptionFailed(e: Error) {
-//    const activeMailTabs = await browser.tabs.query({ mailTab: true, active: true })
-//    if (activeMailTabs.length === 1)
-//        await messenger.notificationbar.create({
-//            windowId: activeMailTabs[0].windowId,
-//            label: `Decryption failed: ${e.message}.`,
-//            placement: 'message',
-//            style: { margin: '0px' },
-//            priority: messenger.notificationbar.PRIORITY_CRITICAL_HIGH,
-//        })
-//}
+async function notifyDecryptionFailed(msg: string) {
+    const activeMailTabs = await browser.tabs.query({ mailTab: true, active: true })
+    if (activeMailTabs.length === 1)
+        await messenger.notificationbar.create({
+            windowId: activeMailTabs[0].windowId,
+            label: `Decryption failed: ${msg}.`,
+            placement: 'message',
+            style: { margin: '0px' },
+            priority: messenger.notificationbar.PRIORITY_CRITICAL_HIGH,
+        })
+}
 
 async function getLocalFolder(folderName: string): Promise<any> {
     const accs = await browser.accounts.list()
@@ -463,9 +468,9 @@ async function checkLocalStorage(con: AttributeCon): Promise<string> {
 
     return browser.storage.local.get(hash).then((cached) => {
         if (Object.keys(cached).length === 0) throw new Error('not found in localStorage')
-        const jwt = cached[hash]
-        if (Date.now() / 1000 > jwt.exp) throw new Error('jwt has expired')
-        return jwt.encoded
+        const entry = cached[hash]
+        if (Date.now() / 1000 > entry.exp) throw new Error('jwt has expired')
+        return entry.jwt
     })
 }
 

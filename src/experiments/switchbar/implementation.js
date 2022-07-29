@@ -138,6 +138,7 @@ class SwitchBar {
             buttonContainer.replaceChildren(label)
 
             const attributeButton = shadowroot.querySelector('.notification-button')
+            attributeButton.disabled = !enabled
 
             input.addEventListener('input', (e) => {
                 const enabled = e.target.checked
