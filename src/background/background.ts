@@ -166,14 +166,11 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         return total
     }, {})
 
-    const extraPolicies = composeTabs[tab.id].policy
-    if (extraPolicies) {
-        for (const [id, con] of Object.entries(extraPolicies)) {
-            policies[id].con = [...policies[id].con, ...con]
-        }
-    }
+    const customPolicies = composeTabs[tab.id].policy
+    if (customPolicies)
+        for (const [id, con] of Object.entries(customPolicies)) policies[id].con = con
 
-    console.log('final policies: ', policies)
+    console.log('Final encryption policy: ', policies)
 
     const tEncStart = performance.now()
     await mod.seal(pk, policies, readable, writable)
@@ -293,7 +290,7 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
             else return { t, v }
         })
 
-        console.log('myPolicy: ', myPolicy)
+        console.log('Trying decryption with policy: ', myPolicy)
 
         // Check localStorage, otherwise create a popup to retrieve a JWT.
         const jwt = await checkLocalStorage(myPolicy.con).catch(() =>
