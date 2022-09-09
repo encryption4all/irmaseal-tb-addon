@@ -4,11 +4,18 @@
 
 ### Fixed
 
--   Possible fix for the popup not being focussed.
+-   The popup not being focussed.
+-   Storing copies in IMAP folders, instead local folders are used.
+-   Crash during the decryption of large emails.
+-   Not automatically decrypting emails.
 
 ### Added
 
--   Compatibility with TB 102.\*.
+-   Compatibility with TB 102.\* - 105.\*.
+
+### Removed
+
+-   Most experiments.
 
 ## 0.3
 
