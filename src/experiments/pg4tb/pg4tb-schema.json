@@ -1,31 +1,54 @@
 [
     {
         "namespace": "pg4tb",
-        "functions": [
+        "types": [
             {
-                "name": "setSecurityInfo",
-                "type": "function",
-                "async": true,
-                "parameters": [
-                    {
-                        "name": "windowId",
-                        "type": "integer"
-                    },
-                    {
-                        "name": "tabId",
-                        "type": "integer"
-                    },
-                    {
-                        "name": "originalSubject",
-                        "type": "string"
+                "id": "Folder",
+                "type": "object",
+                "optional": true,
+                "properties": {
+                    "accountId": { "type": "string" },
+                    "name": { "type": "string" },
+                    "path": { "type": "string" },
+                    "subFolders": {
+                        "optional": true,
+                        "default": [],
+                        "type": "array",
+                        "items": { "$ref": "Folder" }
                     }
-                ]
-            },
+                }
+            }
+        ],
+        "functions": [
             {
                 "name": "displayMessage",
                 "type": "function",
                 "async": true,
                 "parameters": [{ "name": "msgId", "type": "integer" }]
+            },
+            { "name": "createTempFile", "type": "function", "async": true, "parameters": [] },
+            {
+                "name": "writeToFile",
+                "type": "function",
+                "async": true,
+                "parameters": [
+                    { "name": "fileId", "type": "integer" },
+                    { "name": "data", "type": "string" }
+                ]
+            },
+            {
+                "name": "copyFileMessage",
+                "type": "function",
+                "async": true,
+                "parameters": [
+                    { "name": "fileId", "type": "integer" },
+                    { "name": "folder", "$ref": "Folder", "optional": true },
+                    {
+                        "name": "originalMsgId",
+                        "type": "integer",
+                        "optional": true
+                    }
+                ]
             }
         ]
     }
