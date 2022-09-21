@@ -3,7 +3,7 @@ const path = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const sveltePreprocess = require('svelte-preprocess')
 
-const defaultMode = 'development'
+const mode = process.env.NODE_ENV || 'development'
 const outputPath = path.resolve(__dirname, './dist/release')
 
 const tsLoaderRules = [
@@ -19,7 +19,7 @@ const extensions = ['.tsx', '.ts', '.js']
 module.exports = [
     {
         name: 'webext',
-        mode: defaultMode,
+        mode,
         entry: {
             background: './src/background/background.ts',
             decryptPopup: './src/components/decryptPopup/index.ts',
@@ -90,7 +90,7 @@ module.exports = [
     },
     {
         name: 'experiment',
-        mode: defaultMode,
+        mode,
         entry: './src/experiments/pg4tb/pg4tb-impl.ts',
         output: {
             filename: 'pg4tb-impl.js',

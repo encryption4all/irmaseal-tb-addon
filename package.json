@@ -56,6 +56,6 @@
         "web-streams-polyfill": "^3.2.1"
     },
     "scripts": {
-        "build": "yarn run grunt"
+        "build": "yarn run grunt clean:initial && yarn run grunt copy && yarn run webpack && yarn run grunt compress && yarn run grunt clean:after"
     }
 }
