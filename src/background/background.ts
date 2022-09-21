@@ -157,23 +157,19 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     const timestamp = Math.round(date.getTime() / 1000)
 
-    const policies = [...details.to, ...details.cc].reduce((total, recipient) => {
-        const recipient_id = toEmail(recipient)
-        total[recipient_id] = {
-            ts: timestamp,
-            con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
+    const customPolicies = composeTabs[tab.id].policy
+    const policy = [...details.to, ...details.cc].reduce((total, recipient) => {
+        const id = toEmail(recipient)
+        if (customPolicies && customPolicies[id]) {
+            total[id] = { ts: timestamp, con: customPolicies[id] }
+            return total
         }
-        return total
     }, {})
 
-    const customPolicies = composeTabs[tab.id].policy
-    if (customPolicies)
-        for (const [id, con] of Object.entries(customPolicies)) policies[id].con = con
-
-    console.log('Final encryption policy: ', policies)
+    console.log('Final encryption policy: ', policy)
 
     const tEncStart = performance.now()
-    await mod.seal(pk, policies, readable, writable)
+    await mod.seal(pk, policy, readable, writable)
     console.log(`Encryption took ${performance.now() - tEncStart} ms`)
 
     // Create the attachment
@@ -388,8 +384,7 @@ async function detectMode(): Promise<boolean> {
 async function addBar(tab): Promise<number> {
     const darkMode = await detectMode()
 
-    const lightGreen = '#54D6A7'
-    const darkGreen = '#022E3D'
+    const darkBlue = '#022E3D'
     const white = '#FFFFFF'
 
     const notificationId = await messenger.switchbar.create({
@@ -399,20 +394,20 @@ async function addBar(tab): Promise<number> {
         placement: 'top',
         iconEnabled: 'icons/pg_logo.svg',
         iconDisabled: `icons/pg_logo${darkMode ? '' : '_white'}.svg`,
-        buttons: [{ id: 'postguard-configure', label: 'Select attributes', accesskey: 'test' }],
+        buttons: [{ id: 'postguard-configure', label: '⚙', accesskey: 'test' }],
         labels: {
             enabled: i18n('composeSwitchBarEnabledHtml'),
             disabled: i18n('composeSwitchBarDisabledHtml'),
         },
         style: {
-            'color-enabled': darkGreen, // text color
-            'color-disabled': darkMode ? darkGreen : white,
-            'background-color-enabled': lightGreen, // background of bar
-            'background-color-disabled': darkMode ? white : darkGreen,
-            'slider-background-color-enabled': darkGreen, // background of slider
-            'slider-background-color-disabled': darkMode ? darkGreen : white,
+            'color-enabled': darkBlue, // text color
+            'color-disabled': darkMode ? darkBlue : white,
+            'background-color-enabled': white, // background of bar
+            'background-color-disabled': darkMode ? white : darkBlue,
+            'slider-background-color-enabled': darkBlue, // background of slider
+            'slider-background-color-disabled': darkMode ? darkBlue : white,
             'slider-color-enabled': white, // slider itself
-            'slider-color-disabled': darkMode ? white : darkGreen,
+            'slider-color-disabled': darkMode ? white : darkBlue,
         },
     })
 
@@ -561,12 +556,12 @@ async function retrievePublicKey(): Promise<string> {
         })
 }
 
-async function createAttributeSelectionPopup(initialRecipients: any): Promise<Policy> {
+async function createAttributeSelectionPopup(initialPolicy: Policy): Promise<Policy> {
     const popupWindow = await messenger.windows.create({
         url: 'attributeSelection.html',
         type: 'popup',
-        height: 600,
-        width: 800,
+        height: 400,
+        width: 700,
     })
 
     const popupId = popupWindow.id
@@ -577,11 +572,11 @@ async function createAttributeSelectionPopup(initialRecipients: any): Promise<Po
         popupListener = (req, sender) => {
             if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
                 return Promise.resolve({
-                    initialRecipients,
+                    initialPolicy,
                 })
             } else if (sender.tab.windowId == popupId && req && req.command === 'popup_done') {
-                if (req.policies) resolve(req.policies)
-                else reject(new Error('no policies'))
+                if (req.policy) resolve(req.policy)
+                else reject(new Error('no policy'))
                 return Promise.resolve()
             }
             return false
@@ -606,8 +601,26 @@ browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, b
         const tabs = await browser.tabs.query({ windowId, windowType: WIN_TYPE_COMPOSE })
         const tabId = tabs[0].id
         const state = await browser.compose.getComposeDetails(tabId)
-        const policy: Policy = await createAttributeSelectionPopup([...state.to, ...state.cc])
-        console.log('updated policies:', policy)
-        composeTabs[tabId].policy = policy
+        const recipients = [...state.to, ...state.cc]
+
+        const policy: Policy = recipients.reduce((p, next) => {
+            const email = toEmail(next)
+            p[email] = []
+            return p
+        }, {})
+
+        if (composeTabs[tabId].policy) {
+            for (const [rec, con] of Object.entries(composeTabs[tabId].policy as Policy)) {
+                if (recipients.includes(rec)) policy[rec] = con
+            }
+        }
+
+        const newPolicy: Policy = await createAttributeSelectionPopup(policy)
+        composeTabs[tabId].policy = newPolicy
+
+        const latest = await browser.compose.getComposeDetails(tabId)
+        const newTo = Object.keys(newPolicy)
+        latest.to = newTo
+        await browser.compose.setComposeDetails(tabId, latest)
     }
 })

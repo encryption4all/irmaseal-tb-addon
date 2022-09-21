@@ -1,6 +1,7 @@
 const webpack = require('webpack')
 const path = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
+const sveltePreprocess = require('svelte-preprocess')
 
 const defaultMode = 'development'
 const outputPath = path.resolve(__dirname, './dist/release')
@@ -30,16 +31,17 @@ module.exports = [
             rules: [
                 ...tsLoaderRules,
                 {
-                    test: /\.css$/i,
-                    use: ['style-loader', 'css-loader'],
-                },
-                {
                     test: /\.(woff|woff2|eot|ttf|otf)$/i,
                     type: 'asset/resource',
                 },
                 {
                     test: /\.(svelte)$/,
-                    use: 'svelte-loader',
+                    use: {
+                        loader: 'svelte-loader',
+                        options: {
+                            preprocess: sveltePreprocess({ postcss: true }) /* emitCss: true,*/,
+                        },
+                    },
                 },
                 {
                     // required to prevent errors from Svelte on Webpack 5+, omit on Webpack 4
@@ -48,6 +50,8 @@ module.exports = [
                         fullySpecified: false,
                     },
                 },
+                { test: /\.(svg)$/, type: 'asset/inline' },
+                { test: /\.(css)$/, use: ['style-loader', 'css-loader'] },
             ],
         },
         resolve: {

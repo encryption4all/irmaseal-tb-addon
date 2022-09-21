@@ -40,7 +40,7 @@
 		"description": ""
 	},
 	"composeSwitchBarEnabledHtml": {
-		"message": "<p>Email encryption is turned <b>on</b>. Only the intended recipient(s) can decrypt and read the contents, subject and attachment(s).</p>",
+		"message": "<p>Email encryption is turned <b>on</b>.</p>",
 		"description": ""
 	},
 	"composeSwitchBarDisabledHtml": {

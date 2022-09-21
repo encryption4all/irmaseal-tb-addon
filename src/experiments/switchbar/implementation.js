@@ -252,6 +252,21 @@ class SwitchBar {
                     --message-bar-background-color: ${style['background-color-disabled']};
                     --message-bar-text-color: ${style['color-disabled']};
                 }
+                .notification-button.small-button {
+                    font-size: 1.6em;
+                    border: none;
+                    padding-block: unset;
+                }
+                :host(.enabled) .notification-button.small-button {
+                    background-color: ${style['background-color-enabled']};
+                    color: ${style['color-enabled']}; 
+                }
+                :host(.disabled) .notification-button.small-button {
+                    display: none;
+                }
+                .notification-message {
+                    flex-grow: unset;
+                }
                 /*
                 :host(:not(.initial)) .container.infobar {
                     -moz-transition: background-color 0.33s linear;
