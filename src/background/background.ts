@@ -160,10 +160,10 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     const customPolicies = composeTabs[tab.id].policy
     const policy = [...details.to, ...details.cc].reduce((total, recipient) => {
         const id = toEmail(recipient)
-        if (customPolicies && customPolicies[id]) {
+        if (customPolicies && customPolicies[id])
             total[id] = { ts: timestamp, con: customPolicies[id] }
-            return total
-        }
+        else total[id] = { ts: timestamp, con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: id }] }
+        return total
     }, {})
 
     console.log('Final encryption policy: ', policy)
@@ -182,7 +182,11 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     const compose = new ComposeMail()
     compose.setSender(details.from)
-    details.deliveryFormat = 'both'
+
+    // This doesn't work in onBeforeSend due to a bug, hence we set this
+    // when PostGuard is enabled.
+    // details.deliveryFormat = 'both'
+
     details.plainTextBody = compose.getPlainText()
     details.body = compose.getHtmlText()
 
@@ -200,9 +204,20 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 messenger.switchbar.onButtonClicked.addListener(
     async (windowId: number, barId: number, buttonId: string, enabled: boolean) => {
         if (['btn-switch'].includes(buttonId)) {
-            const tabId = Object.keys(composeTabs).find((key) => composeTabs[key]?.barId === barId)
-            if (tabId) {
+            const tabIdKey = Object.keys(composeTabs).find(
+                (key) => composeTabs[key]?.barId === barId
+            )
+            if (tabIdKey) {
+                const tabId = Number(tabIdKey)
                 composeTabs[tabId].encrypt = enabled
+
+                // if PostGuard is enabled turn on deliveryFormat = both
+                const details = await browser.compose.getComposeDetails(tabId)
+                await browser.compose.setComposeDetails(tabId, {
+                    ...details,
+                    deliveryFormat: enabled ? 'both' : 'auto',
+                })
+
                 // Remove the notification if PostGuard is turned off.
                 if (composeTabs[tabId].notificationId && !enabled) {
                     await messenger.notificationbar.clear(composeTabs[tabId].notificationId)
