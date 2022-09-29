@@ -45,6 +45,7 @@ const composeTabs: {
         barId: number
         notificationId?: number
         policy?: Policy
+        configOpen?: boolean
     }
 } = await (
     await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
@@ -615,6 +616,10 @@ browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, b
     if (buttonId === 'postguard-configure') {
         const tabs = await browser.tabs.query({ windowId, windowType: WIN_TYPE_COMPOSE })
         const tabId = tabs[0].id
+
+        if (composeTabs[tabId].configOpen) return
+        composeTabs[tabId].configOpen = true
+
         const state = await browser.compose.getComposeDetails(tabId)
         const recipients = [...state.to, ...state.cc]
 
@@ -630,12 +635,15 @@ browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, b
             }
         }
 
-        const newPolicy: Policy = await createAttributeSelectionPopup(policy)
-        composeTabs[tabId].policy = newPolicy
-
-        const latest = await browser.compose.getComposeDetails(tabId)
-        const newTo = Object.keys(newPolicy)
-        latest.to = newTo
-        await browser.compose.setComposeDetails(tabId, latest)
+        try {
+            const newPolicy: Policy = await createAttributeSelectionPopup(policy)
+            composeTabs[tabId].policy = newPolicy
+            const latest = await browser.compose.getComposeDetails(tabId)
+            const newTo = Object.keys(newPolicy)
+            latest.to = newTo
+            await browser.compose.setComposeDetails(tabId, latest)
+        } finally {
+            composeTabs[tabId].configOpen = false
+        }
     }
 })
