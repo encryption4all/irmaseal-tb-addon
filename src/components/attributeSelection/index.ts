@@ -1,5 +1,5 @@
-import AttributeForm from 'pg-components/AttributeForm/AttributeForm.svelte'
-import type { Policy } from 'pg-components/AttributeForm/AttributeForm.svelte'
+import AttributeForm from '@e4a/pg-components/AttributeForm/AttributeForm.svelte'
+import type { Policy } from '@e4a/pg-components/AttributeForm/AttributeForm.svelte'
 
 import './index.css'
 
