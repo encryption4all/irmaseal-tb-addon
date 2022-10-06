@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "PostGuard",
-    "version": "0.4",
+    "version": "0.5",
     "description": "PostGuard encryption plugin for Thunderbird",
     "icons": {
         "48": "icons/pg_logo_no_text.svg",
