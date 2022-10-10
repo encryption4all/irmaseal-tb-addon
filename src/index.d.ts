@@ -9,6 +9,7 @@ interface Version {
 
 type PopupData = {
     con: AttributeCon
+    hints: AttributeCon
     hostname: string
     senderId: string
     recipientId: string

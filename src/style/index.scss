@@ -1,27 +1,30 @@
 @font-face {
     font-family: 'Overpass';
-    src: url('./../../resources/fonts/Overpass-Regular.ttf') format('truetype');
+    src: url('/resources/fonts/Overpass-Regular.ttf') format('truetype');
     font-weight: 600;
     font-style: normal;
 }
 
 @font-face {
     font-family: 'Overpass';
-    src: url('./../../resources/fonts/Overpass-Bold.ttf') format('truetype');
+    src: url('/resources/fonts/Overpass-Bold.ttf') format('truetype');
     font-weight: 700;
     font-style: bold;
 }
+
+$pg-accent-color: #3095de;
+$pg-color: #022e3d;
 
 p,
 h2,
 h3 {
     font-family: 'Overpass';
     font-style: normal;
-    color: #022e3d;
+    color: $pg-color;
 }
 
 a {
-    color: #338265;
+    color: $pg-accent-color;
 }
 
 h2 {
@@ -62,7 +65,7 @@ p {
 #topbar {
     width: 100%;
     height: 40px;
-    background-color: #022e3d;
+    background-color: $pg-color;
     overflow: hidden;
 }
 

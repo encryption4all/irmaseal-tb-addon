@@ -293,12 +293,14 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
         const hiddenPolicy = unsealer.get_hidden_policies()
         const sender = msg.author
 
-        const myPolicy = hiddenPolicy[recipientId]
+        const myPolicy = Object.assign({}, hiddenPolicy[recipientId])
+        const hints = hiddenPolicy[recipientId]
         if (!myPolicy) throw new Error('recipient identifier not found in header')
 
+        // convert to attribute request
         myPolicy.con = myPolicy.con.map(({ t, v }) => {
             if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
-            else if (v === '') return { t }
+            else if (v === '' || v.includes('*')) return { t }
             else return { t, v }
         })
 
@@ -306,7 +308,7 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
 
         // Check localStorage, otherwise create a popup to retrieve a JWT.
         const jwt = await checkLocalStorage(myPolicy.con).catch(() =>
-            createSessionPopup(myPolicy, toEmail(sender), recipientId)
+            createSessionPopup(myPolicy, hints, toEmail(sender), recipientId)
         )
         /// Use the JWT to retrieve a USK.
         const usk = await getUSK(jwt, myPolicy.ts)
@@ -500,6 +502,7 @@ async function getUSK(jwt: string, ts: number): Promise<string> {
 
 async function createSessionPopup(
     pol: Policy,
+    hints: Policy,
     senderId: string,
     recipientId: string
 ): Promise<string> {
@@ -520,6 +523,7 @@ async function createSessionPopup(
                 return Promise.resolve({
                     hostname: PKG_URL,
                     con: pol.con,
+                    hints: hints.con,
                     senderId,
                     recipientId,
                 })

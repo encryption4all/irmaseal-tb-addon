@@ -1,15 +1,20 @@
-@import './../../style/index.css';
+@import './../../style/index.scss';
+
+.pg-body {
+    overflow-y: auto;
+    height: 100%;
+}
 
 #postguard-txt {
     margin-top: 4px;
     font-weight: 700;
     font-size: 14px;
-    color: #004c92;
+    color: $pg-color;
 }
 
 #sender {
     font-weight: 18px;
-    color: #338265;
+    color: $pg-accent-color;
 }
 
 #irma-logo {
@@ -19,6 +24,15 @@
 
 #logo {
     width: 40px;
+}
+
+table#attribute-table {
+    margin: 1rem auto 1rem auto;
+    font-size: 12px;
+
+    td.value {
+        color: $pg-accent-color;
+    }
 }
 
 #qr-container {

@@ -1,7 +1,9 @@
 import * as IrmaCore from '@privacybydesign/irma-core'
 import * as IrmaClient from '@privacybydesign/irma-client'
 import * as IrmaWeb from '@privacybydesign/irma-web'
-import './index.css'
+import './index.scss'
+
+const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 
 window.addEventListener('load', onLoad)
 
@@ -52,6 +54,26 @@ async function doSession(con: AttributeCon, pkg: string): Promise<string> {
     return irma.start()
 }
 
+function fillTable(table: HTMLElement, data: PopupData) {
+    function row({ t, v }) {
+        const row = document.createElement('tr')
+        const tdtype = document.createElement('td')
+        const tdvalue = document.createElement('td')
+        tdtype.innerText = browser.i18n.getMessage(t) ?? t
+        tdvalue.innerText = v ? v : ''
+        tdvalue.classList.add('value')
+        row.appendChild(tdtype)
+        row.appendChild(tdvalue)
+        return row
+    }
+
+    table.appendChild(row({ t: EMAIL_ATTRIBUTE_TYPE, v: data.recipientId }))
+    data.hints = data.hints.filter(({ t }) => t !== EMAIL_ATTRIBUTE_TYPE)
+    for (const { t, v } of data.hints) {
+        table.appendChild(row({ t, v }))
+    }
+}
+
 async function onLoad() {
     const data: PopupData = await browser.runtime.sendMessage({
         command: 'popup_init',
@@ -73,6 +95,9 @@ async function onLoad() {
     document.getElementById('irma-help-body')!.innerText = irmaHelpBody
     document.getElementById('irma-help-link')!.innerText = irmaHelpLink
     document.getElementById('irma-help-download-header')!.innerText = irmaHelpDownloadHeader
+
+    const table: HTMLTableElement | null = document.querySelector('table#attribute-table')
+    if (table) fillTable(table, data)
 
     doSession(data.con, data.hostname)
         .then((jwt) => {

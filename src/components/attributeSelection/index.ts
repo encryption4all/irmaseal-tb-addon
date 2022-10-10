@@ -1,7 +1,7 @@
 import AttributeForm from '@e4a/pg-components/AttributeForm/AttributeForm.svelte'
 import type { Policy } from '@e4a/pg-components/AttributeForm/AttributeForm.svelte'
 
-import './index.css'
+import './index.scss'
 
 window.addEventListener('load', onLoad)
 

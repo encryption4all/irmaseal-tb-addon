@@ -54,10 +54,10 @@
   resolved "https://registry.yarnpkg.com/@e4a/irmaseal-mail-utils/-/irmaseal-mail-utils-0.0.4.tgz#cbddcb70e9f911016c8870f7bb52cf20c830af94"
   integrity sha512-KzQdXJsBt4SJzgj73FChG+gRQzy55T1hlvA4VuiLknQ/qu0uJnpHp8mlnEOvcCcC+U+gVRm2OgOHqJ+5WQgRmQ==
 
-"@e4a/irmaseal-wasm-bindings@0.2.0":
-  version "0.2.0"
-  resolved "https://registry.npmjs.org/@e4a/irmaseal-wasm-bindings/-/irmaseal-wasm-bindings-0.2.0.tgz#fa76c5411cb308f77cf8aa4e1194db33cbfbfe1a"
-  integrity sha512-ehGZJF1irjGEDBBDfd3MW4v9z10hJzgy9D4zlcaPtP/BK+J7xtpZkzxYUoNh2f57BfhNMn4GPbx6HyIbeXT0kQ==
+"@e4a/irmaseal-wasm-bindings@^0.2.1":
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/@e4a/irmaseal-wasm-bindings/-/irmaseal-wasm-bindings-0.2.1.tgz#eeb48d13543f5c85238cb69149fd3ea581d46eb1"
+  integrity sha512-CrDTS1c1CDLoV6FHaxD3/4cfktCd3CpoSo2hzH2Td2Fi0uGZvPkL5lkHIm6+N4bN+tFAcha4Yp64K0ygYQTr9w==
 
 "@e4a/pg-components@^0.0.1":
   version "0.0.1"
@@ -3886,18 +3886,18 @@ sander@^0.5.0:
     mkdirp "^0.5.1"
     rimraf "^2.5.2"
 
-sass-loader@^13.0.2:
-  version "13.0.2"
-  resolved "https://registry.yarnpkg.com/sass-loader/-/sass-loader-13.0.2.tgz#e81a909048e06520e9f2ff25113a801065adb3fe"
-  integrity sha512-BbiqbVmbfJaWVeOOAu2o7DhYWtcNmTfvroVgFXa6k2hHheMxNAeDHLNoDy/Q5aoaVlz0LH+MbMktKwm9vN/j8Q==
+sass-loader@^13.1.0:
+  version "13.1.0"
+  resolved "https://registry.yarnpkg.com/sass-loader/-/sass-loader-13.1.0.tgz#e5b9acf14199a9bc6eaed7a0b8b23951c2cebf6f"
+  integrity sha512-tZS1RJQ2n2+QNyf3CCAo1H562WjL/5AM6Gi8YcPVVoNxQX8d19mx8E+8fRrMWsyc93ZL6Q8vZDSM0FHVTJaVnQ==
   dependencies:
     klona "^2.0.4"
     neo-async "^2.6.2"
 
-sass@^1.54.9:
-  version "1.54.9"
-  resolved "https://registry.yarnpkg.com/sass/-/sass-1.54.9.tgz#b05f14ed572869218d1a76961de60cd647221762"
-  integrity sha512-xb1hjASzEH+0L0WI9oFjqhRi51t/gagWnxLiwUNMltA0Ab6jIDkAacgKiGYKM9Jhy109osM7woEEai6SXeJo5Q==
+sass@^1.55.0:
+  version "1.55.0"
+  resolved "https://registry.yarnpkg.com/sass/-/sass-1.55.0.tgz#0c4d3c293cfe8f8a2e8d3b666e1cf1bff8065d1c"
+  integrity sha512-Pk+PMy7OGLs9WaxZGJMn7S96dvlyVBwwtToX895WmCpAOr5YiJYEUJfiJidMuKb613z2xNWcXCHEuOvjZbqC6A==
   dependencies:
     chokidar ">=3.0.0 <4.0.0"
     immutable "^4.0.0"
