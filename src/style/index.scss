@@ -1,27 +1,30 @@
 @font-face {
     font-family: 'Overpass';
-    src: url('./../../../resources/fonts/Overpass-Regular.ttf') format('truetype');
+    src: url('/resources/fonts/Overpass-Regular.ttf') format('truetype');
     font-weight: 600;
     font-style: normal;
 }
 
 @font-face {
     font-family: 'Overpass';
-    src: url('./../../../resources/fonts/Overpass-Bold.ttf') format('truetype');
+    src: url('/resources/fonts/Overpass-Bold.ttf') format('truetype');
     font-weight: 700;
     font-style: bold;
 }
+
+$pg-accent-color: #3095de;
+$pg-color: #022e3d;
 
 p,
 h2,
 h3 {
     font-family: 'Overpass';
     font-style: normal;
-    color: #022e3d;
+    color: $pg-color;
 }
 
 a {
-    color: #338265;
+    color: $pg-accent-color;
 }
 
 h2 {
@@ -62,7 +65,7 @@ p {
 #topbar {
     width: 100%;
     height: 40px;
-    background-color: #022e3d;
+    background-color: $pg-color;
     overflow: hidden;
 }
 
@@ -77,54 +80,4 @@ h1#name {
     color: white;
     text-align: left;
     margin: auto auto auto 10px;
-}
-
-#postguard-txt {
-    margin-top: 4px;
-    font-weight: 700;
-    font-size: 14px;
-    color: #004c92;
-}
-
-#sender {
-    font-weight: 18px;
-    color: #338265;
-}
-
-#irma-logo {
-    width: 48px;
-    height: 48px;
-}
-
-#logo {
-    width: 40px;
-}
-
-#qr-container {
-    width: 300px;
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin: auto auto auto 141px;
-}
-
-#irma-app h3 {
-    margin: 0;
-    padding: 0;
-}
-
-.irma {
-    text-align: left;
-    margin-left: 20%;
-    margin-right: 20%;
-    margin-top: 10px;
-}
-
-#download-irma {
-    margin-top: 12px;
-}
-
-#download-irma img {
-    height: 30px;
-    margin-top: 12px;
 }

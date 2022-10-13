@@ -111,12 +111,13 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
                                 newKey = key
                             },
                             OnStopCopy(statusCode: number) {
+                                file.remove(false)
+
                                 if (statusCode !== 0) {
-                                    reject(
+                                    return reject(
                                         new ExtensionError(`error copying message: ${statusCode}`)
                                     )
                                 }
-                                file.remove(false)
 
                                 const newHdr = newFolder.GetMessageHeader(newKey)
                                 newMsgId = extension.messageManager.convert(newHdr).id

@@ -4,7 +4,7 @@ import jwtDecode, { JwtPayload } from 'jwt-decode'
 
 const DEFAULT_ENCRYPT_ON = false
 const WIN_TYPE_COMPOSE = 'messageCompose'
-const PKG_URL = 'https://stable.irmaseal-pkg.ihub.ru.nl'
+const PKG_URL = 'https://main.irmaseal-pkg.ihub.ru.nl'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
@@ -44,6 +44,8 @@ const composeTabs: {
         encrypt: boolean
         barId: number
         notificationId?: number
+        policy?: Policy
+        configOpen?: boolean
     }
 } = await (
     await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
@@ -156,17 +158,19 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     const timestamp = Math.round(date.getTime() / 1000)
 
-    const policies = [...details.to, ...details.cc].reduce((total, recipient) => {
-        const recipient_id = toEmail(recipient)
-        total[recipient_id] = {
-            ts: timestamp,
-            con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: recipient_id }],
-        }
+    const customPolicies = composeTabs[tab.id].policy
+    const policy = [...details.to, ...details.cc].reduce((total, recipient) => {
+        const id = toEmail(recipient)
+        if (customPolicies && customPolicies[id])
+            total[id] = { ts: timestamp, con: customPolicies[id] }
+        else total[id] = { ts: timestamp, con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: id }] }
         return total
     }, {})
 
+    console.log('Final encryption policy: ', policy)
+
     const tEncStart = performance.now()
-    await mod.seal(pk, policies, readable, writable)
+    await mod.seal(pk, policy, readable, writable)
     console.log(`Encryption took ${performance.now() - tEncStart} ms`)
 
     // Create the attachment
@@ -179,7 +183,11 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     const compose = new ComposeMail()
     compose.setSender(details.from)
-    details.deliveryFormat = 'both'
+
+    // This doesn't work in onBeforeSend due to a bug, hence we set this
+    // when PostGuard is enabled.
+    // details.deliveryFormat = 'both'
+
     details.plainTextBody = compose.getPlainText()
     details.body = compose.getHtmlText()
 
@@ -197,9 +205,20 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 messenger.switchbar.onButtonClicked.addListener(
     async (windowId: number, barId: number, buttonId: string, enabled: boolean) => {
         if (['btn-switch'].includes(buttonId)) {
-            const tabId = Object.keys(composeTabs).find((key) => composeTabs[key]?.barId === barId)
-            if (tabId) {
+            const tabIdKey = Object.keys(composeTabs).find(
+                (key) => composeTabs[key]?.barId === barId
+            )
+            if (tabIdKey) {
+                const tabId = Number(tabIdKey)
                 composeTabs[tabId].encrypt = enabled
+
+                // if PostGuard is enabled turn on deliveryFormat = both
+                const details = await browser.compose.getComposeDetails(tabId)
+                await browser.compose.setComposeDetails(tabId, {
+                    ...details,
+                    deliveryFormat: enabled ? 'both' : 'auto',
+                })
+
                 // Remove the notification if PostGuard is turned off.
                 if (composeTabs[tabId].notificationId && !enabled) {
                     await messenger.notificationbar.clear(composeTabs[tabId].notificationId)
@@ -264,63 +283,73 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
         return
     }
 
-    const file = await browser.messages.getAttachmentFile(msg.id, pgPartName)
-    const readable = file.stream()
-    const unsealer = await mod.Unsealer.new(readable)
-    const accountId = msg.folder.accountId
-    const defaultIdentity = await browser.identities.getDefault(accountId)
-    const recipientId = toEmail(defaultIdentity.email)
-    const hiddenPolicy = unsealer.get_hidden_policies()
-    const sender = msg.author
-
-    const myPolicy = hiddenPolicy[recipientId]
-    if (!myPolicy) throw new Error('recipient identifier not found in header')
-
-    myPolicy.con = myPolicy.con.map(({ t, v }) => {
-        if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
-        return { t, v }
-    })
-
-    // Check localStorage, otherwise create a popup to retrieve a JWT.
-    const jwt = await checkLocalStorage(myPolicy.con).catch(() =>
-        createSessionPopup(myPolicy, toEmail(sender), recipientId).then((encoded) => {
-            // Store the fresh JWT.
-            const decoded = jwtDecode<JwtPayload>(encoded)
-            hashCon(myPolicy.con).then((hash) => {
-                browser.storage.local.set({
-                    [hash]: { encoded, exp: decoded.exp },
-                })
-            })
-            return encoded
-        })
-    )
-
-    /// Use the JWT to retrieve a USK.
-    const usk = await getUSK(jwt, myPolicy.ts)
-
-    const tempFile = await browser.pg4tb.createTempFile()
-    const decoder = new TextDecoder()
-    const writable = new WritableStream({
-        write: async (chunk: Uint8Array) => {
-            const decoded = decoder.decode(chunk, { stream: true })
-            await browser.pg4tb.writeToFile(tempFile, decoded)
-        },
-    })
-    const finalDecoded = decoder.decode()
-    await browser.pg4tb.writeToFile(tempFile, finalDecoded)
-
-    await unsealer.unseal(recipientId, usk, writable)
-
-    let copyFolder = undefined
     try {
-        copyFolder = await getCopyFolder(accountId, RECEIVED_COPY_FOLDER)
-    } catch {
-        // if no folder is found, just copy in the same folder as the original message.
-    }
+        const file = await browser.messages.getAttachmentFile(msg.id, pgPartName)
+        const readable = file.stream()
+        const unsealer = await mod.Unsealer.new(readable)
+        const accountId = msg.folder.accountId
+        const defaultIdentity = await browser.identities.getDefault(accountId)
+        const recipientId = toEmail(defaultIdentity.email)
+        const hiddenPolicy = unsealer.get_hidden_policies()
+        const sender = msg.author
 
-    const newId = await browser.pg4tb.copyFileMessage(tempFile, copyFolder, msg.id)
-    await browser.messageDisplay.open({ messageId: newId })
-    await browser.messages.delete([msg.id], true)
+        const myPolicy = Object.assign({}, hiddenPolicy[recipientId])
+        const hints = hiddenPolicy[recipientId]
+        if (!myPolicy) throw new Error('recipient identifier not found in header')
+
+        // convert to attribute request
+        myPolicy.con = myPolicy.con.map(({ t, v }) => {
+            if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
+            else if (v === '' || v.includes('*')) return { t }
+            else return { t, v }
+        })
+
+        console.log('Trying decryption with policy: ', myPolicy)
+
+        // Check localStorage, otherwise create a popup to retrieve a JWT.
+        const jwt = await checkLocalStorage(myPolicy.con).catch(() =>
+            createSessionPopup(myPolicy, hints, toEmail(sender), recipientId)
+        )
+        /// Use the JWT to retrieve a USK.
+        const usk = await getUSK(jwt, myPolicy.ts)
+
+        const tempFile = await browser.pg4tb.createTempFile()
+        const decoder = new TextDecoder()
+        const writable = new WritableStream({
+            write: async (chunk: Uint8Array) => {
+                const decoded = decoder.decode(chunk, { stream: true })
+                await browser.pg4tb.writeToFile(tempFile, decoded)
+            },
+        })
+        const finalDecoded = decoder.decode()
+        await browser.pg4tb.writeToFile(tempFile, finalDecoded)
+
+        await unsealer.unseal(recipientId, usk, writable)
+
+        // Store the JWT if decryption succeeded.
+        const decoded = jwtDecode<JwtPayload>(jwt)
+        hashCon(myPolicy.con).then((hash) => {
+            browser.storage.local.set({
+                [hash]: { jwt, exp: decoded.exp },
+            })
+        })
+
+        let copyFolder = undefined
+        try {
+            copyFolder = await getCopyFolder(accountId, RECEIVED_COPY_FOLDER)
+        } catch (e) {
+            // if no folder is found, just copy in the same folder as the original message.
+        }
+
+        const newId = await browser.pg4tb.copyFileMessage(tempFile, copyFolder, msg.id)
+        await browser.messageDisplay.open({ messageId: newId })
+        await browser.messages.delete([msg.id], true)
+    } catch (e) {
+        if (e.name === 'OperationError')
+            await notifyDecryptionFailed(
+                'This message was not encrypted for the disclosed identity'
+            )
+    }
 })
 
 browser.mailTabs.onSelectedMessagesChanged.addListener(() => {
@@ -373,8 +402,7 @@ async function detectMode(): Promise<boolean> {
 async function addBar(tab): Promise<number> {
     const darkMode = await detectMode()
 
-    const lightGreen = '#54D6A7'
-    const darkGreen = '#022E3D'
+    const darkBlue = '#022E3D'
     const white = '#FFFFFF'
 
     const notificationId = await messenger.switchbar.create({
@@ -384,36 +412,37 @@ async function addBar(tab): Promise<number> {
         placement: 'top',
         iconEnabled: 'icons/pg_logo.svg',
         iconDisabled: `icons/pg_logo${darkMode ? '' : '_white'}.svg`,
+        buttons: [{ id: 'postguard-configure', label: '⚙', accesskey: 'test' }],
         labels: {
             enabled: i18n('composeSwitchBarEnabledHtml'),
             disabled: i18n('composeSwitchBarDisabledHtml'),
         },
         style: {
-            'color-enabled': darkGreen, // text color
-            'color-disabled': darkMode ? darkGreen : white,
-            'background-color-enabled': lightGreen, // background of bar
-            'background-color-disabled': darkMode ? white : darkGreen,
-            'slider-background-color-enabled': darkGreen, // background of slider
-            'slider-background-color-disabled': darkMode ? darkGreen : white,
+            'color-enabled': darkBlue, // text color
+            'color-disabled': darkMode ? darkBlue : white,
+            'background-color-enabled': white, // background of bar
+            'background-color-disabled': darkMode ? white : darkBlue,
+            'slider-background-color-enabled': darkBlue, // background of slider
+            'slider-background-color-disabled': darkMode ? darkBlue : white,
             'slider-color-enabled': white, // slider itself
-            'slider-color-disabled': darkMode ? white : darkGreen,
+            'slider-color-disabled': darkMode ? white : darkBlue,
         },
     })
 
     return notificationId
 }
 
-//async function notifyDecryptionFailed(e: Error) {
-//    const activeMailTabs = await browser.tabs.query({ mailTab: true, active: true })
-//    if (activeMailTabs.length === 1)
-//        await messenger.notificationbar.create({
-//            windowId: activeMailTabs[0].windowId,
-//            label: `Decryption failed: ${e.message}.`,
-//            placement: 'message',
-//            style: { margin: '0px' },
-//            priority: messenger.notificationbar.PRIORITY_CRITICAL_HIGH,
-//        })
-//}
+async function notifyDecryptionFailed(msg: string) {
+    const activeMailTabs = await browser.tabs.query({ mailTab: true, active: true })
+    if (activeMailTabs.length === 1)
+        await messenger.notificationbar.create({
+            windowId: activeMailTabs[0].windowId,
+            label: `Decryption failed: ${msg}.`,
+            placement: 'message',
+            style: { margin: '0px' },
+            priority: messenger.notificationbar.PRIORITY_CRITICAL_HIGH,
+        })
+}
 
 async function getLocalFolder(folderName: string): Promise<any> {
     const accs = await browser.accounts.list()
@@ -449,9 +478,9 @@ async function checkLocalStorage(con: AttributeCon): Promise<string> {
 
     return browser.storage.local.get(hash).then((cached) => {
         if (Object.keys(cached).length === 0) throw new Error('not found in localStorage')
-        const jwt = cached[hash]
-        if (Date.now() / 1000 > jwt.exp) throw new Error('jwt has expired')
-        return jwt.encoded
+        const entry = cached[hash]
+        if (Date.now() / 1000 > entry.exp) throw new Error('jwt has expired')
+        return entry.jwt
     })
 }
 
@@ -473,6 +502,7 @@ async function getUSK(jwt: string, ts: number): Promise<string> {
 
 async function createSessionPopup(
     pol: Policy,
+    hints: Policy,
     senderId: string,
     recipientId: string
 ): Promise<string> {
@@ -492,7 +522,8 @@ async function createSessionPopup(
             if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
                 return Promise.resolve({
                     hostname: PKG_URL,
-                    policy: pol,
+                    con: pol.con,
+                    hints: hints.con,
                     senderId,
                     recipientId,
                 })
@@ -544,3 +575,79 @@ async function retrievePublicKey(): Promise<string> {
             throw new Error('no public key')
         })
 }
+
+async function createAttributeSelectionPopup(initialPolicy: Policy): Promise<Policy> {
+    const popupWindow = await messenger.windows.create({
+        url: 'attributeSelection.html',
+        type: 'popup',
+        height: 400,
+        width: 700,
+    })
+
+    const popupId = popupWindow.id
+    await messenger.windows.update(popupId, { drawAttention: true, focused: true })
+
+    let popupListener, tabClosedListener
+    const policyPromise = new Promise<Policy>((resolve, reject) => {
+        popupListener = (req, sender) => {
+            if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
+                return Promise.resolve({
+                    initialPolicy,
+                })
+            } else if (sender.tab.windowId == popupId && req && req.command === 'popup_done') {
+                if (req.policy) resolve(req.policy)
+                else reject(new Error('no policy'))
+                return Promise.resolve()
+            }
+            return false
+        }
+
+        tabClosedListener = (windowId: number) => {
+            if (windowId === popupId) reject(new Error('tab closed'))
+        }
+        browser.runtime.onMessage.addListener(popupListener)
+        browser.windows.get(popupId).catch((e) => reject(e))
+        browser.windows.onRemoved.addListener(tabClosedListener)
+    })
+
+    return policyPromise.finally(() => {
+        browser.windows.onRemoved.removeListener(tabClosedListener)
+        browser.runtime.onMessage.removeListener(popupListener)
+    })
+}
+
+browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, buttonId) => {
+    if (buttonId === 'postguard-configure') {
+        const tabs = await browser.tabs.query({ windowId, windowType: WIN_TYPE_COMPOSE })
+        const tabId = tabs[0].id
+
+        if (composeTabs[tabId].configOpen) return
+        composeTabs[tabId].configOpen = true
+
+        const state = await browser.compose.getComposeDetails(tabId)
+        const recipients = [...state.to, ...state.cc]
+
+        const policy: Policy = recipients.reduce((p, next) => {
+            const email = toEmail(next)
+            p[email] = []
+            return p
+        }, {})
+
+        if (composeTabs[tabId].policy) {
+            for (const [rec, con] of Object.entries(composeTabs[tabId].policy as Policy)) {
+                if (recipients.includes(rec)) policy[rec] = con
+            }
+        }
+
+        try {
+            const newPolicy: Policy = await createAttributeSelectionPopup(policy)
+            composeTabs[tabId].policy = newPolicy
+            const latest = await browser.compose.getComposeDetails(tabId)
+            const newTo = Object.keys(newPolicy)
+            latest.to = newTo
+            await browser.compose.setComposeDetails(tabId, latest)
+        } finally {
+            composeTabs[tabId].configOpen = false
+        }
+    }
+})

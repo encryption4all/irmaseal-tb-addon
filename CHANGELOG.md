@@ -1,5 +1,16 @@
 # CHANGELOG.md
 
+## 0.5
+
+### Fixed
+
+-   Copying on imap folders for some e-mail accounts (e.g., cs.ru.nl).
+-   The outer email containing instructions is now correctly sent in both HTML/plaintext.
+
+### Added
+
+-   Multi-attribute selection screen in popup.
+
 ## 0.4
 
 ### Fixed

@@ -1,0 +1,65 @@
+@import './../../style/index.scss';
+
+.pg-body {
+    overflow-y: auto;
+    height: 100%;
+}
+
+#postguard-txt {
+    margin-top: 4px;
+    font-weight: 700;
+    font-size: 14px;
+    color: $pg-color;
+}
+
+#sender {
+    font-weight: 18px;
+    color: $pg-accent-color;
+}
+
+#irma-logo {
+    width: 48px;
+    height: 48px;
+}
+
+#logo {
+    width: 40px;
+}
+
+table#attribute-table {
+    margin: 1rem auto 1rem auto;
+    font-size: 12px;
+
+    td.value {
+        color: $pg-accent-color;
+    }
+}
+
+#qr-container {
+    width: 300px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: auto auto auto 141px;
+}
+
+#irma-app h3 {
+    margin: 0;
+    padding: 0;
+}
+
+.irma {
+    text-align: left;
+    margin-left: 20%;
+    margin-right: 20%;
+    margin-top: 10px;
+}
+
+#download-irma {
+    margin-top: 12px;
+}
+
+#download-irma img {
+    height: 30px;
+    margin-top: 12px;
+}

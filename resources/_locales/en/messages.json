@@ -1,54 +1,70 @@
 {
-	"appName": {
-		"message": "PostGuard",
-		"description": ""
-	},
-	"pbdf.sidn-pbdf.email.email": {
-		"message": "Email address",
-		"description": ""
-	},
-	"pbdf.pbdf.mobilenumber.mobilenumber": {
-		"message": "Mobile number",
-		"description": ""
-	},
-	"displayMessageTitle": {
-		"message": "You received a PostGuard encrypted email from",
-		"description": ""
-	},
-	"displayMessageHeading": {
-		"message": "You need to prove who you are to decrypt and read this email.",
-		"description": ""
-	},
-	"displayMessageQrPrefix": {
-		"message": "Scan the QR code with the IRMA app to disclose your e-mail address.",
-		"description": ""
-	},
-	"displayMessageIrmaHelpHeader": {
-		"message": "What is the IRMA app?",
-		"description": ""
-	},
-	"displayMessageIrmaHelpBody": {
-		"message": "The IRMA app is a separate privacy-friendly authentication app (which is used also for other authentication purposes).",
-		"description": ""
-	},
-	"displayMessageIrmaHelpLinkText": {
-		"message": "More information about IRMA",
-		"description": ""
-	},
-	"displayMessageIrmaHelpDownloadHeader": {
-		"message": "Download the free IRMA app",
-		"description": ""
-	},
-	"composeSwitchBarEnabledHtml": {
-		"message": "<p>Email encryption is turned <b>on</b>. Only the intended recipient(s) can decrypt and read the contents, subject and attachment(s).</p>",
-		"description": ""
-	},
-	"composeSwitchBarDisabledHtml": {
-		"message": "<p>Email encryption is turned <b>off</b>. Sensitive content? Turn PostGuard on.</p>",
-		"description": ""
-	},
-	"composeBccWarning": {
-		"message": "PostGuard does not support BCC. Either remove BCC or disable PostGuard.",
-		"description": ""
-	}
+    "appName": {
+        "message": "PostGuard",
+        "description": ""
+    },
+    "pbdf.sidn-pbdf.email.email": {
+        "message": "Email address",
+        "description": ""
+    },
+    "pbdf.sidn-pbdf.mobilenumber.mobilenumber": {
+        "message": "Mobile number",
+        "description": ""
+    },
+    "pbdf.gemeente.personalData.surname": {
+        "message": "Surname",
+        "description": ""
+    },
+    "pbdf.gemeente.personalData.dateofbirth": {
+        "message": "Date of birth",
+        "description": ""
+    },
+    "pbdf.nuts.agb.agbcode": {
+        "message": "AGB code",
+        "description": ""
+    },
+    "pbdf.pbdf.surfnet-2.id": {
+        "message": "Surf EduID",
+        "description": ""
+    },
+    "displayMessageTitle": {
+        "message": "You received a PostGuard encrypted email from",
+        "description": ""
+    },
+    "displayMessageHeading": {
+        "message": "You need to prove who you are to decrypt and read this email.",
+        "description": ""
+    },
+    "displayMessageQrPrefix": {
+        "message": "Scan the QR code with the IRMA app to disclose your e-mail address.",
+        "description": ""
+    },
+    "displayMessageIrmaHelpHeader": {
+        "message": "What is the IRMA app?",
+        "description": ""
+    },
+    "displayMessageIrmaHelpBody": {
+        "message": "The IRMA app is a separate privacy-friendly authentication app (which is used also for other authentication purposes).",
+        "description": ""
+    },
+    "displayMessageIrmaHelpLinkText": {
+        "message": "More information about IRMA",
+        "description": ""
+    },
+    "displayMessageIrmaHelpDownloadHeader": {
+        "message": "Download the free IRMA app",
+        "description": ""
+    },
+    "composeSwitchBarEnabledHtml": {
+        "message": "<p>Email encryption is turned <b>on</b>.</p>",
+        "description": ""
+    },
+    "composeSwitchBarDisabledHtml": {
+        "message": "<p>Email encryption is turned <b>off</b>. Sensitive content? Turn PostGuard on.</p>",
+        "description": ""
+    },
+    "composeBccWarning": {
+        "message": "PostGuard does not support BCC. Either remove BCC or disable PostGuard.",
+        "description": ""
+    }
 }
