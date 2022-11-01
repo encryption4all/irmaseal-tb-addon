@@ -4,7 +4,7 @@ import jwtDecode, { JwtPayload } from 'jwt-decode'
 
 const DEFAULT_ENCRYPT_ON = false
 const WIN_TYPE_COMPOSE = 'messageCompose'
-const PKG_URL = 'https://main.irmaseal-pkg.ihub.ru.nl'
+const PKG_URL = 'https://stable.irmaseal-pkg.ihub.ru.nl'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
