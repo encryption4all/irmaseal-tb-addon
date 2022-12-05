@@ -45,10 +45,10 @@
   resolved "https://registry.yarnpkg.com/@e4a/irmaseal-wasm-bindings/-/irmaseal-wasm-bindings-0.2.2.tgz#6a4e2c6b82c053ac674fe7f8d0c1e4f6a46d29c1"
   integrity sha512-Td1XByL6v0X+1Prq4zLXbmtIbXkCrG8LN+swVmGAu4+uV9K/MxqnigPa5abf4klyHl3kQDn5zP/nP5LE/gZPcw==
 
-"@e4a/pg-components@^0.0.1":
-  version "0.0.1"
-  resolved "https://registry.yarnpkg.com/@e4a/pg-components/-/pg-components-0.0.1.tgz#f08c6bc03bc932f2e7d1fdf5e4a9f6050af78bec"
-  integrity sha512-zNqb7BjB/ik1P9wFD/vIXurLnY/7ZdkaEgkcmpLIRSIf3miqWq79Obd/Zqc9nMURt3db7OMM71G3kBGaCDjW9w==
+"@e4a/pg-components@0.0.2":
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/@e4a/pg-components/-/pg-components-0.0.2.tgz#41873a7ef8937f9916ca27e8da72a2df8add7be1"
+  integrity sha512-BGEjDxG5s0hV5yGmwr1UrWc85Gyn6hVN/uYWPVwv30dBwbzLzbMg82KHUhEFI1GlIWBY/vNugJtCiEkSFpnLHA==
 
 "@eslint/eslintrc@^0.4.3":
   version "0.4.3"
