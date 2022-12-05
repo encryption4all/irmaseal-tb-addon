@@ -10,7 +10,7 @@ const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
 const PK_KEY = 'pg-pk'
 const POSTGUARD_SUBJECT = 'PostGuard Encrypted Email'
-const MSG_VIEW_THRESHOLD = 250
+const MSG_VIEW_THRESHOLD = 150
 
 const i18n = (key: string) => browser.i18n.getMessage(key)
 
