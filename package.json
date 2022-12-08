@@ -30,32 +30,31 @@
         "grunt-webpack": "^5.0.0",
         "html-webpack-plugin": "^5.5.0",
         "postcss": "^8.4.16",
-        "postcss-import": "^15.0.0",
+        "postcss-import": "^15.1.0",
         "postcss-load-config": "^4.0.1",
         "postcss-loader": "^7.0.1",
-        "prettier": "^2.2.1",
+        "prettier": "^2.8.1",
         "process": "^0.11.10",
         "sass": "^1.55.0",
         "sass-loader": "^13.1.0",
         "style-loader": "^3.3.1",
-        "svelte": "^3.49.0",
+        "svelte": "^3.54.0",
         "svelte-i18n": "^3.4.0",
         "svelte-loader": "^3.1.3",
         "svelte-preprocess": "^4.10.7",
         "ts-loader": "^8.0.17",
-        "typescript": "^4.2.2",
+        "typescript": "^4.9.4",
         "util": "^0.12.4",
         "webpack": "^5.74.0",
         "webpack-cli": "^4.10.0"
     },
     "dependencies": {
         "@e4a/irmaseal-mail-utils": "^0.0.4",
-        "@e4a/irmaseal-wasm-bindings": "^0.2.1",
+        "@e4a/irmaseal-wasm-bindings": "^0.2.2",
         "@privacybydesign/irma-client": "^0.3.3",
         "@privacybydesign/irma-core": "^0.3.3",
         "@privacybydesign/irma-web": "^0.3.3",
-        "jwt-decode": "^3.1.2",
-        "web-streams-polyfill": "^3.2.1"
+        "jwt-decode": "^3.1.2"
     },
     "scripts": {
         "build": "yarn run grunt clean:initial && yarn run grunt copy && yarn run webpack && yarn run grunt compress && yarn run grunt clean:after"
