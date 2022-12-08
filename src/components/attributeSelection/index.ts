@@ -25,9 +25,10 @@ async function onLoad() {
         command: 'popup_init',
     })
 
+    const lang = browser.i18n.getUILanguage() === 'nl' ? 'nl' : 'en'
     new AttributeForm({
         target: el,
-        props: { initialPolicy: data.initialPolicy, onSubmit, submitButton: true },
+        props: { initialPolicy: data.initialPolicy, onSubmit, submitButton: true, lang },
     })
 }
 

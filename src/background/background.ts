@@ -10,7 +10,7 @@ const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
 const PK_KEY = 'pg-pk'
 const POSTGUARD_SUBJECT = 'PostGuard Encrypted Email'
-const MSG_VIEW_THRESHOLD = 250
+const MSG_VIEW_THRESHOLD = 150
 
 const i18n = (key: string) => browser.i18n.getMessage(key)
 
@@ -344,8 +344,8 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
         const newId = await browser.pg4tb.copyFileMessage(tempFile, copyFolder, msg.id)
         await browser.messageDisplay.open({ messageId: newId })
         await browser.messages.delete([msg.id], true)
-    } catch (e) {
-        if (e.name === 'OperationError')
+    } catch (e: any) {
+        if (e instanceof Error && e.name === 'OperationError')
             await notifyDecryptionFailed(
                 'This message was not encrypted for the disclosed identity'
             )
