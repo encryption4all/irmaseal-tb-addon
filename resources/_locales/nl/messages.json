@@ -56,15 +56,23 @@
         "description": ""
     },
     "composeSwitchBarEnabledHtml": {
-        "message": "<p>Email versleuting staat <b>aan</b>.</p>",
+        "message": "<p>PostGuard staat <b>aan</b>.</p>",
         "description": ""
     },
     "composeSwitchBarDisabledHtml": {
-        "message": "<p>Email versleuting staat <b>uit</b>. Gevoelige informatie? Zet PostGuard aan.</p>",
+        "message": "<p>PostGuard staat <b>uit</b>. Gevoelige informatie? Zet PostGuard aan.</p>",
         "description": ""
     },
     "composeBccWarning": {
         "message": "PostGuard ondersteunt BCC niet. Verwijder het BCC veld of zet PostGuard uit.",
+        "description": ""
+    },
+    "displayScriptDecryptBar": {
+        "message": "Deze email is versleuteld met PostGuard.",
+        "description": ""
+    },
+    "decryptionFailed": {
+        "message": "U heeft niet de juiste attributen om deze mail de ontsleutelen.",
         "description": ""
     }
 }

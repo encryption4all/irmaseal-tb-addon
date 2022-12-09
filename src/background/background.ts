@@ -10,7 +10,10 @@ const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
 const PK_KEY = 'pg-pk'
 const POSTGUARD_SUBJECT = 'PostGuard Encrypted Email'
-const MSG_VIEW_THRESHOLD = 150
+const PGINFO = '#022E3D'
+const PGERROR = '#A63232'
+const PGWARNING = '#FFCC00'
+const PGWHITE = '#FFFFFF'
 
 const i18n = (key: string) => browser.i18n.getMessage(key)
 
@@ -54,17 +57,70 @@ const composeTabs: {
     return { ...tabs, [tab.id]: { encrypt: DEFAULT_ENCRYPT_ON, tab, barId } }
 }, {})
 
-// Previous selection time of folders and messages.
-// We track this because sometimes opening a folder automatically renders a message.
-let lastSelectFolder = 0
-let lastTabDeleted = 0
-let lastWindowFocused = 0
-let lastSelectMessage = 0
-
 console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
 
 // Run the cleanup every 10 minutes.
 setInterval(cleanUp, 600000)
+
+// Register the messageDisplayScript
+await browser.messageDisplayScripts.register({ js: [{ file: 'messageDisplay.js' }] })
+
+browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+    const {
+        tab: { id: tabId, windowId },
+    } = sender
+
+    const header = await browser.messageDisplay.getDisplayedMessage(tabId)
+
+    // detects pg encryption
+    const attachments = await browser.messages.listAttachments(header.id)
+    const filtered = attachments.filter((att) => att.name === 'postguard.encrypted')
+    const pgEncrypted = filtered.length === 1
+    //
+
+    // get the identity
+    // const pgPartName = filtered[0].partName
+    // console.log('pgPartName: ', pgPartName)
+    // const file = await browser.messages.getAttachmentFile(header.id, pgPartName)
+    // const readable = file.stream()
+    // const unsealer = await mod.Unsealer.new(readable)
+    // const accountId = header.folder.accountId
+    // const defaultIdentity = await browser.identities.getDefault(accountId)
+    // const recipientId = toEmail(defaultIdentity.email)
+    // const hiddenPolicy = unsealer.get_hidden_policies()
+    // console.log('hidden ', hiddenPolicy)
+
+    switch (message.command) {
+        case 'queryDetails':
+            return { isEncrypted: pgEncrypted, msgId: header.id }
+        case 'showDecryptionBar':
+            await messenger.notificationbar.create({
+                windowId,
+                label: i18n('displayScriptDecryptBar'),
+                icon: 'icons/pg_logo_no_text.svg',
+                placement: 'message',
+                style: { color: PGWHITE, 'background-color': PGINFO },
+                buttons: [{ id: `decrypt-${header.id}`, label: 'Decrypt', accesskey: 'decrypt' }],
+            })
+            break
+        default:
+            break
+    }
+})
+
+browser.notificationbar.onButtonClicked.addListener(async (windowId, notificationId, buttonId) => {
+    console.log(
+        `button clicked: window ${windowId}, button: ${buttonId}, notificationId: ${notificationId}`
+    )
+    if (buttonId.startsWith('decrypt')) {
+        try {
+            const id: number = +buttonId.split('-')[1]
+            await startDecryption(id)
+        } catch {
+            // do nothing
+        }
+    }
+})
 
 // Watch for outgoing mails. The encryption process starts here.
 browser.compose.onBeforeSend.addListener(async (tab, details) => {
@@ -76,8 +132,8 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
                 windowId: tab.windowId,
                 label: i18n('composeBccWarning'),
                 placement: 'top',
-                style: { margin: '0px' },
-                priority: messenger.notificationbar.PRIORITY_WARNING_HIGH,
+                style: { color: PGWHITE, 'background-color': PGWARNING },
+                icon: 'icons/pg_logo_no_text.svg',
             })
             composeTabs[tab.id].notificationId = notificationId
         }
@@ -111,6 +167,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     innerMime += `Subject: ${originalSubject}\r\n`
     if (details.cc.length > 0) innerMime += `Cc: ${String(details.cc)}\r\n`
     innerMime += `Content-Type: ${contentType}\r\n`
+    innerMime += `X-PostGuard\r\n`
     innerMime += '\r\n'
 
     let innerBody = details.isPlainText ? details.plainTextBody : details.body
@@ -256,9 +313,8 @@ browser.tabs.onCreated.addListener(async (tab) => {
 })
 
 // Main decryption code.
-browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
-    const now = Date.now()
-
+async function startDecryption(msgId: number) {
+    const msg = await browser.messages.get(msgId)
     const attachments = await browser.messages.listAttachments(msg.id)
     const filtered = attachments.filter((att) => att.name === 'postguard.encrypted')
     if (filtered.length !== 1) return
@@ -267,19 +323,6 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
 
     if (msg.folder['type'] !== 'inbox') {
         console.log('only decrypting inbox messages')
-        return
-    }
-
-    // Generally, when a message is displayed too fast after a user action, it is probably
-    // not the intention to trigger the decryption.
-    // Adjust accordingly.
-    if (
-        Math.abs(now - lastSelectFolder) < MSG_VIEW_THRESHOLD ||
-        Math.abs(now - lastTabDeleted) < MSG_VIEW_THRESHOLD ||
-        Math.abs(now - lastWindowFocused) < MSG_VIEW_THRESHOLD ||
-        Math.abs(now - lastSelectMessage) > MSG_VIEW_THRESHOLD
-    ) {
-        console.log('message might not deliberately be selected')
         return
     }
 
@@ -346,29 +389,9 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tab, msg) => {
         await browser.messages.delete([msg.id], true)
     } catch (e: any) {
         if (e instanceof Error && e.name === 'OperationError')
-            await notifyDecryptionFailed(
-                'This message was not encrypted for the disclosed identity'
-            )
+            await notifyDecryptionFailed(i18n('decryptionFailed'))
     }
-})
-
-browser.mailTabs.onSelectedMessagesChanged.addListener(() => {
-    lastSelectMessage = Date.now()
-})
-
-browser.mailTabs.onDisplayedFolderChanged.addListener(() => {
-    lastSelectFolder = Date.now()
-})
-
-browser.windows.onFocusChanged.addListener(() => {
-    lastWindowFocused = Date.now()
-})
-
-// Remove tab if it was closed.
-browser.tabs.onRemoved.addListener((tabId: number) => {
-    lastTabDeleted = Date.now()
-    if (tabId in composeTabs) delete composeTabs[tabId]
-})
+}
 
 // Cleans up the local storage.
 async function cleanUp(): Promise<void> {
@@ -402,9 +425,6 @@ async function detectMode(): Promise<boolean> {
 async function addBar(tab): Promise<number> {
     const darkMode = await detectMode()
 
-    const darkBlue = '#022E3D'
-    const white = '#FFFFFF'
-
     const notificationId = await messenger.switchbar.create({
         enabled: DEFAULT_ENCRYPT_ON,
         windowId: tab.windowId,
@@ -412,20 +432,20 @@ async function addBar(tab): Promise<number> {
         placement: 'top',
         iconEnabled: 'icons/pg_logo.svg',
         iconDisabled: `icons/pg_logo${darkMode ? '' : '_white'}.svg`,
-        buttons: [{ id: 'postguard-configure', label: '⚙', accesskey: 'test' }],
+        buttons: [{ id: 'postguard-configure', label: '⚙', accesskey: 'configure' }],
         labels: {
             enabled: i18n('composeSwitchBarEnabledHtml'),
             disabled: i18n('composeSwitchBarDisabledHtml'),
         },
         style: {
-            'color-enabled': darkBlue, // text color
-            'color-disabled': darkMode ? darkBlue : white,
-            'background-color-enabled': white, // background of bar
-            'background-color-disabled': darkMode ? white : darkBlue,
-            'slider-background-color-enabled': darkBlue, // background of slider
-            'slider-background-color-disabled': darkMode ? darkBlue : white,
-            'slider-color-enabled': white, // slider itself
-            'slider-color-disabled': darkMode ? white : darkBlue,
+            'color-enabled': PGINFO, // text color
+            'color-disabled': darkMode ? PGINFO : PGWHITE,
+            'background-color-enabled': PGWHITE, // background of bar
+            'background-color-disabled': darkMode ? PGWHITE : PGINFO,
+            'slider-background-color-enabled': PGINFO, // background of slider
+            'slider-background-color-disabled': darkMode ? PGINFO : PGWHITE,
+            'slider-color-enabled': PGWHITE, // slider itself
+            'slider-color-disabled': darkMode ? PGWHITE : PGINFO,
         },
     })
 
@@ -437,10 +457,10 @@ async function notifyDecryptionFailed(msg: string) {
     if (activeMailTabs.length === 1)
         await messenger.notificationbar.create({
             windowId: activeMailTabs[0].windowId,
-            label: `Decryption failed: ${msg}.`,
+            label: msg,
             placement: 'message',
-            style: { margin: '0px' },
-            priority: messenger.notificationbar.PRIORITY_CRITICAL_HIGH,
+            style: { color: PGWHITE, 'background-color': PGERROR },
+            icon: 'icons/pg_logo_no_text.svg',
         })
 }
 

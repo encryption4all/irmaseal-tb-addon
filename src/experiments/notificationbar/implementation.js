@@ -17,6 +17,7 @@ class Notification {
         const { buttons, icon, label, priority, style, windowId } = properties
 
         const iconURL = icon && !icon.includes(':') ? parent.extension.baseURI.resolve(icon) : null
+        const fontURL = parent.extension.baseURI.resolve('fonts/Overpass-Regular.tff')
 
         const buttonSet = buttons.map(({ id, label, accesskey }) => ({
             id,
@@ -75,26 +76,31 @@ class Notification {
                 notificationBarCallback
             )
         }
-        let allowedCssPropNames = ['background', 'color', 'margin', 'padding', 'font']
 
         if (style) {
-            const sanitizedStyles = Object.keys(style).filter((cssPropertyName) => {
-                const parts = cssPropertyName.split('-')
-                return (
-                    // check if first part is in whitelist
-                    parts.length > 0 &&
-                    allowedCssPropNames.includes(parts[0]) &&
-                    // validate second part (if any) being a simple word
-                    (parts.length == 1 || (parts.length == 2 && /^[a-zA-Z0-9]+$/.test(parts[1])))
-                )
-            })
-
-            for (let cssPropertyName of sanitizedStyles) {
-                element.style[cssPropertyName] = style[cssPropertyName]
-            }
+            const s = element.ownerDocument.createElement('style')
+            s.innerHTML = `
+               @font-face {
+                    font-family: 'Overpass';
+                    src: url(${fontURL}) format('truetype');
+                    font-weight: 600;
+                    font-style: normal;
+                }
+               .infobar > .icon {
+                    width: 18px;
+                    height: 18px; 
+                }
+                .infobar p {
+                    font-family: 'Overpass';
+                    font-style: normal;
+                } 
+                :host .container.infobar {
+                    --message-bar-icon-url: url(${iconURL});
+                    --message-bar-text-color: ${style['color']};
+                    --message-bar-background-color: ${style['background-color']};
+                }`
+            element.shadowRoot.appendChild(s)
         }
-
-        element.shadowRoot.querySelector('div.container.infobar').style['border-radius'] = '0px'
     }
 
     getThunderbirdVersion() {

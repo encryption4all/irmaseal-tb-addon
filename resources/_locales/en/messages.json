@@ -56,15 +56,23 @@
         "description": ""
     },
     "composeSwitchBarEnabledHtml": {
-        "message": "<p>Email encryption is turned <b>on</b>.</p>",
+        "message": "<p>PostGuard is turned <b>on</b>.</p>",
         "description": ""
     },
     "composeSwitchBarDisabledHtml": {
-        "message": "<p>Email encryption is turned <b>off</b>. Sensitive content? Turn PostGuard on.</p>",
+        "message": "<p>PostGuard is turned <b>off</b>. Sensitive content? Turn PostGuard on.</p>",
         "description": ""
     },
     "composeBccWarning": {
         "message": "PostGuard does not support BCC. Either remove BCC or disable PostGuard.",
+        "description": ""
+    },
+    "displayScriptDecryptBar": {
+        "message": "This mail is encrypted using PostGuard.",
+        "description": ""
+    },
+    "decryptionFailed": {
+        "message": "You did not have the correct attributes to decrypt this message.",
         "description": ""
     }
 }
