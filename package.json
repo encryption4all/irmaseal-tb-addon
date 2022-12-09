@@ -57,6 +57,6 @@
         "jwt-decode": "^3.1.2"
     },
     "scripts": {
-        "build": "yarn run grunt clean:initial && yarn run grunt copy && yarn run webpack && yarn run grunt compress && yarn run grunt clean:after"
+        "build": "yarn run grunt clean:initial && yarn run grunt copy && yarn run webpack && yarn run grunt compress"
     }
 }
