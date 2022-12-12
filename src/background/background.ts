@@ -1,11 +1,12 @@
 import { ComposeMail } from '@e4a/irmaseal-mail-utils'
 import {
     toEmail,
-    withTimeout,
     hashCon,
     generateBoundary,
     isPGEncrypted,
     wasPGEncrypted,
+    getLocalFolder,
+    getCopyFolder,
 } from './../utils'
 import jwtDecode, { JwtPayload } from 'jwt-decode'
 
@@ -59,6 +60,7 @@ const composeTabs: {
         notificationId?: number
         policy?: Policy
         configOpen?: boolean
+        newMsgId?: number
     }
 } = await (
     await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
@@ -259,13 +261,34 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     details.body = compose.getHtmlText()
 
     // Save a copy of the message in the sent folder.
-    browser.identities
-        .get(details.identityId)
-        .then((mailId) => getCopyFolder(mailId.accountId, SENT_COPY_FOLDER))
-        .then((copyFolder) => browser.pg4tb.copyFileMessage(tempFile, copyFolder, undefined))
-        .catch(() => console.log('failed to create copy in sent folder'))
+    // 1) import copy to local sent folder
+    // in onAfterSend:
+    // 2) move to final folder (sent folder),
+    // 3) cleanup: remove ciphertext.
+    // TODO: use import(): https://webextension-api.thunderbird.net/en/latest/messages.html#import-file-destination-properties
+
+    getLocalFolder(SENT_COPY_FOLDER)
+        .then((localFolder) => browser.pg4tb.copyFileMessage(tempFile, localFolder, undefined))
+        .then((newMsgId) => {
+            composeTabs[tab.id].newMsgId = newMsgId
+        })
+        .catch((e) => console.log('failed to create copy in sent folder: ', e))
 
     return { cancel: false, details }
+})
+
+// Remove ciphertext emails from sent folder.
+browser.compose.onAfterSend.addListener(async (tab, sendInfo) => {
+    sendInfo.messages.forEach(async (m) => {
+        if ((await isPGEncrypted(m.id)) && composeTabs[tab.id].newMsgId) {
+            // Move to sent folder
+            await browser.messages.move([composeTabs[tab.id].newMsgId], m.folder)
+            // Delete original sent email (ciphertext).
+            await browser.messages.delete([m.id], true)
+            // cleanup composeTabs
+            delete composeTabs[tab.id]
+        }
+    })
 })
 
 // Listen for notificationbar switch button clicks.
@@ -482,34 +505,6 @@ async function notifyDecryptionFailed(msg: string) {
             style: { color: PG_WHITE, 'background-color': PG_ERR_COLOR },
             icon: 'icons/pg_logo_no_text.svg',
         })
-}
-
-async function getLocalFolder(folderName: string): Promise<any> {
-    const accs = await browser.accounts.list()
-    for (const acc of accs) {
-        if (acc.name === 'Local Folders') {
-            for (const f of acc.folders) {
-                if (f.name === folderName) return f
-            }
-            const f = await browser.folders.create(acc, folderName)
-            return f
-        }
-    }
-    return undefined
-}
-
-// Retrieve folder to keep a seperate plaintext copy of emails.
-// If it does not exist, create one.
-async function getCopyFolder(accountId: string, folderName: string): Promise<any> {
-    const acc = await browser.accounts.get(accountId)
-    for (const f of acc.folders) {
-        if (f.name === folderName) return f
-    }
-    // Since newFolderPromise can stall indefinitely, we give up after a timeout.
-    const newFolderPromise = withTimeout(browser.folders.create(acc, folderName), 1000)
-
-    // If we cannot find/make an imap folder, fall back to a local folder.
-    return newFolderPromise.catch(() => getLocalFolder(folderName))
 }
 
 // Check localStorage for a conjunction.

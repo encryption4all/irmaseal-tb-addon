@@ -38,6 +38,33 @@ export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
     return Promise.race([p, timeout])
 }
 
+export async function getLocalFolder(folderName: string): Promise<any> {
+    const accs = await browser.accounts.list()
+    for (const acc of accs) {
+        if (acc.name === 'Local Folders') {
+            for (const f of acc.folders) {
+                if (f.name === folderName) return f
+            }
+            const f = await browser.folders.create(acc, folderName)
+            return f
+        }
+    }
+    return undefined
+}
+
+// Retrieve folder to keep a seperate plaintext copy of emails.
+// If it does not exist, create one.
+export async function getCopyFolder(accountId: string, folderName: string): Promise<any> {
+    const acc = await browser.accounts.get(accountId)
+    for (const f of acc.folders) {
+        if (f.name === folderName) return f
+    }
+    // Since newFolderPromise can stall indefinitely, we give up after a timeout.
+    const newFolderPromise = withTimeout(browser.folders.create(acc, folderName), 1000)
+
+    // If we cannot find/make an imap folder, fall back to a local folder.
+    return newFolderPromise.catch(() => getLocalFolder(folderName))
+}
 export async function isPGEncrypted(msgId: number): Promise<boolean> {
     const attachments = await browser.messages.listAttachments(msgId)
     const filtered = attachments.filter((att) => att.name === 'postguard.encrypted')
