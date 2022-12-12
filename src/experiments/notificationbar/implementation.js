@@ -86,7 +86,17 @@ class Notification {
                     font-weight: 600;
                     font-style: normal;
                 }
-               .infobar > .icon {
+                .notification-button.small-button {
+                    background-color: #006EF4;
+                    color: white;
+                    border-radius: 15px;
+                    border: unset;               
+                    padding: 0 1.5rem;
+                }
+                .notification-button.small-button:hover {
+                    background-color: white;
+                }
+                .infobar > .icon {
                     width: 18px;
                     height: 18px; 
                 }

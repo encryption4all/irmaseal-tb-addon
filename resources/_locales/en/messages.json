@@ -74,5 +74,9 @@
     "decryptionFailed": {
         "message": "You did not have the correct attributes to decrypt this message.",
         "description": ""
+    },
+    "attributeSelectionButtonLabel": {
+        "message": "Manage access",
+        "description": ""
     }
 }
