@@ -1,8 +1,15 @@
 import { ComposeMail } from '@e4a/irmaseal-mail-utils'
-import { toEmail, withTimeout, hashCon, generateBoundary } from './../utils'
+import {
+    toEmail,
+    withTimeout,
+    hashCon,
+    generateBoundary,
+    isPGEncrypted,
+    wasPGEncrypted,
+} from './../utils'
 import jwtDecode, { JwtPayload } from 'jwt-decode'
 
-const DEFAULT_ENCRYPT_ON = false
+const DEFAULT_ENCRYPT = false
 const WIN_TYPE_COMPOSE = 'messageCompose'
 const PKG_URL = 'https://stable.irmaseal-pkg.ihub.ru.nl'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
@@ -57,7 +64,7 @@ const composeTabs: {
     await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
 ).reduce(async (tabs, tab) => {
     const barId = await addBar(tab)
-    return { ...tabs, [tab.id]: { encrypt: DEFAULT_ENCRYPT_ON, tab, barId } }
+    return { ...tabs, [tab.id]: { encrypt: DEFAULT_ENCRYPT, tab, barId } }
 }, {})
 
 console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
@@ -73,39 +80,40 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
         tab: { id: tabId, windowId },
     } = sender
 
-    const header = await browser.messageDisplay.getDisplayedMessage(tabId)
-
-    // detects pg encryption
-    const attachments = await browser.messages.listAttachments(header.id)
-    const filtered = attachments.filter((att) => att.name === 'postguard.encrypted')
-    const pgEncrypted = filtered.length === 1
-    //
-
-    // detects if we can decrypt without authentication
-    // const pgPartName = filtered[0].partName
-    // console.log('pgPartName: ', pgPartName)
-    // const file = await browser.messages.getAttachmentFile(header.id, pgPartName)
-    // const readable = file.stream()
-    // const unsealer = await mod.Unsealer.new(readable)
-    // const accountId = header.folder.accountId
-    // const defaultIdentity = await browser.identities.getDefault(accountId)
-    // const recipientId = toEmail(defaultIdentity.email)
-    // const hiddenPolicy = unsealer.get_hidden_policies()
-    // console.log('hidden ', hiddenPolicy)
-
     switch (message.command) {
-        case 'queryDetails':
-            return { isEncrypted: pgEncrypted, msgId: header.id }
-        case 'showDecryptionBar':
-            await messenger.notificationbar.create({
-                windowId,
-                label: i18n('displayScriptDecryptBar'),
-                icon: 'icons/pg_logo_no_text.svg',
-                placement: 'message',
-                style: { color: PG_WHITE, 'background-color': PG_INFO_COLOR },
-                buttons: [{ id: `decrypt-${header.id}`, label: 'Decrypt', accesskey: 'decrypt' }],
-            })
-            break
+        case 'queryDetails': {
+            // Detects pg encryption
+            const header = await browser.messageDisplay.getDisplayedMessage(tabId)
+            const isEncrypted = await isPGEncrypted(header.id)
+
+            if (isEncrypted) {
+                await messenger.notificationbar.create({
+                    windowId,
+                    label: i18n('displayScriptDecryptBar'),
+                    icon: 'icons/pg_logo_no_text.svg',
+                    placement: 'message',
+                    style: { color: PG_WHITE, 'background-color': PG_INFO_COLOR },
+                    buttons: [
+                        { id: `decrypt-${header.id}`, label: 'Decrypt', accesskey: 'decrypt' },
+                    ],
+                })
+                return { isEncrypted }
+            }
+
+            // Detects if mail was once encrypted using PostGuard
+            const wasEncrypted = await wasPGEncrypted(header.id)
+
+            if (wasEncrypted) {
+                await messenger.notificationbar.create({
+                    windowId,
+                    label: i18n('displayScriptWasEncryptedBar'),
+                    icon: 'icons/pg_logo_no_text.svg',
+                    placement: 'message',
+                    style: { color: PG_WHITE, 'background-color': PG_INFO_COLOR },
+                })
+            }
+            return { isEncrypted }
+        }
         default:
             break
     }
@@ -317,7 +325,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
         // Register the tab.
         composeTabs[tab.id] = {
-            encrypt: DEFAULT_ENCRYPT_ON,
+            encrypt: DEFAULT_ENCRYPT,
             barId,
             tab,
         }
@@ -436,9 +444,13 @@ async function detectMode(): Promise<boolean> {
 
 async function addBar(tab): Promise<number> {
     const darkMode = await detectMode()
+    const details = await browser.compose.getComposeDetails(tab.id)
+    const enabled =
+        (details.type === 'reply' && (await wasPGEncrypted(details.relatedMessageId))) ||
+        DEFAULT_ENCRYPT
 
     const notificationId = await messenger.switchbar.create({
-        enabled: DEFAULT_ENCRYPT_ON,
+        enabled,
         windowId: tab.windowId,
         buttonId: 'btn-switch',
         placement: 'top',
