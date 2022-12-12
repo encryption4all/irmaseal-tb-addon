@@ -112,9 +112,6 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
 })
 
 browser.notificationbar.onButtonClicked.addListener(async (windowId, notificationId, buttonId) => {
-    console.log(
-        `button clicked: window ${windowId}, button: ${buttonId}, notificationId: ${notificationId}`
-    )
     if (buttonId.startsWith('decrypt')) {
         try {
             const id: number = +buttonId.split('-')[1]
