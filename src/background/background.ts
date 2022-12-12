@@ -75,7 +75,7 @@ setInterval(cleanUp, 600000)
 // Register the messageDisplayScript
 await browser.messageDisplayScripts.register({ js: [{ file: 'messageDisplay.js' }] })
 
-browser.runtime.onMessage.addListener(async (message, sender) => {
+const messageDisplayListener = async (message, sender) => {
     const {
         tab: { id: tabId, windowId },
     } = sender
@@ -117,7 +117,9 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
         default:
             break
     }
-})
+}
+
+browser.runtime.onMessage.addListener(messageDisplayListener)
 
 browser.notificationbar.onButtonClicked.addListener(async (windowId, notificationId, buttonId) => {
     if (buttonId.startsWith('decrypt')) {
@@ -566,6 +568,8 @@ async function createSessionPopup(
     const popupId = popupWindow.id
     await messenger.windows.update(popupId, { drawAttention: true, focused: true })
 
+    browser.runtime.onMessage.removeListener(messageDisplayListener)
+
     let popupListener, tabClosedListener
     const jwtPromise = new Promise<string>((resolve, reject) => {
         popupListener = (req, sender) => {
@@ -596,6 +600,7 @@ async function createSessionPopup(
     return jwtPromise.finally(() => {
         browser.windows.onRemoved.removeListener(tabClosedListener)
         browser.runtime.onMessage.removeListener(popupListener)
+        browser.runtime.onMessage.addListener(messageDisplayListener)
     })
 }
 
@@ -637,6 +642,8 @@ async function createAttributeSelectionPopup(initialPolicy: Policy): Promise<Pol
     const popupId = popupWindow.id
     await messenger.windows.update(popupId, { drawAttention: true, focused: true })
 
+    browser.runtime.onMessage.removeListener(messageDisplayListener)
+
     let popupListener, tabClosedListener
     const policyPromise = new Promise<Policy>((resolve, reject) => {
         popupListener = (req, sender) => {
@@ -663,6 +670,7 @@ async function createAttributeSelectionPopup(initialPolicy: Policy): Promise<Pol
     return policyPromise.finally(() => {
         browser.windows.onRemoved.removeListener(tabClosedListener)
         browser.runtime.onMessage.removeListener(popupListener)
+        browser.runtime.onMessage.addListener(messageDisplayListener)
     })
 }
 
