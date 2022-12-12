@@ -60,7 +60,7 @@
         "description": ""
     },
     "composeSwitchBarDisabledHtml": {
-        "message": "<p>PostGuard staat <b>uit</b>. Gevoelige informatie? Zet PostGuard aan.</p>",
+        "message": "<p>PostGuard staat <b>uit</b>. Vertrouwelijke email? Zet PostGuard aan.</p>",
         "description": ""
     },
     "composeBccWarning": {
