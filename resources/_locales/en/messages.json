@@ -71,6 +71,10 @@
         "message": "This mail is encrypted using PostGuard.",
         "description": ""
     },
+    "displayScriptWasEncryptedBar": {
+        "message": "This mail was originally encrypted using PostGuard.",
+        "description": ""
+    },
     "decryptionFailed": {
         "message": "You did not have the correct attributes to decrypt this message.",
         "description": ""

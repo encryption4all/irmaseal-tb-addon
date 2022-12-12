@@ -15,15 +15,8 @@ const hideEmail = () => {
 
 const run = async () => {
     const details = await browser.runtime.sendMessage({ command: 'queryDetails' })
-
-    const { isEncrypted, wasEncrypted } = details
-
-    if (isEncrypted) {
-        hideEmail()
-        await browser.runtime.sendMessage({ command: 'showDecryptionBar' })
-    } else if (wasEncrypted) {
-        // TODO: show banner that mail was encrypted
-    }
+    const { isEncrypted } = details
+    if (isEncrypted) hideEmail()
 }
 
 run()
