@@ -10,10 +10,13 @@ const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
 const PK_KEY = 'pg-pk'
 const POSTGUARD_SUBJECT = 'PostGuard Encrypted Email'
-const PGINFO = '#022E3D'
-const PGERROR = '#A63232'
-const PGWARNING = '#FFCC00'
-const PGWHITE = '#FFFFFF'
+
+const PG_WHITE = '#FFFFFF'
+const PG_INFO_COLOR = '#022E3D'
+const PG_INFO_ACCENT_COLOR = '#006EF4'
+const PG_ERR_COLOR = '#A63232'
+const PG_WARN_COLOR = '#FFCC00'
+const PG_DISABLED_COLOUR = '#757575'
 
 const i18n = (key: string) => browser.i18n.getMessage(key)
 
@@ -65,7 +68,7 @@ setInterval(cleanUp, 600000)
 // Register the messageDisplayScript
 await browser.messageDisplayScripts.register({ js: [{ file: 'messageDisplay.js' }] })
 
-browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+browser.runtime.onMessage.addListener(async (message, sender) => {
     const {
         tab: { id: tabId, windowId },
     } = sender
@@ -78,7 +81,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     const pgEncrypted = filtered.length === 1
     //
 
-    // get the identity
+    // detects if we can decrypt without authentication
     // const pgPartName = filtered[0].partName
     // console.log('pgPartName: ', pgPartName)
     // const file = await browser.messages.getAttachmentFile(header.id, pgPartName)
@@ -99,7 +102,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
                 label: i18n('displayScriptDecryptBar'),
                 icon: 'icons/pg_logo_no_text.svg',
                 placement: 'message',
-                style: { color: PGWHITE, 'background-color': PGINFO },
+                style: { color: PG_WHITE, 'background-color': PG_INFO_COLOR },
                 buttons: [{ id: `decrypt-${header.id}`, label: 'Decrypt', accesskey: 'decrypt' }],
             })
             break
@@ -132,7 +135,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
                 windowId: tab.windowId,
                 label: i18n('composeBccWarning'),
                 placement: 'top',
-                style: { color: PGWHITE, 'background-color': PGWARNING },
+                style: { color: PG_WHITE, 'background-color': PG_WARN_COLOR },
                 icon: 'icons/pg_logo_no_text.svg',
             })
             composeTabs[tab.id].notificationId = notificationId
@@ -442,22 +445,28 @@ async function addBar(tab): Promise<number> {
         windowId: tab.windowId,
         buttonId: 'btn-switch',
         placement: 'top',
-        iconEnabled: 'icons/pg_logo.svg',
-        iconDisabled: `icons/pg_logo${darkMode ? '' : '_white'}.svg`,
-        buttons: [{ id: 'postguard-configure', label: '⚙', accesskey: 'configure' }],
+        iconEnabled: 'icons/pg_logo_no_text.svg',
+        iconDisabled: `icons/pg_logo${darkMode ? '' : '_grey'}_no_text.svg`,
+        buttons: [
+            {
+                id: 'postguard-configure',
+                label: i18n('attributeSelectionButtonLabel'),
+                accesskey: 'manage access',
+            },
+        ],
         labels: {
             enabled: i18n('composeSwitchBarEnabledHtml'),
             disabled: i18n('composeSwitchBarDisabledHtml'),
         },
         style: {
-            'color-enabled': PGINFO, // text color
-            'color-disabled': darkMode ? PGINFO : PGWHITE,
-            'background-color-enabled': PGWHITE, // background of bar
-            'background-color-disabled': darkMode ? PGWHITE : PGINFO,
-            'slider-background-color-enabled': PGINFO, // background of slider
-            'slider-background-color-disabled': darkMode ? PGINFO : PGWHITE,
-            'slider-color-enabled': PGWHITE, // slider itself
-            'slider-color-disabled': darkMode ? PGWHITE : PGINFO,
+            'color-enabled': PG_WHITE, // text color
+            'color-disabled': darkMode ? PG_INFO_COLOR : PG_WHITE,
+            'background-color-enabled': PG_INFO_COLOR, // background of bar
+            'background-color-disabled': darkMode ? PG_WHITE : PG_INFO_COLOR,
+            'slider-background-color-enabled': PG_INFO_ACCENT_COLOR, // background of slider
+            'slider-background-color-disabled': darkMode ? PG_INFO_COLOR : PG_DISABLED_COLOUR,
+            'slider-color-enabled': PG_WHITE, // slider itself
+            'slider-color-disabled': darkMode ? PG_WHITE : PG_WHITE,
         },
     })
 
@@ -471,7 +480,7 @@ async function notifyDecryptionFailed(msg: string) {
             windowId: activeMailTabs[0].windowId,
             label: msg,
             placement: 'message',
-            style: { color: PGWHITE, 'background-color': PGERROR },
+            style: { color: PG_WHITE, 'background-color': PG_ERR_COLOR },
             icon: 'icons/pg_logo_no_text.svg',
         })
 }

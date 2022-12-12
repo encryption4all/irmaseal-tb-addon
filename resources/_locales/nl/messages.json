@@ -74,5 +74,9 @@
     "decryptionFailed": {
         "message": "U heeft niet de juiste attributen om deze mail de ontsleutelen.",
         "description": ""
+    },
+    "attributeSelectionButtonLabel": {
+        "message": "Toegang beheren",
+        "description": ""
     }
 }
