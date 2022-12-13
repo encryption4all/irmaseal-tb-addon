@@ -121,6 +121,7 @@ const messageDisplayListener = async (message, sender) => {
     }
 }
 
+// Add the global listener which handles messages from display scripts.
 browser.runtime.onMessage.addListener(messageDisplayListener)
 
 browser.notificationbar.onButtonClicked.addListener(async (windowId, notificationId, buttonId) => {
