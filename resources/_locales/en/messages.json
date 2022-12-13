@@ -27,6 +27,30 @@
         "message": "Surf EduID",
         "description": ""
     },
+    "irma-demo.sidn-pbdf.email.email": {
+        "message": "Email address",
+        "description": ""
+    },
+    "irma-demo.sidn-pbdf.mobilenumber.mobilenumber": {
+        "message": "Mobile number",
+        "description": ""
+    },
+    "irma-demo.gemeente.personalData.surname": {
+        "message": "Surname",
+        "description": ""
+    },
+    "irma-demo.gemeente.personalData.dateofbirth": {
+        "message": "Date of birth",
+        "description": ""
+    },
+    "irma-demo.nuts.agb.agbcode": {
+        "message": "AGB code",
+        "description": ""
+    },
+    "irma-demo.pbdf.surfnet-2.id": {
+        "message": "Surf EduID",
+        "description": ""
+    },
     "displayMessageTitle": {
         "message": "You received a PostGuard encrypted email from",
         "description": ""
