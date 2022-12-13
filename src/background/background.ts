@@ -64,9 +64,19 @@ const composeTabs: {
 } = await (
     await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
 ).reduce(async (tabs, tab) => {
-    const barId = await addBar(tab)
-    return { ...tabs, [tab.id]: { encrypt: DEFAULT_ENCRYPT, tab, barId } }
+    const enabled = await shouldEncrypt(tab.id)
+    const barId = await addBar(tab, enabled)
+    return { ...tabs, [tab.id]: { encrypt: enabled, tab, barId } }
 }, {})
+
+// Determine the encryption policy based on the tab.
+const shouldEncrypt = async (tabId: number): Promise<boolean> => {
+    const details = await browser.compose.getComposeDetails(tabId)
+    return (
+        (details.type === 'reply' && (await wasPGEncrypted(details.relatedMessageId))) ||
+        DEFAULT_ENCRYPT
+    )
+}
 
 console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
 
@@ -346,11 +356,12 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
     // Check the windowType of the tab.
     if (win.type === WIN_TYPE_COMPOSE) {
-        const barId = await addBar(tab)
+        const enabled = await shouldEncrypt(tab.id)
+        const barId = await addBar(tab, enabled)
 
         // Register the tab.
         composeTabs[tab.id] = {
-            encrypt: DEFAULT_ENCRYPT,
+            encrypt: enabled,
             barId,
             tab,
         }
@@ -360,6 +371,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
 // Main decryption code.
 async function startDecryption(msgId: number) {
     const msg = await browser.messages.get(msgId)
+
     const attachments = await browser.messages.listAttachments(msg.id)
     const filtered = attachments.filter((att) => att.name === 'postguard.encrypted')
     if (filtered.length !== 1) return
@@ -473,13 +485,8 @@ async function detectMode(): Promise<boolean> {
     return darkMode
 }
 
-async function addBar(tab): Promise<number> {
+async function addBar(tab, enabled): Promise<number> {
     const darkMode = await detectMode()
-    const details = await browser.compose.getComposeDetails(tab.id)
-    const enabled =
-        (details.type === 'reply' && (await wasPGEncrypted(details.relatedMessageId))) ||
-        DEFAULT_ENCRYPT
-
     const notificationId = await messenger.switchbar.create({
         enabled,
         windowId: tab.windowId,
