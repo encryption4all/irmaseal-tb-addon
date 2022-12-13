@@ -6,7 +6,6 @@ import {
     isPGEncrypted,
     wasPGEncrypted,
     getLocalFolder,
-    getCopyFolder,
 } from './../utils'
 import jwtDecode, { JwtPayload } from 'jwt-decode'
 
@@ -262,10 +261,10 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     details.body = compose.getHtmlText()
 
     // Save a copy of the message in the sent folder.
-    // 1) import copy to local sent folder
-    // in onAfterSend:
-    // 2) move to final folder (sent folder),
-    // 3) cleanup: remove ciphertext.
+    // 1) Import copy to local sent folder
+    // The rest happens in onAfterSend:
+    // 2) Move to final folder (sent folder),
+    // 3) Cleanup: remove ciphertext.
     // TODO: use import(): https://webextension-api.thunderbird.net/en/latest/messages.html#import-file-destination-properties
 
     getLocalFolder(SENT_COPY_FOLDER)
@@ -273,7 +272,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         .then((newMsgId) => {
             composeTabs[tab.id].newMsgId = newMsgId
         })
-        .catch((e) => console.log('failed to create copy in sent folder: ', e))
+        .catch((e) => console.log('failed to create plaintext copy in sent folder: ', e))
 
     return { cancel: false, details }
 })
@@ -411,17 +410,23 @@ async function startDecryption(msgId: number) {
             })
         })
 
-        let copyFolder = undefined
-        try {
-            copyFolder = await getCopyFolder(accountId, RECEIVED_COPY_FOLDER)
-        } catch (e) {
-            // if no folder is found, just copy in the same folder as the original message.
-        }
+        // 1) Decrypt into new inbox message,
+        // 2) Show new inbox message,
+        // 3) Remove original.
+        // const localFolder = await getLocalFolder(RECEIVED_COPY_FOLDER)
+        // FIXME: do in 1) two steps: 1) decrypt to local folder 2) move to imap folder.
+        // reason: less-error prone.
+        const folder = { ...msg.folder }
+        delete folder.type
 
-        const newId = await browser.pg4tb.copyFileMessage(tempFile, copyFolder, msg.id)
-        await browser.messageDisplay.open({ messageId: newId })
+        const newMsgId = await browser.pg4tb.copyFileMessage(tempFile, folder, msg.id)
+
+        if (version.major < 106) await browser.messageDisplay.open({ messageId: newMsgId })
+        else await browser.setSelectedMessages([newMsgId])
+
         await browser.messages.delete([msg.id], true)
     } catch (e: any) {
+        console.log('error during decryption: ', e.message)
         if (e instanceof Error && e.name === 'OperationError')
             await notifyDecryptionFailed(i18n('decryptionFailed'))
     }

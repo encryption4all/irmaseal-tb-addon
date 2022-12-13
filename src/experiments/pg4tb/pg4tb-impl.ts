@@ -135,7 +135,7 @@ export default class pg4tb extends ExtensionCommon.ExtensionAPI {
                             },
                         }
 
-                        console.info(`Copying to folder with URI: ${newFolder.URI}`)
+                        // console.info(`Copying to folder with URI: ${newFolder.URI}`)
 
                         MailServices.copy.copyFileMessage(
                             file, // aFile
