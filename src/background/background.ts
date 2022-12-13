@@ -434,7 +434,7 @@ async function startDecryption(msgId: number) {
         const newMsgId = await browser.pg4tb.copyFileMessage(tempFile, folder, msg.id)
 
         if (version.major < 106) await browser.messageDisplay.open({ messageId: newMsgId })
-        else await browser.setSelectedMessages([newMsgId])
+        else await browser.mailTabs.setSelectedMessages([newMsgId]) // FIXME
 
         await browser.messages.delete([msg.id], true)
     } catch (e: any) {
