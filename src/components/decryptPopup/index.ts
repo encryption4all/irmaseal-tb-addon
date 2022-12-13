@@ -19,7 +19,7 @@ function secondsTill4AM(): number {
 
 async function doSession(con: AttributeCon, pkg: string): Promise<string> {
     const irma = new IrmaCore({
-        debugging: true,
+        debugging: false,
         element: '#irma-web-form',
         language: browser.i18n.getUILanguage() === 'nl' ? 'nl' : 'en',
         translations: {
