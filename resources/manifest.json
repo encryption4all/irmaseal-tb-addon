@@ -10,7 +10,7 @@
     "browser_specific_settings": {
         "gecko": {
             "id": "pg4tb@e4a.org",
-            "strict_max_version": "107.*",
+            "strict_max_version": "108.*",
             "update_url": "https://postguard.eu/downloads/updates.json"
         }
     },
