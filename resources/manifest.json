@@ -45,15 +45,15 @@
         }
     },
     "permissions": [
-        "activeTab",
         "messagesRead",
-        "accountsRead",
-        "compose",
         "messagesModify",
-        "messagesDelete",
         "messagesMove",
-        "storage",
-        "accountsFolders"
+        "messagesDelete",
+        "accountsFolders",
+        "accountsRead",
+        "activeTab",
+        "compose",
+        "storage"
     ],
     "web_accessible_resources": ["images/*", "icons/*"],
     "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
