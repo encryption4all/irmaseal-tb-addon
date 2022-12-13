@@ -27,6 +27,30 @@
         "message": "Surf EduID",
         "description": ""
     },
+    "irma-demo.sidn-pbdf.email.email": {
+        "message": "Emailadres",
+        "description": ""
+    },
+    "irma-demo.sidn-pbdf.mobilenumber.mobilenumber": {
+        "message": "Telefoonnummer",
+        "description": ""
+    },
+    "irma-demo.gemeente.personalData.surname": {
+        "message": "Achternaam",
+        "description": ""
+    },
+    "irma-demo.gemeente.personalData.dateofbirth": {
+        "message": "Geboortedatum",
+        "description": ""
+    },
+    "irma-demo.nuts.agb.agbcode": {
+        "message": "AGB code",
+        "description": ""
+    },
+    "irma-demo.pbdf.surfnet-2.id": {
+        "message": "Surf EduID",
+        "description": ""
+    },
     "displayMessageTitle": {
         "message": "Je hebt een PostGuard email ontvangen van",
         "description": ""
