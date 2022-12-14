@@ -100,7 +100,7 @@
         "description": ""
     },
     "decryptionFailed": {
-        "message": "U heeft niet de juiste attributen om deze mail de ontsleutelen.",
+        "message": "U heeft niet de juiste attributen om deze mail te ontsleutelen.",
         "description": ""
     },
     "attributeSelectionButtonLabel": {
