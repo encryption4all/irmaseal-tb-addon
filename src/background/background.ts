@@ -61,15 +61,15 @@ const composeTabs: {
         configOpen?: boolean
         newMsgId?: number
     }
-} = await (
-    await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
-)
-    .reduce(async (tabs, tab) => {
-        const enabled = await shouldEncrypt(tab.id)
-        const barId = await addBar(tab, enabled)
-        return { ...tabs, [tab.id]: { encrypt: enabled, tab, barId } }
-    }, {})
-    .catch(() => {})
+} = {}
+
+// Populate composeTabs during startup.
+const tabs = await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
+for (const tab of tabs) {
+    const encrypt = await shouldEncrypt(tab.id)
+    const barId = await addBar(tab, encrypt)
+    composeTabs[tab.id] = { encrypt, tab, barId }
+}
 
 // Determines the encryption policy based on the tab.
 async function shouldEncrypt(tabId: number): Promise<boolean> {
