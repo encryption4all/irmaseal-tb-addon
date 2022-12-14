@@ -191,7 +191,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     innerMime += `Subject: ${originalSubject}\r\n`
     if (details.cc.length > 0) innerMime += `Cc: ${String(details.cc)}\r\n`
     innerMime += `Content-Type: ${contentType}\r\n`
-    innerMime += `X-PostGuard\r\n`
+    innerMime += `X-PostGuard: 0.1\r\n`
     innerMime += '\r\n'
 
     let innerBody = details.isPlainText ? details.plainTextBody : details.body
