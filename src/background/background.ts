@@ -63,14 +63,16 @@ const composeTabs: {
     }
 } = await (
     await browser.tabs.query({ type: WIN_TYPE_COMPOSE })
-).reduce(async (tabs, tab) => {
-    const enabled = await shouldEncrypt(tab.id)
-    const barId = await addBar(tab, enabled)
-    return { ...tabs, [tab.id]: { encrypt: enabled, tab, barId } }
-}, {})
+)
+    .reduce(async (tabs, tab) => {
+        const enabled = await shouldEncrypt(tab.id)
+        const barId = await addBar(tab, enabled)
+        return { ...tabs, [tab.id]: { encrypt: enabled, tab, barId } }
+    }, {})
+    .catch(() => {})
 
-// Determine the encryption policy based on the tab.
-const shouldEncrypt = async (tabId: number): Promise<boolean> => {
+// Determines the encryption policy based on the tab.
+async function shouldEncrypt(tabId: number): Promise<boolean> {
     const details = await browser.compose.getComposeDetails(tabId)
     return (
         (details.type === 'reply' && (await wasPGEncrypted(details.relatedMessageId))) ||
