@@ -361,6 +361,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
 // Main decryption code.
 async function startDecryption(msgId: number) {
     const msg = await browser.messages.get(msgId)
+    console.log('message ', msg)
 
     const attachments = await browser.messages.listAttachments(msg.id)
     const filtered = attachments.filter((att) => att.name === 'postguard.encrypted')
@@ -383,9 +384,13 @@ async function startDecryption(msgId: number) {
         const hiddenPolicy = unsealer.get_hidden_policies()
         const sender = msg.author
 
+        if (!hiddenPolicy[recipientId]) {
+            const e = new Error('recipient identifier not found in header')
+            e.name = 'RecipientUnknownError'
+            throw e
+        }
         const myPolicy = Object.assign({}, hiddenPolicy[recipientId])
         const hints = hiddenPolicy[recipientId]
-        if (!myPolicy) throw new Error('recipient identifier not found in header')
 
         // convert to attribute request
         myPolicy.con = myPolicy.con.map(({ t, v }) => {
@@ -443,6 +448,8 @@ async function startDecryption(msgId: number) {
         console.log('error during decryption: ', e.message)
         if (e instanceof Error && e.name === 'OperationError')
             await notifyDecryptionFailed(i18n('decryptionFailed'))
+        if (e instanceof Error && e.name === 'RecipientUnknownError')
+            await notifyDecryptionFailed(i18n('recipientUnknown'))
     }
 }
 

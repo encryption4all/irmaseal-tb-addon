@@ -100,7 +100,11 @@
         "description": ""
     },
     "decryptionFailed": {
-        "message": "U heeft niet de juiste attributen om deze mail te ontsleutelen.",
+        "message": "Je hebt niet de juiste attributen om deze mail te ontsleutelen.",
+        "description": ""
+    },
+    "recipientUnknown": {
+        "message": "Deze email was niet versleuteld voor het mail adres waarop het ontvangen is.",
         "description": ""
     },
     "attributeSelectionButtonLabel": {
