@@ -361,18 +361,12 @@ browser.tabs.onCreated.addListener(async (tab) => {
 // Main decryption code.
 async function startDecryption(msgId: number) {
     const msg = await browser.messages.get(msgId)
-    console.log('message ', msg)
 
     const attachments = await browser.messages.listAttachments(msg.id)
     const filtered = attachments.filter((att) => att.name === 'postguard.encrypted')
     if (filtered.length !== 1) return
 
     const pgPartName = filtered[0].partName
-
-    if (msg.folder['type'] !== 'inbox') {
-        console.log('only decrypting inbox messages')
-        return
-    }
 
     try {
         const file = await browser.messages.getAttachmentFile(msg.id, pgPartName)
