@@ -103,7 +103,6 @@
         "message": "You did not have the correct attributes to decrypt this message.",
         "description": ""
     },
-
     "recipientUnknown": {
         "message": "This message was not encrypted for the mail account it was received on.",
         "description": ""
