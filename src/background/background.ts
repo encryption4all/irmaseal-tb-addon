@@ -161,9 +161,21 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     const customPolicies = composeTabs[tab.id].policy
     const policy = [...details.to, ...details.cc].reduce((total, recipient) => {
         const id = toEmail(recipient)
+
+        // If there's a custom policy, use it.
         if (customPolicies && customPolicies[id])
             total[id] = { ts: timestamp, con: customPolicies[id] }
-        else total[id] = { ts: timestamp, con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: id }] }
+        else {
+            // otherwise fall back to using email
+            total[id] = { ts: timestamp, con: [{ t: EMAIL_ATTRIBUTE_TYPE, v: id }] }
+        }
+
+        // Make sure no email values are capitalized.
+        total[id].con = total[id].con.map(({ t, v }) => {
+            if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: v.toLowerCase() }
+            else return { t, v }
+        })
+
         return total
     }, {})
 

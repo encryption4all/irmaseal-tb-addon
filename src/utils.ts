@@ -2,7 +2,8 @@
 export function toEmail(identity: string): string {
     const regex = /^(.*)<(.*)>$/
     const match = identity.match(regex)
-    return match ? match[2] : identity
+    const email = match ? match[2] : identity
+    return email.toLowerCase()
 }
 
 export function generateBoundary(): string {
