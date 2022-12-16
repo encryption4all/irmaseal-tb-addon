@@ -280,7 +280,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     // TODO: use import(): https://webextension-api.thunderbird.net/en/latest/messages.html#import-file-destination-properties
 
     getLocalFolder(SENT_COPY_FOLDER)
-        .then((localFolder) => browser.pg4tb.copyFileMessage(tempFile, localFolder, undefined))
+        .then((localFolder) => browser.pg4tb.copyFileMessage(tempFile, localFolder))
         .then((newMsgId) => {
             composeTabs[tab.id].newMsgId = newMsgId
         })
@@ -423,19 +423,40 @@ async function startDecryption(msgId: number) {
             })
         })
 
-        // 1) Decrypt into new inbox message,
+        // 1) Decrypt into new local folder message,
+        // 2) Move to original folder (usually inbox),
         // 2) Show new inbox message,
-        // 3) Remove original.
-        // const localFolder = await getLocalFolder(RECEIVED_COPY_FOLDER)
-        // FIXME: do in 1) two steps: 1) decrypt to local folder 2) move to imap folder.
-        // reason: less-error prone.
-        const folder = { ...msg.folder }
-        delete folder.type
+        // 3) Remove original message.
 
-        const newMsgId = await browser.pg4tb.copyFileMessage(tempFile, folder, msg.id)
+        const localFolder = await getLocalFolder(RECEIVED_COPY_FOLDER)
+        const localMsgId = await browser.pg4tb.copyFileMessage(tempFile, localFolder, msg.id)
+        const localMsg = await browser.messages.get(localMsgId)
+        await browser.messages.move([localMsgId], msg.folder)
+        const fromDate: Date = new Date(localMsg.date.getTime())
+        fromDate.setSeconds(fromDate.getSeconds() - 1)
+        const toDate: Date = new Date(localMsg.date.getTime())
+        toDate.setSeconds(localMsg.date.getSeconds() + 1)
 
-        if (version.major < 106) await browser.messageDisplay.open({ messageId: newMsgId })
-        else await browser.mailTabs.setSelectedMessages([newMsgId]) // FIXME
+        // FIXME: Ugly workaround until messages.move() returns the message id.
+        let moved
+        let tried = 0
+        do {
+            moved = await browser.messages.query({
+                folder: msg.folder,
+                subject: localMsg.subject,
+                recipients: localMsg.recipients.join(','),
+                author: localMsg.author,
+                fromDate,
+                toDate,
+            })
+            await new Promise((res) => setTimeout(res, 250))
+            tried++
+        } while (moved.messages.length !== 1 && tried < 10)
+
+        const movedMsgId = moved.messages[0].id
+
+        if (version.major < 106) await browser.messageDisplay.open({ messageId: movedMsgId })
+        else await browser.mailTabs.setSelectedMessages([movedMsgId]) // FIXME: Test this before 106 releases.
 
         await browser.messages.delete([msg.id], true)
     } catch (e: any) {
