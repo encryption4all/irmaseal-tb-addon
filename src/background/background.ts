@@ -395,24 +395,31 @@ async function startDecryption(msgId: number) {
             e.name = 'RecipientUnknownError'
             throw e
         }
-        const myPolicy = Object.assign({}, hiddenPolicy[recipientId])
-        const hints = hiddenPolicy[recipientId]
 
-        // convert to attribute request
-        myPolicy.con = myPolicy.con.map(({ t, v }) => {
+        const keyRequest = Object.assign({}, hiddenPolicy[recipientId])
+        let hints = hiddenPolicy[recipientId].con
+
+        // Convert hints.
+        hints = hints.map(({ t, v }) => {
+            if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
+            else return { t, v }
+        })
+
+        // Convert hidden policy to attribute request.
+        keyRequest.con = keyRequest.con.map(({ t, v }) => {
             if (t === EMAIL_ATTRIBUTE_TYPE) return { t, v: recipientId }
             else if (v === '' || v.includes('*')) return { t }
             else return { t, v }
         })
 
-        console.log('Trying decryption with policy: ', myPolicy)
+        console.log('Trying decryption with policy: ', keyRequest)
 
         // Check localStorage, otherwise create a popup to retrieve a JWT.
-        const jwt = await checkLocalStorage(myPolicy.con).catch(() =>
-            createSessionPopup(myPolicy, hints, toEmail(sender), recipientId)
+        const jwt = await checkLocalStorage(hints).catch(() =>
+            createSessionPopup(keyRequest, hints, toEmail(sender))
         )
         /// Use the JWT to retrieve a USK.
-        const usk = await getUSK(jwt, myPolicy.ts)
+        const usk = await getUSK(jwt, keyRequest.ts)
 
         const tempFile = await browser.pg4tb.createTempFile()
         const decoder = new TextDecoder()
@@ -429,7 +436,7 @@ async function startDecryption(msgId: number) {
 
         // Store the JWT if decryption succeeded.
         const decoded = jwtDecode<JwtPayload>(jwt)
-        hashCon(myPolicy.con).then((hash) => {
+        hashCon(hints).then((hash) => {
             browser.storage.local.set({
                 [hash]: { jwt, exp: decoded.exp },
             })
@@ -586,9 +593,8 @@ async function getUSK(jwt: string, ts: number): Promise<string> {
 
 async function createSessionPopup(
     pol: Policy,
-    hints: Policy,
-    senderId: string,
-    recipientId: string
+    hints: AttributeCon,
+    senderId: string
 ): Promise<string> {
     const popupWindow = await messenger.windows.create({
         url: 'decryptPopup.html',
@@ -609,9 +615,8 @@ async function createSessionPopup(
                 return Promise.resolve({
                     hostname: PKG_URL,
                     con: pol.con,
-                    hints: hints.con,
+                    hints,
                     senderId,
-                    recipientId,
                 })
             } else if (sender.tab.windowId == popupId && req && req.command === 'popup_done') {
                 if (req.jwt) resolve(req.jwt)

@@ -3,8 +3,6 @@ import * as IrmaClient from '@privacybydesign/irma-client'
 import * as IrmaWeb from '@privacybydesign/irma-web'
 import './index.scss'
 
-const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
-
 window.addEventListener('load', onLoad)
 
 // If hours <  4: seconds till 4 AM today.
@@ -66,8 +64,6 @@ function fillTable(table: HTMLElement, data: PopupData) {
         return row
     }
 
-    table.appendChild(row({ t: EMAIL_ATTRIBUTE_TYPE, v: data.recipientId }))
-    data.hints = data.hints.filter(({ t }) => t !== EMAIL_ATTRIBUTE_TYPE)
     for (const { t, v } of data.hints) {
         table.appendChild(row({ t, v }))
     }
