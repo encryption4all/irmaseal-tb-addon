@@ -1,5 +1,24 @@
 # CHANGELOG.md
 
+## unreleased
+
+### Fixed
+
+-   Always use lower case values form IRMA email attributes.
+
+### Added
+
+-   Dutch translations.
+
+### Changed
+
+-   Add-on name changed from "PostGuard" to "PostGuard (beta)".
+-   Strict minimal version bumped to 108.
+
+## 0.6
+
+Very minor changes.
+
 ## 0.5
 
 ### Fixed
