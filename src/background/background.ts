@@ -593,7 +593,7 @@ async function createSessionPopup(
     const popupWindow = await messenger.windows.create({
         url: 'decryptPopup.html',
         type: 'popup',
-        height: 660,
+        height: 700,
         width: 620,
     })
 
@@ -667,7 +667,7 @@ async function createAttributeSelectionPopup(initialPolicy: Policy): Promise<Pol
     const popupWindow = await messenger.windows.create({
         url: 'attributeSelection.html',
         type: 'popup',
-        height: 420,
+        height: 400,
         width: 700,
     })
 
