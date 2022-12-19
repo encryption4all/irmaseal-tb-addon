@@ -667,7 +667,7 @@ async function createAttributeSelectionPopup(initialPolicy: Policy): Promise<Pol
     const popupWindow = await messenger.windows.create({
         url: 'attributeSelection.html',
         type: 'popup',
-        height: 400,
+        height: 420,
         width: 700,
     })
 
