@@ -1,6 +1,6 @@
 # CHANGELOG.md
 
-## unreleased
+## 0.7
 
 ### Fixed
 
@@ -14,6 +14,7 @@
 
 -   Add-on name changed from "PostGuard" to "PostGuard (beta)".
 -   Strict minimal version bumped to 108.
+-   Decrypt flow changed: see details in [this PR](https://github.com/encryption4all/postguard-tb-addon/pull/17).
 
 ## 0.6
 
