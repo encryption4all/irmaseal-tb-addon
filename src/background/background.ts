@@ -727,8 +727,8 @@ browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, b
         const tabs = await browser.tabs.query({ windowId, windowType: WIN_TYPE_COMPOSE })
         const tabId = tabs[0].id
 
-        // Check if a config is open already.
-        if (Object.values(composeTabs).some((tab) => tab.configOpen)) return
+        // Check if a config for this tab is open already.
+        if (composeTabs[tabId].configOpen) return
         composeTabs[tabId].configOpen = true
 
         const state = await browser.compose.getComposeDetails(tabId)
