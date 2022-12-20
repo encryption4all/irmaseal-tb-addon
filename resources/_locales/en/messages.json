@@ -27,6 +27,30 @@
         "message": "Surf EduID",
         "description": ""
     },
+    "irma-demo.sidn-pbdf.email.email": {
+        "message": "Email address",
+        "description": ""
+    },
+    "irma-demo.sidn-pbdf.mobilenumber.mobilenumber": {
+        "message": "Mobile number",
+        "description": ""
+    },
+    "irma-demo.gemeente.personalData.surname": {
+        "message": "Surname",
+        "description": ""
+    },
+    "irma-demo.gemeente.personalData.dateofbirth": {
+        "message": "Date of birth",
+        "description": ""
+    },
+    "irma-demo.nuts.agb.agbcode": {
+        "message": "AGB code",
+        "description": ""
+    },
+    "irma-demo.pbdf.surfnet-2.id": {
+        "message": "Surf EduID",
+        "description": ""
+    },
     "displayMessageTitle": {
         "message": "You received a PostGuard encrypted email from",
         "description": ""
@@ -56,15 +80,35 @@
         "description": ""
     },
     "composeSwitchBarEnabledHtml": {
-        "message": "<p>Email encryption is turned <b>on</b>.</p>",
+        "message": "<p>PostGuard is turned <b>on</b>.</p>",
         "description": ""
     },
     "composeSwitchBarDisabledHtml": {
-        "message": "<p>Email encryption is turned <b>off</b>. Sensitive content? Turn PostGuard on.</p>",
+        "message": "<p>PostGuard is turned <b>off</b>. Sensitive content? Turn PostGuard on.</p>",
         "description": ""
     },
     "composeBccWarning": {
         "message": "PostGuard does not support BCC. Either remove BCC or disable PostGuard.",
+        "description": ""
+    },
+    "displayScriptDecryptBar": {
+        "message": "This mail is encrypted using PostGuard.",
+        "description": ""
+    },
+    "displayScriptWasEncryptedBar": {
+        "message": "This mail was originally encrypted using PostGuard.",
+        "description": ""
+    },
+    "decryptionFailed": {
+        "message": "You did not have the correct attributes to decrypt this message.",
+        "description": ""
+    },
+    "recipientUnknown": {
+        "message": "This message was not encrypted for the mail account it was received on.",
+        "description": ""
+    },
+    "attributeSelectionButtonLabel": {
+        "message": "Manage access",
         "description": ""
     }
 }

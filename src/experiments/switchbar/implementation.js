@@ -183,10 +183,9 @@ class SwitchBar {
                     margin: 0;
                 }
                 .infobar > .icon {
-                    padding: 0;
-                    margin: 3px 10px 3px 15px;
-                    width: 64px;
-                    height: 35px; 
+                    width: 24px;
+                    height: 24px;
+                    margin-right: 0.5rem;
                 }
                 .container.infobar {
                     border-radius: 0;
@@ -253,19 +252,17 @@ class SwitchBar {
                     --message-bar-text-color: ${style['color-disabled']};
                 }
                 .notification-button.small-button {
-                    font-size: 1.6em;
-                    border: none;
-                    padding-block: unset;
+                    background-color: #006EF4;
+                    color: white;
+                    border-radius: 15px;
+                    border: unset;               
+                    padding: 0 1.5rem;
                 }
-                :host(.enabled) .notification-button.small-button {
-                    background-color: ${style['background-color-enabled']};
-                    color: ${style['color-enabled']}; 
+                .notification-button.small-button:hover {
+                    background-color: white;
                 }
                 :host(.disabled) .notification-button.small-button {
                     display: none;
-                }
-                .notification-message {
-                    flex-grow: unset;
                 }
                 /*
                 :host(:not(.initial)) .container.infobar {

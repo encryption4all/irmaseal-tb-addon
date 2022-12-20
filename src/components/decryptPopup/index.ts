@@ -3,8 +3,6 @@ import * as IrmaClient from '@privacybydesign/irma-client'
 import * as IrmaWeb from '@privacybydesign/irma-web'
 import './index.scss'
 
-const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
-
 window.addEventListener('load', onLoad)
 
 // If hours <  4: seconds till 4 AM today.
@@ -19,7 +17,7 @@ function secondsTill4AM(): number {
 
 async function doSession(con: AttributeCon, pkg: string): Promise<string> {
     const irma = new IrmaCore({
-        debugging: true,
+        debugging: false,
         element: '#irma-web-form',
         language: browser.i18n.getUILanguage() === 'nl' ? 'nl' : 'en',
         translations: {
@@ -66,8 +64,6 @@ function fillTable(table: HTMLElement, data: PopupData) {
         return row
     }
 
-    table.appendChild(row({ t: EMAIL_ATTRIBUTE_TYPE, v: data.recipientId }))
-    data.hints = data.hints.filter(({ t }) => t !== EMAIL_ATTRIBUTE_TYPE)
     for (const { t, v } of data.hints) {
         table.appendChild(row({ t, v }))
     }

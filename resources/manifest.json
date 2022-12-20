@@ -10,7 +10,7 @@
     "browser_specific_settings": {
         "gecko": {
             "id": "pg4tb@e4a.org",
-            "strict_max_version": "107.*",
+            "strict_max_version": "108.*",
             "update_url": "https://postguard.eu/downloads/updates.json"
         }
     },
@@ -45,14 +45,15 @@
         }
     },
     "permissions": [
-        "activeTab",
         "messagesRead",
-        "accountsRead",
-        "compose",
         "messagesModify",
+        "messagesMove",
         "messagesDelete",
-        "storage",
-        "accountsFolders"
+        "accountsFolders",
+        "accountsRead",
+        "activeTab",
+        "compose",
+        "storage"
     ],
     "web_accessible_resources": ["images/*", "icons/*"],
     "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"

@@ -38,3 +38,28 @@ export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 
     return Promise.race([p, timeout])
 }
+
+export async function getLocalFolder(folderName: string): Promise<any> {
+    const accs = await browser.accounts.list()
+    for (const acc of accs) {
+        if (acc.name === 'Local Folders') {
+            for (const f of acc.folders) {
+                if (f.name === folderName) return f
+            }
+            const f = await browser.folders.create(acc, folderName)
+            return f
+        }
+    }
+    return undefined
+}
+
+export async function isPGEncrypted(msgId: number): Promise<boolean> {
+    const attachments = await browser.messages.listAttachments(msgId)
+    const filtered = attachments.filter((att) => att.name === 'postguard.encrypted')
+    return filtered.length === 1
+}
+
+export async function wasPGEncrypted(msgId: number): Promise<boolean> {
+    const full = await browser.messages.getFull(msgId)
+    return 'x-postguard' in full.headers
+}

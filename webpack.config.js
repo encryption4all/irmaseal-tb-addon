@@ -24,6 +24,7 @@ module.exports = [
             background: './src/background/background.ts',
             decryptPopup: './src/components/decryptPopup/index.ts',
             attributeSelection: './src/components/attributeSelection/index.ts',
+            messageDisplay: './src/components/messageDisplay/index.ts',
         },
         experiments: { syncWebAssembly: true, topLevelAwait: true },
         output: { path: outputPath },
