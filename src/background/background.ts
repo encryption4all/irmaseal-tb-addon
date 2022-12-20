@@ -39,6 +39,9 @@ const version: Version = await browser.runtime.getBrowserInfo().then(({ version 
 const extVersion = await browser.runtime.getManifest()['version']
 const headerValue = `Thunderbird,${version.raw},pg4tb,${extVersion}`
 
+// Keeps track of displayScript connections.
+const displayScriptPorts = {}
+
 console.log(
     `[background]: postguard-tb-addon v${extVersion} started (Thunderbird v${version.raw}).`
 )
@@ -85,13 +88,28 @@ console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
 // Run the cleanup every 10 minutes.
 setInterval(cleanUp, 600000)
 
-// Register the messageDisplayScript
+// Register the messageDisplayScript.
 await browser.messageDisplayScripts.register({ js: [{ file: 'messageDisplay.js' }] })
 
-const messageDisplayListener = async (message, sender) => {
+// Store incoming ports. We use ports for the display scripts.
+// The other scripts use brower.runtime.addListener with promisified return values.
+browser.runtime.onConnect.addListener((p) => {
+    const id = p.sender.tab.id
+    switch (p.name) {
+        case 'displayScript':
+            displayScriptPorts[id] = p
+            p.onMessage.addListener(displayListener)
+            p.onDisconnect.addListener(() => delete displayScriptPorts[id])
+            break
+        default:
+            break
+    }
+})
+
+const displayListener = async (message, port) => {
     const {
         tab: { id: tabId, windowId },
-    } = sender
+    } = port.sender
 
     switch (message.command) {
         case 'queryDetails': {
@@ -100,6 +118,7 @@ const messageDisplayListener = async (message, sender) => {
             const isEncrypted = await isPGEncrypted(header.id)
 
             if (isEncrypted) {
+                port.postMessage({ isEncrypted })
                 await messenger.notificationbar.create({
                     windowId,
                     label: i18n('displayScriptDecryptBar'),
@@ -110,7 +129,7 @@ const messageDisplayListener = async (message, sender) => {
                         { id: `decrypt-${header.id}`, label: 'Decrypt', accesskey: 'decrypt' },
                     ],
                 })
-                return { isEncrypted }
+                return
             }
 
             // Detects if mail was once encrypted using PostGuard
@@ -125,15 +144,12 @@ const messageDisplayListener = async (message, sender) => {
                     style: { color: PG_WHITE, 'background-color': PG_INFO_COLOR },
                 })
             }
-            return { isEncrypted }
+            break
         }
         default:
             break
     }
 }
-
-// Add the global listener which handles messages from display scripts.
-browser.runtime.onMessage.addListener(messageDisplayListener)
 
 browser.notificationbar.onButtonClicked.addListener(async (windowId, notificationId, buttonId) => {
     if (buttonId.startsWith('decrypt')) {
@@ -451,6 +467,7 @@ async function startDecryption(msgId: number) {
         const localMsgId = await browser.pg4tb.copyFileMessage(tempFile, localFolder, msg.id)
         const localMsg = await browser.messages.get(localMsgId)
         await browser.messages.move([localMsgId], msg.folder)
+
         const fromDate: Date = new Date(localMsg.date.getTime())
         fromDate.setSeconds(fromDate.getSeconds() - 1)
         const toDate: Date = new Date(localMsg.date.getTime())
@@ -606,8 +623,6 @@ async function createSessionPopup(
     const popupId = popupWindow.id
     await messenger.windows.update(popupId, { drawAttention: true, focused: true })
 
-    browser.runtime.onMessage.removeListener(messageDisplayListener)
-
     let popupListener, tabClosedListener
     const jwtPromise = new Promise<string>((resolve, reject) => {
         popupListener = (req, sender) => {
@@ -637,7 +652,6 @@ async function createSessionPopup(
     return jwtPromise.finally(() => {
         browser.windows.onRemoved.removeListener(tabClosedListener)
         browser.runtime.onMessage.removeListener(popupListener)
-        browser.runtime.onMessage.addListener(messageDisplayListener)
     })
 }
 
@@ -679,8 +693,6 @@ async function createAttributeSelectionPopup(initialPolicy: Policy): Promise<Pol
     const popupId = popupWindow.id
     await messenger.windows.update(popupId, { drawAttention: true, focused: true })
 
-    browser.runtime.onMessage.removeListener(messageDisplayListener)
-
     let popupListener, tabClosedListener
     const policyPromise = new Promise<Policy>((resolve, reject) => {
         popupListener = (req, sender) => {
@@ -707,7 +719,6 @@ async function createAttributeSelectionPopup(initialPolicy: Policy): Promise<Pol
     return policyPromise.finally(() => {
         browser.windows.onRemoved.removeListener(tabClosedListener)
         browser.runtime.onMessage.removeListener(popupListener)
-        browser.runtime.onMessage.addListener(messageDisplayListener)
     })
 }
 

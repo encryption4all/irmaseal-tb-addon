@@ -13,10 +13,12 @@ const hideEmail = () => {
     document.body.style.height = '100%'
 }
 
-const run = async () => {
-    const details = await browser.runtime.sendMessage({ command: 'queryDetails' })
-    const { isEncrypted } = details
-    if (isEncrypted) hideEmail()
+const run = () => {
+    const p = browser.runtime.connect({ name: 'displayScript' })
+    p.postMessage({ command: 'queryDetails' })
+    p.onMessage.addListener(({ isEncrypted }) => {
+        if (isEncrypted) hideEmail()
+    })
 }
 
 run()
