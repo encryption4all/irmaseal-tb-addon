@@ -61,7 +61,7 @@ const composeTabs: {
         barId: number
         notificationId?: number
         policy?: Policy
-        configOpen?: boolean
+        configWindowId?: number
         newMsgId?: number
     }
 } = {}
@@ -165,6 +165,14 @@ browser.notificationbar.onButtonClicked.addListener(async (windowId, notificatio
 // Watch for outgoing mails. The encryption process starts here.
 browser.compose.onBeforeSend.addListener(async (tab, details) => {
     if (!composeTabs[tab.id].encrypt) return
+
+    if (composeTabs[tab.id].configWindowId) {
+        await messenger.windows.update(composeTabs[tab.id].configWindowId, {
+            drawAttention: true,
+            focused: true,
+        })
+        return { cancel: true }
+    }
 
     if (details.bcc.length) {
         if (!composeTabs[tab.id].notificationId) {
@@ -682,7 +690,10 @@ async function retrievePublicKey(): Promise<string> {
         })
 }
 
-async function createAttributeSelectionPopup(initialPolicy: Policy): Promise<Policy> {
+async function createAttributeSelectionPopup(
+    initialPolicy: Policy,
+    tabId: number
+): Promise<Policy> {
     const popupWindow = await messenger.windows.create({
         url: 'attributeSelection.html',
         type: 'popup',
@@ -691,6 +702,8 @@ async function createAttributeSelectionPopup(initialPolicy: Policy): Promise<Pol
     })
 
     const popupId = popupWindow.id
+    composeTabs[tabId].configWindowId = popupId
+
     await messenger.windows.update(popupId, { drawAttention: true, focused: true })
 
     let popupListener, tabClosedListener
@@ -719,6 +732,7 @@ async function createAttributeSelectionPopup(initialPolicy: Policy): Promise<Pol
     return policyPromise.finally(() => {
         browser.windows.onRemoved.removeListener(tabClosedListener)
         browser.runtime.onMessage.removeListener(popupListener)
+        composeTabs[tabId].configWindowId = undefined
     })
 }
 
@@ -728,8 +742,7 @@ browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, b
         const tabId = tabs[0].id
 
         // Check if a config for this tab is open already.
-        if (composeTabs[tabId].configOpen) return
-        composeTabs[tabId].configOpen = true
+        if (composeTabs[tabId].configWindowId) return
 
         const state = await browser.compose.getComposeDetails(tabId)
         const recipients = [...state.to, ...state.cc]
@@ -747,14 +760,14 @@ browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, b
         }
 
         try {
-            const newPolicy: Policy = await createAttributeSelectionPopup(policy)
+            const newPolicy: Policy = await createAttributeSelectionPopup(policy, tabId)
             composeTabs[tabId].policy = newPolicy
             const latest = await browser.compose.getComposeDetails(tabId)
             const newTo = Object.keys(newPolicy)
             latest.to = newTo
             await browser.compose.setComposeDetails(tabId, latest)
-        } finally {
-            composeTabs[tabId].configOpen = false
+        } catch (e) {
+            //
         }
     }
 })
