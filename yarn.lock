@@ -35,10 +35,10 @@
   resolved "https://registry.yarnpkg.com/@discoveryjs/json-ext/-/json-ext-0.5.7.tgz#1d572bfbbe14b7704e0ba0f39b74815b84870d70"
   integrity sha512-dBVuXR082gk3jsFp7Rd/JI4kytwGHecnCoTtXFb7DB6CNHp4rg5k1bhg0nWdLGLnOV71lmDzGQaLMy8iPLY0pw==
 
-"@e4a/irmaseal-mail-utils@^0.0.4":
-  version "0.0.4"
-  resolved "https://registry.yarnpkg.com/@e4a/irmaseal-mail-utils/-/irmaseal-mail-utils-0.0.4.tgz#cbddcb70e9f911016c8870f7bb52cf20c830af94"
-  integrity sha512-KzQdXJsBt4SJzgj73FChG+gRQzy55T1hlvA4VuiLknQ/qu0uJnpHp8mlnEOvcCcC+U+gVRm2OgOHqJ+5WQgRmQ==
+"@e4a/irmaseal-mail-utils@^0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@e4a/irmaseal-mail-utils/-/irmaseal-mail-utils-0.0.5.tgz#5987007ef22fac6f41e2561c2c79fc9296d89aaa"
+  integrity sha512-nL8u9Sk+7tRBU0JxdMr7W59HE8zTl0hit8Uq5vxWJPvf1kW7b1jstqZKONNS+0w4y1iMMDhsZNzgYuSrt158bQ==
 
 "@e4a/irmaseal-wasm-bindings@^0.2.3":
   version "0.2.3"
