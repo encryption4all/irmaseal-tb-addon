@@ -15,7 +15,7 @@ function secondsTill4AM(): number {
     return secondsTill4AM % (24 * 60 * 60)
 }
 
-async function doSession(con: AttributeCon, pkg: string): Promise<string> {
+async function doSession(con: AttributeCon, pkg: string, header?: string): Promise<string> {
     const irma = new IrmaCore({
         debugging: false,
         element: '#irma-web-form',
@@ -29,7 +29,10 @@ async function doSession(con: AttributeCon, pkg: string): Promise<string> {
             start: {
                 url: (o) => `${o.url}/v2/request/start`,
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(header && { 'X-PostGuard-Client-Version': header }),
+                },
                 body: JSON.stringify({ con, validity: secondsTill4AM() }),
             },
             mapping: {
@@ -41,6 +44,7 @@ async function doSession(con: AttributeCon, pkg: string): Promise<string> {
             },
             result: {
                 url: (o, { sessionToken }) => `${o.url}/v2/request/jwt/${sessionToken}`,
+                headers: { ...(header && { 'X-PostGuard-Client-Version': header }) },
                 parseResponse: (r) => r.text(),
             },
         },
@@ -94,7 +98,7 @@ async function onLoad() {
     const table: HTMLTableElement | null = document.querySelector('table#attribute-table')
     if (table) fillTable(table, data)
 
-    doSession(data.con, data.hostname)
+    doSession(data.con, data.hostname, data.header)
         .then((jwt) => {
             browser.runtime.sendMessage({
                 command: 'popup_done',

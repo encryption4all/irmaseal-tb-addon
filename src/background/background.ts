@@ -27,7 +27,7 @@ const PG_DISABLED_COLOUR = '#757575'
 
 const i18n = (key: string) => browser.i18n.getMessage(key)
 
-const version: Version = await browser.runtime.getBrowserInfo().then(({ version }) => {
+const VERSION: Version = await browser.runtime.getBrowserInfo().then(({ version }) => {
     const parts = version.split('.')
     return {
         raw: version,
@@ -36,14 +36,14 @@ const version: Version = await browser.runtime.getBrowserInfo().then(({ version 
         revision: parts.length > 2 ? parseInt(parts[2]) : 0,
     }
 })
-const extVersion = await browser.runtime.getManifest()['version']
-const headerValue = `Thunderbird,${version.raw},pg4tb,${extVersion}`
+const EXT_VERSION = await browser.runtime.getManifest()['version']
+const HEADER_VALUE = `Thunderbird,${VERSION.raw},pg4tb,${EXT_VERSION}`
 
 // Keeps track of displayScript connections.
 const displayScriptPorts = {}
 
 console.log(
-    `[background]: postguard-tb-addon v${extVersion} started (Thunderbird v${version.raw}).`
+    `[background]: postguard-tb-addon v${EXT_VERSION} started (Thunderbird v${VERSION.raw}).`
 )
 console.log('[background]: loading wasm module and retrieving master public key.')
 
@@ -499,7 +499,7 @@ async function startDecryption(msgId: number) {
 
         const movedMsgId = moved.messages[0].id
 
-        if (version.major < 106) await browser.messageDisplay.open({ messageId: movedMsgId })
+        if (VERSION.major < 106) await browser.messageDisplay.open({ messageId: movedMsgId })
         else await browser.mailTabs.setSelectedMessages([movedMsgId]) // FIXME: Test this before 106 releases.
 
         await browser.messages.delete([msg.id], true)
@@ -605,7 +605,7 @@ async function getUSK(jwt: string, ts: number): Promise<string> {
     return fetch(`${PKG_URL}/v2/request/key/${ts.toString()}`, {
         headers: {
             Authorization: `Bearer ${jwt}`,
-            'X-PostGuard-Client-Version': headerValue,
+            'X-PostGuard-Client-Version': HEADER_VALUE,
         },
     })
         .then((r) => r.json())
@@ -640,6 +640,7 @@ async function createSessionPopup(
                     con: pol.con,
                     hints,
                     senderId,
+                    header: HEADER_VALUE,
                 })
             } else if (sender.tab.windowId == popupId && req && req.command === 'popup_done') {
                 if (req.jwt) resolve(req.jwt)
@@ -672,7 +673,7 @@ async function retrievePublicKey(): Promise<string> {
     const storedPublicKey = stored[PK_KEY]
 
     return fetch(`${PKG_URL}/v2/parameters`, {
-        headers: { 'X-PostGuard-Client-Version': headerValue },
+        headers: { 'X-PostGuard-Client-Version': HEADER_VALUE },
     })
         .then((resp) =>
             resp.json().then(async ({ publicKey }) => {

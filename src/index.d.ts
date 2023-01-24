@@ -12,6 +12,7 @@ type PopupData = {
     hints: AttributeCon
     hostname: string
     senderId: string
+    header: string
 }
 
 type Policy = { [key: string]: AttributeCon }
