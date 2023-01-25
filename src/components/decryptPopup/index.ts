@@ -15,7 +15,11 @@ function secondsTill4AM(): number {
     return secondsTill4AM % (24 * 60 * 60)
 }
 
-async function doSession(con: AttributeCon, pkg: string, header?: string): Promise<string> {
+async function doSession(
+    con: AttributeCon,
+    pkg: string,
+    clientHeader: { string: string }
+): Promise<string> {
     const irma = new IrmaCore({
         debugging: false,
         element: '#irma-web-form',
@@ -31,7 +35,7 @@ async function doSession(con: AttributeCon, pkg: string, header?: string): Promi
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(header && { 'X-PostGuard-Client-Version': header }),
+                    ...clientHeader,
                 },
                 body: JSON.stringify({ con, validity: secondsTill4AM() }),
             },
@@ -44,7 +48,7 @@ async function doSession(con: AttributeCon, pkg: string, header?: string): Promi
             },
             result: {
                 url: (o, { sessionToken }) => `${o.url}/v2/request/jwt/${sessionToken}`,
-                headers: { ...(header && { 'X-PostGuard-Client-Version': header }) },
+                headers: clientHeader,
                 parseResponse: (r) => r.text(),
             },
         },

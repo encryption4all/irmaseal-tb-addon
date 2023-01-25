@@ -37,7 +37,10 @@ const VERSION: Version = await browser.runtime.getBrowserInfo().then(({ version 
     }
 })
 const EXT_VERSION = await browser.runtime.getManifest()['version']
-const HEADER_VALUE = `Thunderbird,${VERSION.raw},pg4tb,${EXT_VERSION}`
+
+const PG_CLIENT_HEADER = {
+    'X-PostGuard-Client-Version': `Thunderbird,${VERSION.raw},pg4tb,${EXT_VERSION}`,
+}
 
 // Keeps track of displayScript connections.
 const displayScriptPorts = {}
@@ -605,7 +608,7 @@ async function getUSK(jwt: string, ts: number): Promise<string> {
     return fetch(`${PKG_URL}/v2/request/key/${ts.toString()}`, {
         headers: {
             Authorization: `Bearer ${jwt}`,
-            'X-PostGuard-Client-Version': HEADER_VALUE,
+            ...PG_CLIENT_HEADER,
         },
     })
         .then((r) => r.json())
@@ -640,7 +643,7 @@ async function createSessionPopup(
                     con: pol.con,
                     hints,
                     senderId,
-                    header: HEADER_VALUE,
+                    header: PG_CLIENT_HEADER,
                 })
             } else if (sender.tab.windowId == popupId && req && req.command === 'popup_done') {
                 if (req.jwt) resolve(req.jwt)
@@ -673,7 +676,7 @@ async function retrievePublicKey(): Promise<string> {
     const storedPublicKey = stored[PK_KEY]
 
     return fetch(`${PKG_URL}/v2/parameters`, {
-        headers: { 'X-PostGuard-Client-Version': HEADER_VALUE },
+        headers: PG_CLIENT_HEADER,
     })
         .then((resp) =>
             resp.json().then(async ({ publicKey }) => {
