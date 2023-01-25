@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 0.7.1
+
+### Fixed
+
+-   Send PostGuard client header in all PKG requests (for metrics).
+
 ## 0.7
 
 ### Fixed
