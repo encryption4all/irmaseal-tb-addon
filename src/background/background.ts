@@ -158,7 +158,7 @@ browser.notificationbar.onButtonClicked.addListener(async (windowId, notificatio
     if (buttonId.startsWith('decrypt')) {
         try {
             const id: number = +buttonId.split('-')[1]
-            await startDecryption(id)
+            await decryptMessage(id)
         } catch {
             // do nothing
         }
@@ -397,8 +397,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
     }
 })
 
-// Main decryption code.
-async function startDecryption(msgId: number) {
+async function decryptMessage(msgId: number) {
     const msg = await browser.messages.get(msgId)
 
     const attachments = await browser.messages.listAttachments(msg.id)
@@ -498,12 +497,15 @@ async function startDecryption(msgId: number) {
             })
             await new Promise((res) => setTimeout(res, 250))
             tried++
-        } while (moved.messages.length !== 1 && tried < 10)
+        } while (moved.messages.length !== 1 && tried < 6)
 
-        const movedMsgId = moved.messages[0].id
-
-        if (VERSION.major < 106) await browser.messageDisplay.open({ messageId: movedMsgId })
-        else await browser.mailTabs.setSelectedMessages([movedMsgId]) // FIXME: Test this before 106 releases.
+        try {
+            const movedMsgId = moved.messages[0].id
+            if (VERSION.major < 106) await browser.messageDisplay.open({ messageId: movedMsgId })
+            else await browser.mailTabs.setSelectedMessages([movedMsgId]) // TODO: verify that this works in 106.
+        } catch (e: any) {
+            e instanceof Error && console.log('switching to message failed: ', e.message)
+        }
 
         await browser.messages.delete([msg.id], true)
     } catch (e: any) {
