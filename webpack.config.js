@@ -52,7 +52,10 @@ module.exports = [
                     },
                 },
                 { test: /\.(svg)$/, type: 'asset/inline' },
-                { test: /\.s[ac]ss$/i, use: ['style-loader', 'css-loader', 'sass-loader'] },
+                {
+                    test: /\.[sc]?css$/i,
+                    use: ['style-loader', 'css-loader', 'sass-loader', 'postcss-loader'],
+                },
             ],
         },
         resolve: {
