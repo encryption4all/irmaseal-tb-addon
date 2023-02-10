@@ -454,10 +454,11 @@ async function decryptMessage(msgId: number) {
                 const decoded = decoder.decode(chunk, { stream: true })
                 await browser.pg4tb.writeToFile(tempFile, decoded)
             },
+            close: async () => {
+                const finalDecoded = decoder.decode()
+                await browser.pg4tb.writeToFile(tempFile, finalDecoded)
+            },
         })
-        const finalDecoded = decoder.decode()
-        await browser.pg4tb.writeToFile(tempFile, finalDecoded)
-
         await unsealer.unseal(recipientId, usk, writable)
 
         // Store the JWT if decryption succeeded.
