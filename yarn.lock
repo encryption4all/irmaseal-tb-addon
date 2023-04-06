@@ -179,24 +179,24 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@privacybydesign/irma-client@^0.3.3":
-  version "0.3.3"
-  resolved "https://registry.yarnpkg.com/@privacybydesign/irma-client/-/irma-client-0.3.3.tgz#8b78b8eda517e1d8bcb01ce86cb0698770c9d09e"
-  integrity sha512-wn6N5TDj9M/KS9xfU2SA9GQM7rQaByFy84xj/lW4Ml6dR8oOObi/EdBKOqwb7Y2icUl+G+y0Tl1sx1fHUg9dBQ==
+"@privacybydesign/yivi-client@0.1.1":
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/@privacybydesign/yivi-client/-/yivi-client-0.1.1.tgz#89832738b5118d982f3426aa0717aa9cacf6fc7f"
+  integrity sha512-nMAjcYuLjK/kIT2pTsL5z0SnbDuEwHJPo3pBwxKvIXsNhXmCOq5uwZzLmVI2fUwBX5ibJFaYvi8IZkH0iYtqag==
   dependencies:
     deepmerge "^4.2.2"
     eventsource "^1.0.7"
     isomorphic-fetch "^3.0.0"
 
-"@privacybydesign/irma-core@^0.3.3":
-  version "0.3.3"
-  resolved "https://registry.yarnpkg.com/@privacybydesign/irma-core/-/irma-core-0.3.3.tgz#6a010a5702aebdc644fa48da79e1e019917072bc"
-  integrity sha512-qhhOZeeAhC1eME+ZYr8d9lokSLY0Nejhuou7dTvz0y0HIocJyIzzmz/sD6rnXaRAQ7QRYd5C73l7mT88D1X0XQ==
+"@privacybydesign/yivi-core@0.1.1":
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/@privacybydesign/yivi-core/-/yivi-core-0.1.1.tgz#486e2db45afef6ff0a39b6c566a665db1af2e94c"
+  integrity sha512-3/73NCU02Rf0TjgSELVo8YgKjRphViWdrnFUE58cVR87G++4Hzq4GaVurvDcYVmpN6MWT8qL31P5nvTTQGEI0g==
 
-"@privacybydesign/irma-web@^0.3.3":
-  version "0.3.3"
-  resolved "https://registry.yarnpkg.com/@privacybydesign/irma-web/-/irma-web-0.3.3.tgz#e4706c35ee9d6a9ca2186ba67015a69df187e95c"
-  integrity sha512-bgpJPie9S9SZsrk6UoVGFk/wOgEnYaqd3gwmWDX0zXnEGEG9PAFPCb6NAyFHeHNWZg/qslZzj1KhLzqSA8TKOg==
+"@privacybydesign/yivi-web@0.1.1":
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/@privacybydesign/yivi-web/-/yivi-web-0.1.1.tgz#4a78030e36e945f014d80ab9b2cc0c30b81b641d"
+  integrity sha512-nmuRAfnA/24jjWDk53Myc1EaDA5q9gKNnviZQUH6eCxjZC7C/hKEYcqRb7+YXQ4OwBY80kdzf1G8X5Ovj8QPQA==
   dependencies:
     deepmerge "^4.2.2"
     qrcode "^1.4.2"
