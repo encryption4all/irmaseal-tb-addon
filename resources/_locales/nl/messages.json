@@ -60,23 +60,23 @@
         "description": ""
     },
     "displayMessageQrPrefix": {
-        "message": "Scan de QR code met de IRMA app om je email adres vrij te geven.",
+        "message": "Scan de QR code met de Yivi app om je email adres vrij te geven.",
         "description": ""
     },
-    "displayMessageIrmaHelpHeader": {
-        "message": "Wat is de IRMA app?",
+    "displayMessageYiviHelpHeader": {
+        "message": "Wat is de Yivi app?",
         "description": ""
     },
-    "displayMessageIrmaHelpBody": {
-        "message": "De IRMA app is een losstaande privacyvriendelijke manier om in te loggen.",
+    "displayMessageYiviHelpBody": {
+        "message": "De Yivi app is een losstaande privacyvriendelijke manier om in te loggen.",
         "description": ""
     },
-    "displayMessageIrmaHelpLinkText": {
-        "message": "Meer informatie over IRMA",
+    "displayMessageYiviHelpLinkText": {
+        "message": "Meer informatie over Yivi",
         "description": ""
     },
-    "displayMessageIrmaHelpDownloadHeader": {
-        "message": "Download de gratis IRMA app",
+    "displayMessageYiviHelpDownloadHeader": {
+        "message": "Download de gratis Yivi app",
         "description": ""
     },
     "composeSwitchBarEnabledHtml": {

@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 0.7.2
+
+### Changed
+
+-   IRMA -> Yivi branding
+
 ## 0.7.1
 
 ### Fixed

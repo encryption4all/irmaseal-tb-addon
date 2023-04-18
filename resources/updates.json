@@ -48,6 +48,13 @@
                     "applications": {
                         "gecko": { "strict_min_version": "102.0", "strict_max_version": "108.*" }
                     }
+                },
+                {
+                    "version": "0.7.2",
+                    "update_link": "https://postguard.eu/downloads/postguard-tb-addon-0.7.2.xpi",
+                    "applications": {
+                        "gecko": { "strict_min_version": "102.0", "strict_max_version": "108.*" }
+                    }
                 }
             ]
         }

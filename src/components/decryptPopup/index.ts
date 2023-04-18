@@ -1,6 +1,6 @@
-import * as IrmaCore from '@privacybydesign/irma-core'
-import * as IrmaClient from '@privacybydesign/irma-client'
-import * as IrmaWeb from '@privacybydesign/irma-web'
+import * as YiviCore from '@privacybydesign/yivi-core'
+import * as YiviClient from '@privacybydesign/yivi-client'
+import * as YiviWeb from '@privacybydesign/yivi-web'
 import './index.scss'
 
 window.addEventListener('load', onLoad)
@@ -20,13 +20,21 @@ async function doSession(
     pkg: string,
     clientHeader: { string: string }
 ): Promise<string> {
-    const irma = new IrmaCore({
+    const yivi = new YiviCore({
         debugging: false,
-        element: '#irma-web-form',
+        element: '#yivi-web-form',
         language: browser.i18n.getUILanguage() === 'nl' ? 'nl' : 'en',
         translations: {
             header: '',
             helper: browser.i18n.getMessage('displayMessageQrPrefix'),
+        },
+        state: {
+            serverSentEvents: false,
+            polling: {
+                endpoint: 'status',
+                interval: 500,
+                startState: 'INITIALIZED',
+            },
         },
         session: {
             url: pkg,
@@ -54,9 +62,9 @@ async function doSession(
         },
     })
 
-    irma.use(IrmaClient)
-    irma.use(IrmaWeb)
-    return irma.start()
+    yivi.use(YiviClient)
+    yivi.use(YiviWeb)
+    return yivi.start()
 }
 
 function fillTable(table: HTMLElement, data: PopupData) {
@@ -85,19 +93,19 @@ async function onLoad() {
     const title = browser.i18n.getMessage('displayMessageTitle')
     const appName = browser.i18n.getMessage('appName')
     const header = browser.i18n.getMessage('displayMessageHeading')
-    const irmaHelpHeader = browser.i18n.getMessage('displayMessageIrmaHelpHeader')
-    const irmaHelpBody = browser.i18n.getMessage('displayMessageIrmaHelpBody')
-    const irmaHelpLink = browser.i18n.getMessage('displayMessageIrmaHelpLinkText')
-    const irmaHelpDownloadHeader = browser.i18n.getMessage('displayMessageIrmaHelpDownloadHeader')
+    const yiviHelpHeader = browser.i18n.getMessage('displayMessageYiviHelpHeader')
+    const yiviHelpBody = browser.i18n.getMessage('displayMessageYiviHelpBody')
+    const yiviHelpLink = browser.i18n.getMessage('displayMessageYiviHelpLinkText')
+    const yiviHelpDownloadHeader = browser.i18n.getMessage('displayMessageYiviHelpDownloadHeader')
 
     document.getElementById('name')!.innerText = appName
     document.getElementById('display-message-title')!.innerText = title
     document.getElementById('sender')!.innerText = data.senderId
     document.getElementById('msg-header')!.innerText = header
-    document.getElementById('irma-help-header')!.innerText = irmaHelpHeader
-    document.getElementById('irma-help-body')!.innerText = irmaHelpBody
-    document.getElementById('irma-help-link')!.innerText = irmaHelpLink
-    document.getElementById('irma-help-download-header')!.innerText = irmaHelpDownloadHeader
+    document.getElementById('yivi-help-header')!.innerText = yiviHelpHeader
+    document.getElementById('yivi-help-body')!.innerText = yiviHelpBody
+    document.getElementById('yivi-help-link')!.innerText = yiviHelpLink
+    document.getElementById('yivi-help-download-header')!.innerText = yiviHelpDownloadHeader
 
     const table: HTMLTableElement | null = document.querySelector('table#attribute-table')
     if (table) fillTable(table, data)
@@ -115,6 +123,7 @@ async function onLoad() {
                 messenger.windows.remove(win.id)
             }, 750)
         )
+        .catch((e) => console.log('errur:', e))
 }
 
 window.addEventListener('load', onLoad)

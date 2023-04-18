@@ -60,23 +60,23 @@
         "description": ""
     },
     "displayMessageQrPrefix": {
-        "message": "Scan the QR code with the IRMA app to disclose your e-mail address.",
+        "message": "Scan the QR code with the Yivi app to disclose your e-mail address.",
         "description": ""
     },
-    "displayMessageIrmaHelpHeader": {
-        "message": "What is the IRMA app?",
+    "displayMessageYiviHelpHeader": {
+        "message": "What is the Yivi app?",
         "description": ""
     },
-    "displayMessageIrmaHelpBody": {
-        "message": "The IRMA app is a separate privacy-friendly authentication app (which is used also for other authentication purposes).",
+    "displayMessageYiviHelpBody": {
+        "message": "The Yivi app is a separate privacy-friendly authentication app (which is used also for other authentication purposes).",
         "description": ""
     },
-    "displayMessageIrmaHelpLinkText": {
-        "message": "More information about IRMA",
+    "displayMessageYiviHelpLinkText": {
+        "message": "More information about Yivi",
         "description": ""
     },
-    "displayMessageIrmaHelpDownloadHeader": {
-        "message": "Download the free IRMA app",
+    "displayMessageYiviHelpDownloadHeader": {
+        "message": "Download the free Yivi app",
         "description": ""
     },
     "composeSwitchBarEnabledHtml": {

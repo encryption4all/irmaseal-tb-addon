@@ -11,7 +11,7 @@ import jwtDecode, { JwtPayload } from 'jwt-decode'
 
 const DEFAULT_ENCRYPT = false
 const WIN_TYPE_COMPOSE = 'messageCompose'
-const PKG_URL = 'https://stable.irmaseal-pkg.ihub.ru.nl'
+const PKG_URL = 'https://main.irmaseal-pkg.ihub.ru.nl'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
@@ -92,7 +92,9 @@ console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
 setInterval(cleanUp, 600000)
 
 // Register the messageDisplayScript.
-await browser.messageDisplayScripts.register({ js: [{ file: 'messageDisplay.js' }] })
+await browser.messageDisplayScripts.register({
+    js: [{ file: 'messageDisplay.js' }],
+})
 
 // Store incoming ports. We use ports for the display scripts.
 // The other scripts use brower.runtime.addListener with promisified return values.
@@ -617,7 +619,7 @@ async function getUSK(jwt: string, ts: number): Promise<string> {
         .then((r) => r.json())
         .then((json) => {
             if (json.status !== 'DONE' || json.proofStatus !== 'VALID')
-                throw new Error('session not DONE and VALId')
+                throw new Error('session not DONE and VALID')
             return json.key
         })
 }
