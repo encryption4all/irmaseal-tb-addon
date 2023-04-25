@@ -49,8 +49,8 @@
         "webpack-cli": "^5.0.1"
     },
     "dependencies": {
+        "@e4a/pg-wasm": "^0.3.0-rc.3",
         "@e4a/irmaseal-mail-utils": "^0.0.6",
-        "@e4a/irmaseal-wasm-bindings": "^0.2.3",
         "@privacybydesign/yivi-client": "0.1.2",
         "@privacybydesign/yivi-core": "0.1.2",
         "@privacybydesign/yivi-web": "0.1.2",

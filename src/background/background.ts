@@ -48,12 +48,18 @@ const displayScriptPorts = {}
 console.log(
     `[background]: postguard-tb-addon v${EXT_VERSION} started (Thunderbird v${VERSION.raw}).`
 )
-console.log('[background]: loading wasm module and retrieving master public key.')
+console.log(
+    '[background]: loading wasm module and retrieving master public key and master verification key.'
+)
+
+const vk_promise: Promise<string> = fetch(`${PKG_URL}/v2/sign/parameters`)
+    .then((r) => r.json())
+    .then((j) => j.publicKey)
 
 const pk_promise: Promise<string> = retrievePublicKey()
-const mod_promise = import('@e4a/irmaseal-wasm-bindings')
+const mod_promise = import('@e4a/pg-wasm')
 
-const [pk, mod] = await Promise.all([pk_promise, mod_promise])
+const [pk, vk, mod] = await Promise.all([pk_promise, vk_promise, mod_promise])
 
 // Keeps track of which tabs (messageCompose type) should use encryption.
 // Also, add a bar to any existing compose windows.
@@ -289,10 +295,27 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         return total
     }, {})
 
-    console.log('Final encryption policy: ', policy)
+    console.log('Encryption policy: ', policy)
+
+    // Sign with email under the public signing identity (email).
+    const signPolicy: AttributeCon = [{ t: EMAIL_ATTRIBUTE_TYPE, v: toEmail(details.from) }]
+
+    // Get a JWT or use one from the storage.
+    const jwt = await checkLocalStorage(signPolicy).catch(async () => {
+        const jwt = await createSessionPopup(signPolicy, 'Signing')
+        await storeLocalStorage(signPolicy, jwt)
+        return jwt
+    })
+
+    const pub_sign_key = await getUSK(jwt, 'Signing')
+    const sealOptions = {
+        policy,
+        pub_sign_key,
+        // priv_sign_key, // TODO: allow custom private signing identity
+    }
 
     const tEncStart = performance.now()
-    await mod.seal(pk, policy, readable, writable)
+    await mod.sealStream(pk, sealOptions, readable, writable)
     console.log(`Encryption took ${performance.now() - tEncStart} ms`)
 
     // Create the attachment
@@ -307,7 +330,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     compose.setSender(details.from)
 
     // This doesn't work in onBeforeSend due to a bug, hence we set this
-    // when PostGuard is enabled.
+    // when the PostGuard switch is turned on (see messenger.switchbar.onButtonClicked.addListener).
     // details.deliveryFormat = 'both'
 
     details.plainTextBody = compose.getPlainText()
@@ -330,7 +353,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     return { cancel: false, details }
 })
 
-// Remove ciphertext emails from sent folder.
+// Cleanup: remove ciphertext emails from sent folder.
 browser.compose.onAfterSend.addListener(async (tab, sendInfo) => {
     sendInfo.messages.forEach(async (m) => {
         if ((await isPGEncrypted(m.id)) && composeTabs[tab.id].newMsgId) {
@@ -411,21 +434,22 @@ async function decryptMessage(msgId: number) {
     try {
         const file = await browser.messages.getAttachmentFile(msg.id, pgPartName)
         const readable = file.stream()
-        const unsealer = await mod.Unsealer.new(readable)
+        const unsealer = await mod.StreamUnsealer.new(readable, vk)
         const accountId = msg.folder.accountId
         const defaultIdentity = await browser.identities.getDefault(accountId)
         const recipientId = toEmail(defaultIdentity.email)
-        const hiddenPolicy = unsealer.get_hidden_policies()
+        const recipients = unsealer.inspect_header()
         const sender = msg.author
+        const me = recipients.get(recipientId)
 
-        if (!hiddenPolicy[recipientId]) {
+        if (!me) {
             const e = new Error('recipient identifier not found in header')
             e.name = 'RecipientUnknownError'
             throw e
         }
 
-        const keyRequest = Object.assign({}, hiddenPolicy[recipientId])
-        let hints = hiddenPolicy[recipientId].con
+        const keyRequest = Object.assign({}, me)
+        let hints = me.con
 
         // Convert hints.
         hints = hints.map(({ t, v }) => {
@@ -444,10 +468,10 @@ async function decryptMessage(msgId: number) {
 
         // Check localStorage, otherwise create a popup to retrieve a JWT.
         const jwt = await checkLocalStorage(hints).catch(() =>
-            createSessionPopup(keyRequest, hints, toEmail(sender))
+            createSessionPopup(keyRequest.con, 'Decryption', hints, toEmail(sender))
         )
         /// Use the JWT to retrieve a USK.
-        const usk = await getUSK(jwt, keyRequest.ts)
+        const usk = await getUSK(jwt, 'Decryption', keyRequest.ts)
 
         const tempFile = await browser.pg4tb.createTempFile()
         const decoder = new TextDecoder()
@@ -461,15 +485,14 @@ async function decryptMessage(msgId: number) {
                 await browser.pg4tb.writeToFile(tempFile, finalDecoded)
             },
         })
-        await unsealer.unseal(recipientId, usk, writable)
+
+        const senderIdentity = await unsealer.unseal(recipientId, usk, writable)
+        console.log('sender verification succesfull: ', senderIdentity)
+
+        // TODO: display sender identity in the UI.
 
         // Store the JWT if decryption succeeded.
-        const decoded = jwtDecode<JwtPayload>(jwt)
-        hashCon(hints).then((hash) => {
-            browser.storage.local.set({
-                [hash]: { jwt, exp: decoded.exp },
-            })
-        })
+        await storeLocalStorage(hints, jwt)
 
         // 1) Decrypt into new local folder message,
         // 2) Move to original folder (usually inbox),
@@ -608,9 +631,22 @@ async function checkLocalStorage(con: AttributeCon): Promise<string> {
     })
 }
 
+async function storeLocalStorage(con: AttributeCon, jwt: string) {
+    const decoded = jwtDecode<JwtPayload>(jwt)
+    hashCon(con).then((hash) => {
+        browser.storage.local.set({
+            [hash]: { jwt, exp: decoded.exp },
+        })
+    })
+}
+
 // Retrieve a USK using a JWT and timestamp.
-async function getUSK(jwt: string, ts: number): Promise<string> {
-    return fetch(`${PKG_URL}/v2/request/key/${ts.toString()}`, {
+async function getUSK(jwt: string, sort: KeySort, ts?: number): Promise<string> {
+    const url =
+        sort === 'Decryption'
+            ? `${PKG_URL}/v2/irma/key/${ts?.toString()}`
+            : `${PKG_URL}/v2/irma/sign/key`
+    return fetch(url, {
         headers: {
             Authorization: `Bearer ${jwt}`,
             ...PG_CLIENT_HEADER,
@@ -625,9 +661,10 @@ async function getUSK(jwt: string, ts: number): Promise<string> {
 }
 
 async function createSessionPopup(
-    pol: Policy,
-    hints: AttributeCon,
-    senderId: string
+    con: AttributeCon,
+    sort: KeySort,
+    hints?: AttributeCon,
+    senderId?: string
 ): Promise<string> {
     const popupWindow = await messenger.windows.create({
         url: 'decryptPopup.html',
@@ -639,17 +676,20 @@ async function createSessionPopup(
     const popupId = popupWindow.id
     await messenger.windows.update(popupId, { drawAttention: true, focused: true })
 
+    const data: PopupData = {
+        hostname: PKG_URL,
+        header: PG_CLIENT_HEADER,
+        con,
+        sort,
+        hints,
+        senderId,
+    }
+
     let popupListener, tabClosedListener
     const jwtPromise = new Promise<string>((resolve, reject) => {
         popupListener = (req, sender) => {
             if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
-                return Promise.resolve({
-                    hostname: PKG_URL,
-                    con: pol.con,
-                    hints,
-                    senderId,
-                    header: PG_CLIENT_HEADER,
-                })
+                return Promise.resolve(data)
             } else if (sender.tab.windowId == popupId && req && req.command === 'popup_done') {
                 if (req.jwt) resolve(req.jwt)
                 else reject(new Error('no jwt'))

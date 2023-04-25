@@ -33,15 +33,15 @@
   resolved "https://registry.yarnpkg.com/@e4a/irmaseal-mail-utils/-/irmaseal-mail-utils-0.0.6.tgz#5638cb43403b15e947d14e90847d67a4ebfa8dcd"
   integrity sha512-AnFKhedLdGlWPuKaE2vO1QQJGgB2S78W/LIACsDa1a3KRNKXaYkn0GCkLLiFy3Ykg3HE5t48Ikc1yRfztt4XjQ==
 
-"@e4a/irmaseal-wasm-bindings@^0.2.3":
-  version "0.2.3"
-  resolved "https://registry.yarnpkg.com/@e4a/irmaseal-wasm-bindings/-/irmaseal-wasm-bindings-0.2.3.tgz#391d5fa21f5fa9cc256774a1ef25ee4a78aafd5e"
-  integrity sha512-hsW9kBcHlVps8W526PYURRWZutRYlD1vX/8cGo9+HP0N93zRzEQLg9KkRPK3GieUZVFV1Qz3V2Flwnml7yha5Q==
-
 "@e4a/pg-components@0.0.6":
   version "0.0.6"
   resolved "https://registry.yarnpkg.com/@e4a/pg-components/-/pg-components-0.0.6.tgz#66e7871821f95211ddd731ef022134defb2bfda4"
   integrity sha512-qANiPR5SP622X+B2u78XHGC+ZLs0M+m/MhCl+MCCdtxUy/BMpMRlZPO5WOKJg9DbEZlU/8/0IGJmVWs/D60buA==
+
+"@e4a/pg-wasm@^0.3.0-rc.3":
+  version "0.3.0-rc.3"
+  resolved "https://registry.yarnpkg.com/@e4a/pg-wasm/-/pg-wasm-0.3.0-rc.3.tgz#fcfef3ec1255e4f1d71145e055ff7fa3ab8ffd14"
+  integrity sha512-zZg532DMw+AFrL56AtdGhuGivHbXqaxfw/dyqkTS3UVjOmIxsjLr6iHecc+LFzJJK7ng/zkH56rCESzagVSqlg==
 
 "@eslint-community/eslint-utils@^4.2.0":
   version "4.4.0"

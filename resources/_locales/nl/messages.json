@@ -55,11 +55,23 @@
         "message": "Je hebt een PostGuard email ontvangen van",
         "description": ""
     },
+    "displayMessageTitleSign": {
+        "message": "Onderteken de email",
+        "description": ""
+    },
     "displayMessageHeading": {
         "message": "Voordat je deze email kan lezen moet je eerst bewijzen wie je bent.",
         "description": ""
     },
+    "displayMessageHeadingSign": {
+        "message": "Voordat je deze mail kan ondertekenen moet je eerst bewijzen wie je bent.",
+        "description": ""
+    },
     "displayMessageQrPrefix": {
+        "message": "Scan de QR code met de Yivi app om je email adres vrij te geven.",
+        "description": ""
+    },
+    "displayMessageQrPrefixSign": {
         "message": "Scan de QR code met de Yivi app om je email adres vrij te geven.",
         "description": ""
     },

@@ -55,11 +55,23 @@
         "message": "You received a PostGuard encrypted email from",
         "description": ""
     },
+    "displayMessageTitleSign": {
+        "message": "Sign the e-mail",
+        "description": ""
+    },
     "displayMessageHeading": {
         "message": "You need to prove who you are to decrypt and read this email.",
         "description": ""
     },
+    "displayMessageHeadingSign": {
+        "message": "You need to prove who you are to sign this email.",
+        "description": ""
+    },
     "displayMessageQrPrefix": {
+        "message": "Scan the QR code with the Yivi app to disclose your e-mail address.",
+        "description": ""
+    },
+    "displayMessageQrPrefixSign": {
         "message": "Scan the QR code with the Yivi app to disclose your e-mail address.",
         "description": ""
     },

@@ -63,3 +63,13 @@ export async function wasPGEncrypted(msgId: number): Promise<boolean> {
     const full = await browser.messages.getFull(msgId)
     return 'x-postguard' in full.headers
 }
+
+// If hours <  4: seconds till 4 AM today.
+// If hours >= 4: seconds till 4 AM tomorrow.
+export function secondsTill4AM(): number {
+    const now = Date.now()
+    const nextMidnight = new Date(now).setHours(24, 0, 0, 0)
+    const secondsTillMidnight = Math.round((nextMidnight - now) / 1000)
+    const secondsTill4AM = secondsTillMidnight + 4 * 60 * 60
+    return secondsTill4AM % (24 * 60 * 60)
+}

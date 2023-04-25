@@ -9,10 +9,11 @@ interface Version {
 
 type PopupData = {
     con: AttributeCon
-    hints: AttributeCon
     hostname: string
-    senderId: string
-    header: { string: string }
+    sort: KeySort
+    header: { [key: string]: string }
+    senderId?: string
+    hints?: AttributeCon
 }
 
 type Policy = { [key: string]: AttributeCon }
@@ -23,3 +24,5 @@ type AttributeRequest = {
     t: string
     v: string
 }
+
+type KeySort = 'Decryption' | 'Signing'
