@@ -122,5 +122,17 @@
     "attributeSelectionButtonLabel": {
         "message": "Manage access",
         "description": ""
+    },
+    "attributeSelectionButtonLabelSign": {
+        "message": "Sign",
+        "description": ""
+    },
+    "notificationComposeBadgesLabel": {
+        "message": "Recipients will know you as",
+        "description": ""
+    },
+    "notificationHeaderBadgesLabel": {
+        "message": "This message was sent by",
+        "description": ""
     }
 }

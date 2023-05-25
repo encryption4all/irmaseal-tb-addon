@@ -14,7 +14,7 @@ class Notification {
         this.parent = parent
         this.notificationId = notificationId
 
-        const { buttons, icon, label, priority, style, windowId } = properties
+        const { buttons, icon, label, priority, style, windowId, badges, placement } = properties
 
         const iconURL = icon && !icon.includes(':') ? parent.extension.baseURI.resolve(icon) : null
         const fontURL = parent.extension.baseURI.resolve('fonts/Overpass-Regular.tff')
@@ -77,6 +77,33 @@ class Notification {
             )
         }
 
+        if (badges.length > 0) {
+            element.removeAttribute('dismissable')
+            if (placement !== 'message') element.removeAttribute('message-bar-type')
+        }
+
+        const shadowroot = element.shadowRoot
+        const document = element.ownerDocument
+        const message = shadowroot.querySelector('label.notification-message')
+
+        badges.forEach((b) => {
+            const newDiv = document.createElement('div')
+            newDiv.classList.add('badge')
+
+            const iconURL = badges && parent.extension.baseURI.resolve(`icons/${b.type}.svg`)
+            const img = document.createElement('img')
+            img.src = iconURL
+            img.height = 20
+            img.width = 20
+
+            newDiv.appendChild(img)
+            const label = document.createElement('label')
+            label.innerText = b.value
+            newDiv.appendChild(label)
+
+            message.parentNode.insertBefore(newDiv, message.nextSibling)
+        })
+
         if (style) {
             const s = element.ownerDocument.createElement('style')
             s.innerHTML = `
@@ -93,12 +120,20 @@ class Notification {
                     border: unset;               
                     padding: 0 1.5rem;
                 }
+                .notification-message {
+                    flex-grow: unset;
+                    flex-wrap: wrap;
+                }
                 .notification-button.small-button:hover {
                     background-color: white;
                 }
                 .infobar > .icon {
-                    width: 18px;
-                    height: 18px; 
+                    width: 24px;
+                    height: 24px; 
+                    ${badges.length > 0 && placement !== 'message' ? 'display: none;' : ''}
+                }
+                .container {
+                    border-radius: ${badges.length > 0 && placement !== 'message' ? '0' : 'inherit'};
                 }
                 .infobar p {
                     font-family: 'Overpass';
@@ -108,7 +143,20 @@ class Notification {
                     --message-bar-icon-url: url(${iconURL});
                     --message-bar-text-color: ${style['color']};
                     --message-bar-background-color: ${style['background-color']};
-                }`
+                }
+                .badge {
+                    display: flex;
+                    justify-items: center;
+                    align-items: center;
+                    justify
+                    border: 0px;
+                    border-radius: 15px;
+                    background-color: #017aff;
+                    padding: 0 0.5em;
+                    margin: 0 0.25em;
+                    gap: 0.25em;
+                }
+        `
             element.shadowRoot.appendChild(s)
         }
     }

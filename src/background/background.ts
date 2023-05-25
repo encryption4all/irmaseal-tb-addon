@@ -6,6 +6,7 @@ import {
     isPGEncrypted,
     wasPGEncrypted,
     getLocalFolder,
+    type_to_image,
 } from './../utils'
 import jwtDecode, { JwtPayload } from 'jwt-decode'
 
@@ -71,7 +72,15 @@ const composeTabs: {
         notificationId?: number
         policy?: Policy
         configWindowId?: number
+        signPolicy?: Policy
+        signWindowId?: number
         newMsgId?: number
+    }
+} = {}
+
+const decryptedMessages: {
+    [messageId: number]: {
+        badges?: { type: string; value: string }[]
     }
 } = {}
 
@@ -102,6 +111,16 @@ await browser.messageDisplayScripts.register({
     js: [{ file: 'messageDisplay.js' }],
 })
 
+
+// Cleanup notifications and windows.
+// TODO: this doesn't run somehow.
+browser.runtime.onSuspend.addListener(() => {
+    console.log("hello")
+    Object.entries(composeTabs).forEach(([id, { notificationId }]) => {
+        console.log(`tab with id ${id} has notification ${notificationId}`)
+    })
+})
+
 // Store incoming ports. We use ports for the display scripts.
 // The other scripts use brower.runtime.addListener with promisified return values.
 browser.runtime.onConnect.addListener((p) => {
@@ -126,7 +145,8 @@ const displayListener = async (message, port) => {
         case 'queryDetails': {
             // Detects pg encryption
             const header = await browser.messageDisplay.getDisplayedMessage(tabId)
-            const isEncrypted = await isPGEncrypted(header.id)
+            const id = header.id
+            const isEncrypted = await isPGEncrypted(id)
 
             if (isEncrypted) {
                 port.postMessage({ isEncrypted })
@@ -136,15 +156,27 @@ const displayListener = async (message, port) => {
                     icon: 'icons/pg_logo_no_text.svg',
                     placement: 'message',
                     style: { color: PG_WHITE, 'background-color': PG_INFO_COLOR },
-                    buttons: [
-                        { id: `decrypt-${header.id}`, label: 'Decrypt', accesskey: 'decrypt' },
-                    ],
+                    buttons: [{ id: `decrypt-${id}`, label: 'Decrypt', accesskey: 'decrypt' }],
+                })
+                return
+            }
+
+            if (decryptedMessages[id]?.badges) {
+                // display sender identity in the UI.
+                await messenger.notificationbar.create({
+                    windowId,
+                    label: i18n('notificationHeaderBadgesLabel'),
+                    icon: 'icons/pg_logo_no_text.svg',
+                    placement: 'message',
+                    style: { color: PG_WHITE, 'background-color': PG_INFO_COLOR },
+                    buttons: [],
+                    badges: decryptedMessages[id].badges,
                 })
                 return
             }
 
             // Detects if mail was once encrypted using PostGuard
-            const wasEncrypted = await wasPGEncrypted(header.id)
+            const wasEncrypted = await wasPGEncrypted(id)
 
             if (wasEncrypted) {
                 await messenger.notificationbar.create({
@@ -155,6 +187,7 @@ const displayListener = async (message, port) => {
                     style: { color: PG_WHITE, 'background-color': PG_INFO_COLOR },
                 })
             }
+
             break
         }
         default:
@@ -297,22 +330,41 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
 
     console.log('Encryption policy: ', policy)
 
-    // Sign with email under the public signing identity (email).
-    const signPolicy: AttributeCon = [{ t: EMAIL_ATTRIBUTE_TYPE, v: toEmail(details.from) }]
+    const from = toEmail(details.from)
 
+    // Sign with email under the public signing identity (email).
+    const pubSignPolicy = [{ t: EMAIL_ATTRIBUTE_TYPE, v: from }]
+    console.log('Public sign policy: ', pubSignPolicy)
     // Get a JWT or use one from the storage.
-    const jwt = await checkLocalStorage(signPolicy).catch(async () => {
-        const jwt = await createSessionPopup(signPolicy, 'Signing')
-        await storeLocalStorage(signPolicy, jwt)
+    const jwt = await checkLocalStorage(pubSignPolicy).catch(async () => {
+        const jwt = await createSessionPopup(pubSignPolicy, 'Signing')
+        await storeLocalStorage(pubSignPolicy, jwt)
         return jwt
     })
-
     const pub_sign_key = await getUSK(jwt, 'Signing')
+
+    const privSignPolicy = composeTabs[tab.id].signPolicy?.[from]?.filter(
+        ({ t }) => t !== EMAIL_ATTRIBUTE_TYPE 
+    )
+    let priv_sign_key: string | undefined
+
+    if (privSignPolicy) {
+        console.log('Private sign policy: ', privSignPolicy)
+        const jwt2 = await checkLocalStorage(privSignPolicy).catch(async () => {
+            const jwt = await createSessionPopup(privSignPolicy, 'Signing', privSignPolicy)
+            await storeLocalStorage(privSignPolicy, jwt)
+            return jwt
+        })
+        priv_sign_key = await getUSK(jwt2, 'Signing')
+    }
+
     const sealOptions = {
         policy,
         pub_sign_key,
-        // priv_sign_key, // TODO: allow custom private signing identity
+        ...(priv_sign_key && { priv_sign_key }),
     }
+
+    console.log(sealOptions)
 
     const tEncStart = performance.now()
     await mod.sealStream(pk, sealOptions, readable, writable)
@@ -487,9 +539,13 @@ async function decryptMessage(msgId: number) {
         })
 
         const senderIdentity = await unsealer.unseal(recipientId, usk, writable)
-        console.log('sender verification succesfull: ', senderIdentity)
+        console.log('sender verification succesful: ', senderIdentity)
 
-        // TODO: display sender identity in the UI.
+        const badges = [...senderIdentity.public.con, ...senderIdentity.private.con].map(
+            ({ t, v }) => {
+                return { type: type_to_image(t), value: v }
+            }
+        )
 
         // Store the JWT if decryption succeeded.
         await storeLocalStorage(hints, jwt)
@@ -505,11 +561,12 @@ async function decryptMessage(msgId: number) {
         await browser.messages.move([localMsgId], msg.folder)
 
         const fromDate: Date = new Date(localMsg.date.getTime())
-        fromDate.setSeconds(fromDate.getSeconds() - 1)
+        fromDate.setSeconds(fromDate.getSeconds() - 3)
         const toDate: Date = new Date(localMsg.date.getTime())
-        toDate.setSeconds(localMsg.date.getSeconds() + 1)
+        toDate.setSeconds(localMsg.date.getSeconds() + 3)
 
         // FIXME: Ugly workaround until messages.move() returns the message id.
+        // Doesn't work consistently unfortunately.
         let moved
         let tried = 0
         do {
@@ -523,10 +580,15 @@ async function decryptMessage(msgId: number) {
             })
             await new Promise((res) => setTimeout(res, 250))
             tried++
-        } while (moved.messages.length !== 1 && tried < 6)
+        } while (moved.messages.length !== 1 && tried < 10)
 
         try {
+            console.log('moved: ', moved)
             const movedMsgId = moved.messages[0].id
+
+            // store the badges
+            decryptedMessages[movedMsgId] = { badges }
+
             if (VERSION.major < 106) await browser.messageDisplay.open({ messageId: movedMsgId })
             else await browser.mailTabs.setSelectedMessages([movedMsgId]) // TODO: verify that this works in 106.
         } catch (e: any) {
@@ -535,7 +597,7 @@ async function decryptMessage(msgId: number) {
 
         await browser.messages.delete([msg.id], true)
     } catch (e: any) {
-        console.log('error during decryption: ', e.message)
+        console.log('error during decryption: ', e.message, e.name)
         if (e instanceof Error && e.name === 'OperationError')
             await notifyDecryptionFailed(i18n('decryptionFailed'))
         if (e instanceof Error && e.name === 'RecipientUnknownError')
@@ -586,6 +648,11 @@ async function addBar(tab, enabled): Promise<number> {
                 id: 'postguard-configure',
                 label: i18n('attributeSelectionButtonLabel'),
                 accesskey: 'manage access',
+            },
+            {
+                id: 'postguard-sign',
+                label: i18n('attributeSelectionButtonLabelSign'),
+                accesskey: 'sign',
             },
         ],
         labels: {
@@ -741,7 +808,8 @@ async function retrievePublicKey(): Promise<string> {
 
 async function createAttributeSelectionPopup(
     initialPolicy: Policy,
-    tabId: number
+    tabId: number,
+    sign: boolean
 ): Promise<Policy> {
     const popupWindow = await messenger.windows.create({
         url: 'attributeSelection.html',
@@ -761,6 +829,7 @@ async function createAttributeSelectionPopup(
             if (sender.tab.windowId == popupId && req && req.command === 'popup_init') {
                 return Promise.resolve({
                     initialPolicy,
+                    sign,
                 })
             } else if (sender.tab.windowId == popupId && req && req.command === 'popup_done') {
                 if (req.policy) resolve(req.policy)
@@ -786,37 +855,70 @@ async function createAttributeSelectionPopup(
 }
 
 browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, buttonId) => {
-    if (buttonId === 'postguard-configure') {
+    if (buttonId === 'postguard-configure' || buttonId === 'postguard-sign') {
+        const sign = buttonId === 'postguard-sign'
         const tabs = await browser.tabs.query({ windowId, windowType: WIN_TYPE_COMPOSE })
         const tabId = tabs[0].id
 
         // Check if a config for this tab is open already.
-        if (composeTabs[tabId].configWindowId) return
+        if (
+            (!sign && composeTabs[tabId].configWindowId) ||
+            (sign && composeTabs[tabId].signWindowId)
+        )
+            return
 
         const state = await browser.compose.getComposeDetails(tabId)
         const recipients = [...state.to, ...state.cc]
 
-        const policy: Policy = recipients.reduce((p, next) => {
+        const start = sign ? [state.from] : recipients
+
+        let policy: Policy = start.reduce((p, next) => {
             const email = toEmail(next)
             p[email] = []
             return p
         }, {})
 
-        if (composeTabs[tabId].policy) {
+        if (!sign && composeTabs[tabId].policy) {
+            // merge
             for (const [rec, con] of Object.entries(composeTabs[tabId].policy as Policy)) {
                 if (recipients.includes(rec)) policy[rec] = con
             }
         }
 
+        if (sign && composeTabs[tabId].signPolicy?.[toEmail(state.from)]) {
+            // start over if sender changed
+            policy = composeTabs[tabId].signPolicy || policy
+        }
+
         try {
-            const newPolicy: Policy = await createAttributeSelectionPopup(policy, tabId)
-            composeTabs[tabId].policy = newPolicy
-            const latest = await browser.compose.getComposeDetails(tabId)
-            const newTo = Object.keys(newPolicy)
-            latest.to = newTo
-            await browser.compose.setComposeDetails(tabId, latest)
+            const newPolicy: Policy = await createAttributeSelectionPopup(policy, tabId, sign)
+            if (!sign) {
+                composeTabs[tabId].policy = newPolicy
+                const latest = await browser.compose.getComposeDetails(tabId)
+                const newTo = Object.keys(newPolicy)
+                latest.to = newTo
+                await browser.compose.setComposeDetails(tabId, latest)
+            } else {
+                const badges = newPolicy[toEmail(state.from)].map(({ t, v }) => {
+                    return { type: type_to_image(t), value: v }
+                })
+                composeTabs[tabId].signPolicy = newPolicy
+
+                if (composeTabs[tabId].notificationId) {
+                    await messenger.notificationbar.clear(composeTabs[tabId].notificationId)
+                }
+                composeTabs[tabId].notificationId = await messenger.notificationbar.create({
+                    windowId,
+                    label: i18n('notificationComposeBadgesLabel'),
+                    icon: 'icons/test.svg',
+                    placement: 'top',
+                    style: { color: PG_WHITE, 'background-color': PG_INFO_COLOR },
+                    buttons: [],
+                    badges,
+                })
+            }
         } catch (e) {
-            //
+            console.log('failed to get the new policy: ', e)
         }
     }
 })

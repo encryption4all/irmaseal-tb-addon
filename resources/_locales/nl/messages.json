@@ -122,5 +122,17 @@
     "attributeSelectionButtonLabel": {
         "message": "Toegang beheren",
         "description": ""
+    },
+    "attributeSelectionButtonLabelSign": {
+        "message": "Ondertekenen",
+        "description": ""
+    },
+    "notificationComposeBadgesLabel": {
+        "message": "Ontvangers zien jou als",
+        "description": ""
+    },
+    "notificationHeaderBadgesLabel": {
+        "message": "Dit bericht was verzonden door",
+        "description": ""
     }
 }

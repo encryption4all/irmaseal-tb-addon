@@ -73,3 +73,28 @@ export function secondsTill4AM(): number {
     const secondsTill4AM = secondsTillMidnight + 4 * 60 * 60
     return secondsTill4AM % (24 * 60 * 60)
 }
+
+export function type_to_image(t: string): string {
+    let type: string
+    switch (t) {
+        case 'pbdf.sidn-pbdf.email.email':
+            type = 'envelope'
+            break
+        case 'pbdf.sidn-pbdf.mobilenumber.mobilenumber':
+            type = 'phone'
+            break
+        case 'pbdf.pbdf.surfnet-2.id':
+            type = 'education'
+            break
+        case 'pbdf.nuts.agb.agbcode':
+            type = 'health'
+            break
+        case 'pbdf.gemeente.personalData.dateofbirth':
+            type = 'calendar'
+            break
+        default:
+            type = 'personal'
+            break
+    }
+    return type
+}
