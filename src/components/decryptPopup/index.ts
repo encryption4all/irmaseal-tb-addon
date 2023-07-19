@@ -7,62 +7,6 @@ import { secondsTill4AM } from './../../utils'
 
 window.addEventListener('load', onLoad)
 
-// If hours <  4: seconds till 4 AM today.
-// If hours >= 4: seconds till 4 AM tomorrow.
-function secondsTill4AM(): number {
-    const now = Date.now()
-    const nextMidnight = new Date(now).setHours(24, 0, 0, 0)
-    const secondsTillMidnight = Math.round((nextMidnight - now) / 1000)
-    const secondsTill4AM = secondsTillMidnight + 4 * 60 * 60
-    return secondsTill4AM % (24 * 60 * 60)
-}
-
-async function doSession(
-    con: AttributeCon,
-    pkg: string,
-    clientHeader: { string: string }
-): Promise<string> {
-    const yivi = new YiviCore({
-        debugging: false,
-        element: '#yivi-web-form',
-        language: browser.i18n.getUILanguage() === 'nl' ? 'nl' : 'en',
-        translations: {
-            header: '',
-            helper: browser.i18n.getMessage('displayMessageQrPrefix'),
-        },
-        state: {
-            serverSentEvents: false,
-            polling: {
-                endpoint: 'status',
-                interval: 500,
-                startState: 'INITIALIZED',
-            },
-        },
-        session: {
-            url: pkg,
-            start: {
-                url: (o) => `${o.url}/v2/request/start`,
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...clientHeader,
-                },
-                body: JSON.stringify({ con, validity: secondsTill4AM() }),
-            },
-            result: {
-                url: (o, { sessionToken }) => `${o.url}/v2/request/jwt/${sessionToken}`,
-                headers: clientHeader,
-                parseResponse: (r) => r.text(),
-            },
-        },
-    })
-
-    yivi.use(YiviClient)
-    yivi.use(YiviWeb)
-    return yivi.start()
-}
-
->>>>>>> main
 function fillTable(table: HTMLElement, data: PopupData) {
     function row({ t, v }) {
         const row = document.createElement('tr')
