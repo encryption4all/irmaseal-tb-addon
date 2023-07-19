@@ -51,6 +51,7 @@
         "messagesDelete",
         "accountsFolders",
         "accountsRead",
+        "messagesImport",
         "activeTab",
         "compose",
         "storage"

@@ -488,8 +488,8 @@ async function decryptMessage(msgId: number) {
     const pgPartName = filtered[0].partName
 
     try {
-        const file = await browser.messages.getAttachmentFile(msg.id, pgPartName)
-        const readable = file.stream()
+        const attFile = await browser.messages.getAttachmentFile(msg.id, pgPartName)
+        const readable = attFile.stream()
         const unsealer = await mod.StreamUnsealer.new(readable, vk)
         const accountId = msg.folder.accountId
         const defaultIdentity = await browser.identities.getDefault(accountId)
@@ -529,21 +529,27 @@ async function decryptMessage(msgId: number) {
         /// Use the JWT to retrieve a USK.
         const usk = await getUSK(jwt, 'Decryption', keyRequest.ts)
 
-        const tempFile = await browser.pg4tb.createTempFile()
+        let tempFile = -1
+        let data = ''
+
+        if (VERSION.major < 106) tempFile = await browser.pg4tb.createTempFile()
+
         const decoder = new TextDecoder()
         const writable = new WritableStream({
             write: async (chunk: Uint8Array) => {
                 const decoded = decoder.decode(chunk, { stream: true })
-                await browser.pg4tb.writeToFile(tempFile, decoded)
+                if (VERSION.major < 106) await browser.pg4tb.writeToFile(tempFile, decoded)
+                else data += decoded
             },
             close: async () => {
                 const finalDecoded = decoder.decode()
-                await browser.pg4tb.writeToFile(tempFile, finalDecoded)
+                if (VERSION.major < 106) await browser.pg4tb.writeToFile(tempFile, finalDecoded)
+                else data += finalDecoded
             },
         })
 
         const senderIdentity = await unsealer.unseal(recipientId, usk, writable)
-        console.log('sender verification succesful: ', senderIdentity)
+        console.log('Sender verification successful: ', senderIdentity)
 
         const badges = [...senderIdentity.public.con, ...senderIdentity.private.con].map(
             ({ t, v }) => {
@@ -560,41 +566,53 @@ async function decryptMessage(msgId: number) {
         // 3) Remove original message.
 
         const localFolder = await getLocalFolder(RECEIVED_COPY_FOLDER)
-        const localMsgId = await browser.pg4tb.copyFileMessage(tempFile, localFolder, msg.id)
-        const localMsg = await browser.messages.get(localMsgId)
-        await browser.messages.move([localMsgId], msg.folder)
 
-        const fromDate: Date = new Date(localMsg.date.getTime())
-        fromDate.setSeconds(fromDate.getSeconds() - 3)
-        const toDate: Date = new Date(localMsg.date.getTime())
-        toDate.setSeconds(localMsg.date.getSeconds() + 3)
+        let localMsgId: number
+        if (VERSION.major < 106)
+            localMsgId = await browser.pg4tb.copyFileMessage(tempFile, localFolder, msg.id)
+        else {
+            const file = new File([data], 'tmp.eml', { type: 'text/plain' })
+            const localMsgheader = await browser.messages.import(file, localFolder)
+            localMsgId = localMsgheader.id
+        }
+
+        const localMsg = await browser.messages.get(localMsgId)
+
+        await browser.messages.move([localMsgId], msg.folder)
 
         // FIXME: Ugly workaround until messages.move() returns the message id.
         // Doesn't work consistently unfortunately.
+
+        const fromDate: Date = new Date(localMsg.date.getTime())
+        fromDate.setSeconds(fromDate.getSeconds() - 1)
+        const toDate: Date = new Date(localMsg.date.getTime())
+        toDate.setSeconds(localMsg.date.getSeconds() + 1)
+
         let moved
         let tried = 0
         do {
-            moved = await browser.messages.query({
+            const queryDetails = {
                 folder: msg.folder,
                 subject: localMsg.subject,
-                recipients: localMsg.recipients.join(','),
+                recipients: localMsg.recipients.join(';'),
                 author: localMsg.author,
                 fromDate,
                 toDate,
-            })
-            await new Promise((res) => setTimeout(res, 250))
+            }
+            moved = await browser.messages.query(queryDetails)
+
+            await new Promise((res) => setTimeout(res, 100))
             tried++
         } while (moved.messages.length !== 1 && tried < 10)
 
         try {
-            console.log('moved: ', moved)
             const movedMsgId = moved.messages[0].id
 
             // store the badges
             decryptedMessages[movedMsgId] = { badges }
 
             if (VERSION.major < 106) await browser.messageDisplay.open({ messageId: movedMsgId })
-            else await browser.mailTabs.setSelectedMessages([movedMsgId]) // TODO: verify that this works in 106.
+            else await browser.mailTabs.setSelectedMessages([movedMsgId])
         } catch (e: any) {
             e instanceof Error && console.log('switching to message failed: ', e.message)
         }
