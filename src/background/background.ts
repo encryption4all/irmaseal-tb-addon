@@ -9,10 +9,11 @@ import {
     type_to_image,
 } from './../utils'
 import jwtDecode, { JwtPayload } from 'jwt-decode'
+import { ISealOptions, ISigningKey } from '@e4a/pg-wasm'
 
 const DEFAULT_ENCRYPT = false
 const WIN_TYPE_COMPOSE = 'messageCompose'
-const PKG_URL = 'https://main.irmaseal-pkg.ihub.ru.nl'
+const PKG_URL = 'https://main.postguard.ihub.ru.nl/pkg'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
@@ -75,6 +76,7 @@ const composeTabs: {
         signPolicy?: Policy
         signWindowId?: number
         newMsgId?: number
+        details?: any
     }
 } = {}
 
@@ -111,11 +113,9 @@ await browser.messageDisplayScripts.register({
     js: [{ file: 'messageDisplay.js' }],
 })
 
-
 // Cleanup notifications and windows.
 // TODO: this doesn't run somehow.
 browser.runtime.onSuspend.addListener(() => {
-    console.log("hello")
     Object.entries(composeTabs).forEach(([id, { notificationId }]) => {
         console.log(`tab with id ${id} has notification ${notificationId}`)
     })
@@ -332,43 +332,40 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         return total
     }, {})
 
-    console.log('Encryption policy: ', policy)
-
     const from = toEmail(details.from)
 
     // Sign with email under the public signing identity (email).
     const pubSignPolicy = [{ t: EMAIL_ATTRIBUTE_TYPE, v: from }]
-    console.log('Public sign policy: ', pubSignPolicy)
+
     // Get a JWT or use one from the storage.
     const jwt = await checkLocalStorage(pubSignPolicy).catch(async () => {
         const jwt = await createSessionPopup(pubSignPolicy, 'Signing')
         await storeLocalStorage(pubSignPolicy, jwt)
         return jwt
     })
-    const pub_sign_key = await getUSK(jwt, 'Signing')
+    const pubSignKey = await getUSK(jwt, 'Signing')
 
     const privSignPolicy = composeTabs[tab.id].signPolicy?.[from]?.filter(
-        ({ t }) => t !== EMAIL_ATTRIBUTE_TYPE 
+        ({ t }) => t !== EMAIL_ATTRIBUTE_TYPE
     )
-    let priv_sign_key: string | undefined
+    let privSignKey: ISigningKey | undefined
 
-    if (privSignPolicy) {
-        console.log('Private sign policy: ', privSignPolicy)
+    if (privSignPolicy && privSignPolicy?.length > 0) {
         const jwt2 = await checkLocalStorage(privSignPolicy).catch(async () => {
             const jwt = await createSessionPopup(privSignPolicy, 'Signing', privSignPolicy)
             await storeLocalStorage(privSignPolicy, jwt)
             return jwt
         })
-        priv_sign_key = await getUSK(jwt2, 'Signing')
+        privSignKey = await getUSK(jwt2, 'Signing')
     }
 
-    const sealOptions = {
+    const sealOptions: ISealOptions = {
         policy,
-        pub_sign_key,
-        ...(priv_sign_key && { priv_sign_key }),
+        pubSignKey,
+        ...(privSignKey && { privSignKey }),
     }
 
-    console.log(sealOptions)
+    console.log('Sealing with options: ', sealOptions)
 
     const tEncStart = performance.now()
     await mod.sealStream(pk, sealOptions, readable, writable)
@@ -551,11 +548,10 @@ async function decryptMessage(msgId: number) {
         const senderIdentity = await unsealer.unseal(recipientId, usk, writable)
         console.log('Sender verification successful: ', senderIdentity)
 
-        const badges = [...senderIdentity.public.con, ...senderIdentity.private.con].map(
-            ({ t, v }) => {
-                return { type: type_to_image(t), value: v }
-            }
-        )
+        const privBadges = senderIdentity?.private?.con ?? []
+        const badges = [...senderIdentity.public.con, ...privBadges].map(({ t, v }) => {
+            return { type: type_to_image(t), value: v }
+        })
 
         // Store the JWT if decryption succeeded.
         await storeLocalStorage(hints, jwt)
@@ -656,6 +652,33 @@ async function detectMode(): Promise<boolean> {
     return darkMode
 }
 
+async function addSignBar(
+    windowId: number,
+    tabId: number,
+    scenario: 'compose' | 'header'
+): Promise<number> {
+    return new Promise((resolve, reject) => {
+        if (!composeTabs[tabId].signPolicy) return reject()
+
+        const pol: Policy = composeTabs[tabId].signPolicy || {}
+        const badges = Object.values(pol)[0].map(({ t, v }) => {
+            return { type: type_to_image(t), value: v }
+        })
+
+        messenger.notificationbar
+            .create({
+                windowId,
+                label: i18n(`notification${scenario}BadgesLabel`),
+                icon: 'icons/sign.svg',
+                placement: scenario === 'compose' ? 'top' : 'message',
+                style: { color: PG_WHITE, 'background-color': PG_INFO_COLOR },
+                buttons: [],
+                badges,
+            })
+            .then((id: number) => resolve(id))
+    })
+}
+
 async function addBar(tab, enabled): Promise<number> {
     const darkMode = await detectMode()
     const notificationId = await messenger.switchbar.create({
@@ -731,7 +754,7 @@ async function storeLocalStorage(con: AttributeCon, jwt: string) {
 }
 
 // Retrieve a USK using a JWT and timestamp.
-async function getUSK(jwt: string, sort: KeySort, ts?: number): Promise<string> {
+async function getUSK(jwt: string, sort: KeySort, ts?: number): Promise<any> {
     const url =
         sort === 'Decryption'
             ? `${PKG_URL}/v2/irma/key/${ts?.toString()}`
@@ -922,23 +945,13 @@ browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, b
                 latest.to = newTo
                 await browser.compose.setComposeDetails(tabId, latest)
             } else {
-                const badges = newPolicy[toEmail(state.from)].map(({ t, v }) => {
-                    return { type: type_to_image(t), value: v }
-                })
                 composeTabs[tabId].signPolicy = newPolicy
 
                 if (composeTabs[tabId].notificationId) {
                     await messenger.notificationbar.clear(composeTabs[tabId].notificationId)
                 }
-                composeTabs[tabId].notificationId = await messenger.notificationbar.create({
-                    windowId,
-                    label: i18n('notificationComposeBadgesLabel'),
-                    icon: 'icons/test.svg',
-                    placement: 'top',
-                    style: { color: PG_WHITE, 'background-color': PG_INFO_COLOR },
-                    buttons: [],
-                    badges,
-                })
+
+                composeTabs[tabId].notificationId = await addSignBar(windowId, tabId, 'compose')
             }
         } catch (e) {
             console.log('failed to get the new policy: ', e)

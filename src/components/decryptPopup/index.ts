@@ -88,13 +88,6 @@ async function onLoad() {
                 },
                 body: JSON.stringify({ con: data.con, validity: secondsTill4AM() }),
             },
-            mapping: {
-                sessionPtr: (r) => {
-                    const ptr = r.sessionPtr
-                    ptr.u = `https://ihub.ru.nl/irma/1/${ptr.u}`
-                    return ptr
-                },
-            },
             result: {
                 url: (o, { sessionToken }) => `${o.url}/v2/request/jwt/${sessionToken}`,
                 headers: data.header,

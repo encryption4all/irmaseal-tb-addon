@@ -38,10 +38,10 @@
   resolved "https://registry.yarnpkg.com/@e4a/pg-components/-/pg-components-0.0.6.tgz#66e7871821f95211ddd731ef022134defb2bfda4"
   integrity sha512-qANiPR5SP622X+B2u78XHGC+ZLs0M+m/MhCl+MCCdtxUy/BMpMRlZPO5WOKJg9DbEZlU/8/0IGJmVWs/D60buA==
 
-"@e4a/pg-wasm@^0.3.0-rc.3":
-  version "0.3.0-rc.3"
-  resolved "https://registry.yarnpkg.com/@e4a/pg-wasm/-/pg-wasm-0.3.0-rc.3.tgz#fcfef3ec1255e4f1d71145e055ff7fa3ab8ffd14"
-  integrity sha512-zZg532DMw+AFrL56AtdGhuGivHbXqaxfw/dyqkTS3UVjOmIxsjLr6iHecc+LFzJJK7ng/zkH56rCESzagVSqlg==
+"@e4a/pg-wasm@^0.3.0-rc.4":
+  version "0.3.0-rc.4"
+  resolved "https://registry.yarnpkg.com/@e4a/pg-wasm/-/pg-wasm-0.3.0-rc.4.tgz#ffcaa9e9a59cb1aafcf93320fbaa1b0dceef304b"
+  integrity sha512-cm150n7PAPYJlM+I2kNAxohnc6levYWLuMALdnJ9HGmzTpY9yYMci4q7Q+MWw6as7bg8Ey2WjXasxeJ459qoQg==
 
 "@eslint-community/eslint-utils@^4.2.0":
   version "4.4.0"
