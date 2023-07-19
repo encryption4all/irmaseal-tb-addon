@@ -7,12 +7,13 @@ var { EventEmitter, EventManager, ExtensionAPI } = ExtensionCommon
 var { ExtensionError } = ExtensionUtils
 var { Services } = ChromeUtils.import('resource://gre/modules/Services.jsm')
 
-class Notification {
+class ExtensionNotification {
     constructor(notificationId, properties, parent) {
         this.closedByUser = true
         this.properties = properties
         this.parent = parent
         this.notificationId = notificationId
+        this.tbVersion = this.getThunderbirdVersion().major
 
         const { buttons, icon, label, priority, style, windowId, badges, placement } = properties
 
@@ -55,7 +56,7 @@ class Notification {
         }
 
         let element
-        if (this.getThunderbirdVersion().major < 94) {
+        if (this.tbVersion < 94) {
             element = this.getNotificationBox().appendNotification(
                 label,
                 `extension-notification-${notificationId}`,
@@ -71,11 +72,13 @@ class Notification {
                     label,
                     image: iconURL,
                     priority,
+                    eventCallback: notificationBarCallback,
                 },
-                buttonSet,
-                notificationBarCallback
+                buttonSet
             )
         }
+
+        if (!element) return
 
         if (badges.length > 0) {
             element.removeAttribute('dismissable')
@@ -130,10 +133,12 @@ class Notification {
                 .infobar > .icon {
                     width: 24px;
                     height: 24px; 
-                    ${badges.length > 0 && placement !== 'message' ? 'display: none;' : ''}
+                    ${badges.length > 0 && placement === 'message' ? 'display: none;' : ''}
                 }
                 .container {
-                    border-radius: ${badges.length > 0 && placement !== 'message' ? '0' : 'inherit'};
+                    border-radius: ${
+                        badges.length > 0 && placement !== 'message' ? '0' : 'inherit'
+                    };
                 }
                 .infobar p {
                     font-family: 'Overpass';
@@ -172,12 +177,42 @@ class Notification {
         }
     }
 
-    getNotificationBox() {
+    getNotificationBoxPreSupernova() {
         const w = this.parent.extension.windowManager.get(
             this.properties.windowId,
             this.parent.context
         ).window
         switch (this.properties.placement) {
+            case 'top':
+                if (!w.gExtensionNotificationTopBox) {
+                    // try to add it before the toolbox, if that fails add it firstmost
+                    const toolbox = w.document.querySelector('toolbox')
+                    if (toolbox) {
+                        w.gExtensionNotificationTopBox = new w.MozElements.NotificationBox(
+                            (element) => {
+                                element.id = 'extension-notification-top-box'
+                                element.setAttribute('notificationside', 'top')
+                                toolbox.parentElement.insertBefore(
+                                    element,
+                                    toolbox.nextElementSibling
+                                )
+                            }
+                        )
+                    } else {
+                        w.gExtensionNotificationTopBox = new w.MozElements.NotificationBox(
+                            (element) => {
+                                element.id = 'extension-notification-top-box'
+                                element.setAttribute('notificationside', 'top')
+                                w.document.documentElement.insertBefore(
+                                    element,
+                                    w.document.documentElement.firstChild
+                                )
+                            }
+                        )
+                    }
+                }
+                return w.gExtensionNotificationTopBox
+
             case 'message':
                 // below the receipient list in the message preview window
                 if (w.gMessageNotificationBar) {
@@ -212,20 +247,34 @@ class Notification {
                     )
                 }
                 return w.gExtensionNotificationBottomBox
+        }
+    }
 
+    getNotificationBoxPostSupernova() {
+        const w = this.parent.extension.windowManager.get(
+            this.properties.windowId,
+            this.parent.context
+        ).window
+        switch (this.properties.placement) {
             case 'top':
                 if (!w.gExtensionNotificationTopBox) {
-                    // try to add it before the toolbox, if that fails add it firstmost
+                    const messengerBody = w.document.getElementById('messengerBody')
                     const toolbox = w.document.querySelector('toolbox')
-                    if (toolbox) {
+                    if (messengerBody) {
                         w.gExtensionNotificationTopBox = new w.MozElements.NotificationBox(
                             (element) => {
                                 element.id = 'extension-notification-top-box'
                                 element.setAttribute('notificationside', 'top')
-                                toolbox.parentElement.insertBefore(
-                                    element,
-                                    toolbox.nextElementSibling
-                                )
+                                messengerBody.insertBefore(element, messengerBody.firstChild)
+                            }
+                        )
+                    } else if (toolbox) {
+                        w.gExtensionNotificationTopBox = new w.MozElements.NotificationBox(
+                            (element) => {
+                                element.id = 'extension-notification-top-box'
+                                element.setAttribute('notificationside', 'top')
+                                element.style.marginInlineStart = 'var(--spaces-total-width)'
+                                toolbox.insertAdjacentElement('afterend', element)
                             }
                         )
                     } else {
@@ -242,8 +291,120 @@ class Notification {
                     }
                 }
                 return w.gExtensionNotificationTopBox
+
+            case 'message': {
+                if (!this.properties.tabId) {
+                    throw new Error('appendNotification - missing tab id')
+                }
+                const aTab = this.parent.context.extension.tabManager.get(this.properties.tabId)
+                let messageBrowser = null
+                switch (aTab.nativeTab.mode?.name) {
+                    case 'mailMessageTab':
+                        // message tab;
+                        messageBrowser = aTab.nativeTab.chromeBrowser.contentWindow
+                        break
+                    case 'mail3PaneTab':
+                        // message in mail3pane tab
+                        messageBrowser =
+                            aTab.nativeTab.chromeBrowser.contentWindow.messageBrowser.contentWindow
+                        break
+                    default:
+                        // message window;
+                        messageBrowser = aTab.nativeTab.messageBrowser.contentWindow
+                        break
+                }
+                if (messageBrowser) {
+                    return messageBrowser.gMessageNotificationBar.msgNotificationBar
+                }
+                console.error(
+                    'appendNotification - could not get window for tabId ' + this.properties.tabId
+                )
+                return null
+            }
+            default:
+            case 'bottom':
+                return this.getNotificationBoxPreSupernova()
         }
     }
+
+    getNotificationBox() {
+        if (this.tbVersion >= 112) {
+            return this.getNotificationBoxPostSupernova()
+        }
+        return this.getNotificationBoxPreSupernova()
+    }
+    //    getNotificationBox() {
+    //        const w = this.parent.extension.windowManager.get(
+    //            this.properties.windowId,
+    //            this.parent.context
+    //        ).window
+    //        switch (this.properties.placement) {
+    //            case 'message':
+    //                // below the receipient list in the message preview window
+    //                if (w.gMessageNotificationBar) {
+    //                    return w.gMessageNotificationBar.msgNotificationBar
+    //                }
+    //            // break omitted
+    //
+    //            default:
+    //            case 'bottom':
+    //                // default bottom notification in the mail3:pane
+    //                if (w.specialTabs) {
+    //                    return w.specialTabs.msgNotificationBar
+    //                }
+    //                // default bottom notification in message composer window and
+    //                // most calendar dialogs (currently windows.onCreated event does not see these)
+    //                if (w.gNotification) {
+    //                    return w.gNotification.notificationbox
+    //                }
+    //                // if there is no default bottom box, use our own
+    //                if (!w.gExtensionNotificationBottomBox) {
+    //                    let statusbar = w.document.querySelector('[class~="statusbar"]')
+    //                    w.gExtensionNotificationBottomBox = new w.MozElements.NotificationBox(
+    //                        (element) => {
+    //                            element.id = 'extension-notification-bottom-box'
+    //                            element.setAttribute('notificationside', 'bottom')
+    //                            if (statusbar) {
+    //                                statusbar.parentNode.insertBefore(element, statusbar)
+    //                            } else {
+    //                                w.document.documentElement.append(element)
+    //                            }
+    //                        }
+    //                    )
+    //                }
+    //                return w.gExtensionNotificationBottomBox
+    //
+    //            case 'top':
+    //                if (!w.gExtensionNotificationTopBox) {
+    //                    // try to add it before the toolbox, if that fails add it firstmost
+    //                    const toolbox = w.document.querySelector('toolbox')
+    //                    if (toolbox) {
+    //                        w.gExtensionNotificationTopBox = new w.MozElements.NotificationBox(
+    //                            (element) => {
+    //                                element.id = 'extension-notification-top-box'
+    //                                element.setAttribute('notificationside', 'top')
+    //                                toolbox.parentElement.insertBefore(
+    //                                    element,
+    //                                    toolbox.nextElementSibling
+    //                                )
+    //                            }
+    //                        )
+    //                    } else {
+    //                        w.gExtensionNotificationTopBox = new w.MozElements.NotificationBox(
+    //                            (element) => {
+    //                                element.id = 'extension-notification-top-box'
+    //                                element.setAttribute('notificationside', 'top')
+    //                                w.document.documentElement.insertBefore(
+    //                                    element,
+    //                                    w.document.documentElement.firstChild
+    //                                )
+    //                            }
+    //                        )
+    //                    }
+    //                }
+    //                return w.gExtensionNotificationTopBox
+    //        }
+    //    }
 
     remove(closedByUser) {
         // The remove() method is called by button clicks and by notificationBox.clear()
@@ -299,7 +460,7 @@ var notificationbar = class extends ExtensionAPI {
                     const notificationId = self.nextId++
                     self.notificationsMap.set(
                         notificationId,
-                        new Notification(notificationId, properties, self)
+                        new ExtensionNotification(notificationId, properties, self)
                     )
                     return notificationId
                 },

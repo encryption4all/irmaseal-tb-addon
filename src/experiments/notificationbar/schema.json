@@ -59,6 +59,11 @@
                         "description": "ID of the window, where the notification should be added to.",
                         "type": "integer"
                     },
+"tabId": {
+            "description": "Id of the tab in window, where the notification should be added to. ",
+            "type": "integer",
+            "optional": true
+          },
                     "label": {
                         "description": "Label of the notification.",
                         "type": "string"
