@@ -126,6 +126,7 @@ const displayListener = async (message, port) => {
                 port.postMessage({ isEncrypted })
                 await messenger.notificationbar.create({
                     windowId,
+                    tabId,
                     label: i18n('displayScriptDecryptBar'),
                     icon: 'icons/pg_logo_no_text.svg',
                     placement: 'message',
@@ -143,6 +144,7 @@ const displayListener = async (message, port) => {
             if (wasEncrypted) {
                 await messenger.notificationbar.create({
                     windowId,
+                    tabId,
                     label: i18n('displayScriptWasEncryptedBar'),
                     icon: 'icons/pg_logo_no_text.svg',
                     placement: 'message',
@@ -183,6 +185,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         if (!composeTabs[tab.id].notificationId) {
             const notificationId = await messenger.notificationbar.create({
                 windowId: tab.windowId,
+                tabId: tab.id,
                 label: i18n('composeBccWarning'),
                 placement: 'top',
                 style: { color: PG_WHITE, 'background-color': PG_WARN_COLOR },
@@ -589,6 +592,7 @@ async function notifyDecryptionFailed(msg: string) {
     if (activeMailTabs.length === 1)
         await messenger.notificationbar.create({
             windowId: activeMailTabs[0].windowId,
+            tabId: activeMailTabs[0].tabId,
             label: msg,
             placement: 'message',
             style: { color: PG_WHITE, 'background-color': PG_ERR_COLOR },
