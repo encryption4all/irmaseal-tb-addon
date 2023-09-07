@@ -42,7 +42,9 @@ export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 export async function getLocalFolder(folderName: string): Promise<any> {
     const accs = await browser.accounts.list()
     for (const acc of accs) {
-        if (acc.name === 'Local Folders') {
+        // if type is non, it is considered a local folder
+        // Docs: https://webextension-api.thunderbird.net/en/latest/accounts.html#accounts-mailaccount
+        if (acc.type === 'none') {
             for (const f of acc.folders) {
                 if (f.name === folderName) return f
             }
