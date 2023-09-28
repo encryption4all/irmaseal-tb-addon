@@ -1,5 +1,17 @@
 # CHANGELOG.md
 
+## 0.7.6
+
+### Fixed
+
+-   Getting a local folder no longer fails when the folder is not named "Local Folders".
+
+## 0.7.5
+
+## Added
+
+-   Support for Thunderbird Supernova (115)
+
 ## 0.7.2
 
 ### Changed
