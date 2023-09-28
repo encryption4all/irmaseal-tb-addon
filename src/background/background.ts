@@ -349,7 +349,7 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
         await storeLocalStorage(totalId, jwt)
         return jwt
     })
-    const {pubSignKey, privSignKey} = await getSigningKeys(jwt, {pubSignId, privSignId})
+    const { pubSignKey, privSignKey } = await getSigningKeys(jwt, { pubSignId, privSignId })
 
     const sealOptions: ISealOptions = {
         policy,
@@ -751,7 +751,7 @@ async function getUSK(jwt: string, ts: number): Promise<any> {
     return fetch(url, {
         headers: {
             Authorization: `Bearer ${jwt}`,
-            ...PG_CLIENT_HEADER
+            ...PG_CLIENT_HEADER,
         },
     })
         .then((r) => r.json())
