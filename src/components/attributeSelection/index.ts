@@ -1,6 +1,4 @@
-import AttributeForm from '@e4a/pg-components/AttributeForm/AttributeForm.svelte'
-import type { Policy } from '@e4a/pg-components/AttributeForm/AttributeForm.svelte'
-
+import { AttributeForm } from '@e4a/pg-components'
 import './index.scss'
 
 window.addEventListener('load', onLoad)
@@ -28,8 +26,15 @@ async function onLoad() {
     const lang = browser.i18n.getUILanguage() === 'nl' ? 'nl' : 'en'
     new AttributeForm({
         target: el,
-        props: { initialPolicy: data.initialPolicy, onSubmit, submitButton: true, lang },
+        props: {
+            initialPolicy: data.initialPolicy,
+            signing: data.sign,
+            onSubmit,
+            submitButton: true,
+            lang,
+        },
     })
+
 }
 
 window.addEventListener('load', onLoad)
