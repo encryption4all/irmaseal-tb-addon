@@ -73,7 +73,7 @@ const composeTabs: {
         notificationId?: number
         policy?: Policy
         configWindowId?: number
-        signPolicy?: Policy
+        signId?: Policy
         signWindowId?: number
         newMsgId?: number
         details?: any
@@ -335,29 +335,21 @@ browser.compose.onBeforeSend.addListener(async (tab, details) => {
     const from = toEmail(details.from)
 
     // Sign with email under the public signing identity (email).
-    const pubSignPolicy = [{ t: EMAIL_ATTRIBUTE_TYPE, v: from }]
+    const pubSignId = [{ t: EMAIL_ATTRIBUTE_TYPE, v: from }]
 
-    // Get a JWT or use one from the storage.
-    const jwt = await checkLocalStorage(pubSignPolicy).catch(async () => {
-        const jwt = await createSessionPopup(pubSignPolicy, 'Signing')
-        await storeLocalStorage(pubSignPolicy, jwt)
-        return jwt
-    })
-    const pubSignKey = await getUSK(jwt, 'Signing')
-
-    const privSignPolicy = composeTabs[tab.id].signPolicy?.[from]?.filter(
+    const privSignId = composeTabs[tab.id].signId?.[from]?.filter(
         ({ t }) => t !== EMAIL_ATTRIBUTE_TYPE
     )
-    let privSignKey: ISigningKey | undefined
 
-    if (privSignPolicy && privSignPolicy?.length > 0) {
-        const jwt2 = await checkLocalStorage(privSignPolicy).catch(async () => {
-            const jwt = await createSessionPopup(privSignPolicy, 'Signing', privSignPolicy)
-            await storeLocalStorage(privSignPolicy, jwt)
-            return jwt
-        })
-        privSignKey = await getUSK(jwt2, 'Signing')
-    }
+    const totalId = [...pubSignId, ...(privSignId ? privSignId : [])]
+
+    // Get a JWT or use one from the storage.
+    const jwt = await checkLocalStorage(totalId).catch(async () => {
+        const jwt = await createSessionPopup(totalId, 'Signing')
+        await storeLocalStorage(totalId, jwt)
+        return jwt
+    })
+    const {pubSignKey, privSignKey} = await getSigningKeys(jwt, {pubSignId, privSignId})
 
     const sealOptions: ISealOptions = {
         policy,
@@ -517,14 +509,14 @@ async function decryptMessage(msgId: number) {
             else return { t, v }
         })
 
-        console.log('Trying decryption with policy: ', keyRequest)
+        console.log('Trying decryption with policy: ', keyRequest, hints)
 
         // Check localStorage, otherwise create a popup to retrieve a JWT.
         const jwt = await checkLocalStorage(hints).catch(() =>
             createSessionPopup(keyRequest.con, 'Decryption', hints, toEmail(sender))
         )
         /// Use the JWT to retrieve a USK.
-        const usk = await getUSK(jwt, 'Decryption', keyRequest.ts)
+        const usk = await getUSK(jwt, keyRequest.ts)
 
         let tempFile = -1
         let data = ''
@@ -658,9 +650,9 @@ async function addSignBar(
     scenario: 'compose' | 'header'
 ): Promise<number> {
     return new Promise((resolve, reject) => {
-        if (!composeTabs[tabId].signPolicy) return reject()
+        if (!composeTabs[tabId].signId) return reject()
 
-        const pol: Policy = composeTabs[tabId].signPolicy || {}
+        const pol: Policy = composeTabs[tabId].signId || {}
         const badges = Object.values(pol)[0].map(({ t, v }) => {
             return { type: type_to_image(t), value: v }
         })
@@ -754,15 +746,12 @@ async function storeLocalStorage(con: AttributeCon, jwt: string) {
 }
 
 // Retrieve a USK using a JWT and timestamp.
-async function getUSK(jwt: string, sort: KeySort, ts?: number): Promise<any> {
-    const url =
-        sort === 'Decryption'
-            ? `${PKG_URL}/v2/irma/key/${ts?.toString()}`
-            : `${PKG_URL}/v2/irma/sign/key`
+async function getUSK(jwt: string, ts: number): Promise<any> {
+    const url = `${PKG_URL}/v2/irma/key/${ts?.toString()}`
     return fetch(url, {
         headers: {
             Authorization: `Bearer ${jwt}`,
-            ...PG_CLIENT_HEADER,
+            ...PG_CLIENT_HEADER
         },
     })
         .then((r) => r.json())
@@ -770,6 +759,25 @@ async function getUSK(jwt: string, sort: KeySort, ts?: number): Promise<any> {
             if (json.status !== 'DONE' || json.proofStatus !== 'VALID')
                 throw new Error('session not DONE and VALID')
             return json.key
+        })
+}
+
+async function getSigningKeys(jwt: string, keyRequest?: any): Promise<any> {
+    const url = `${PKG_URL}/v2/irma/sign/key`
+    return fetch(url, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${jwt}`,
+            ...PG_CLIENT_HEADER,
+            'content-type': 'application/json',
+        },
+        body: JSON.stringify(keyRequest),
+    })
+        .then((r) => r.json())
+        .then((json) => {
+            if (json.status !== 'DONE' || json.proofStatus !== 'VALID')
+                throw new Error('session not DONE and VALID')
+            return { pubSignKey: json.pubSignKey, privSignKey: json.privSignKey }
         })
 }
 
@@ -931,9 +939,9 @@ browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, b
             }
         }
 
-        if (sign && composeTabs[tabId].signPolicy?.[toEmail(state.from)]) {
+        if (sign && composeTabs[tabId].signId?.[toEmail(state.from)]) {
             // start over if sender changed
-            policy = composeTabs[tabId].signPolicy || policy
+            policy = composeTabs[tabId].signId || policy
         }
 
         try {
@@ -945,7 +953,7 @@ browser.switchbar.onButtonClicked.addListener(async (windowId, notificationId, b
                 latest.to = newTo
                 await browser.compose.setComposeDetails(tabId, latest)
             } else {
-                composeTabs[tabId].signPolicy = newPolicy
+                composeTabs[tabId].signId = newPolicy
 
                 if (composeTabs[tabId].notificationId) {
                     await messenger.notificationbar.clear(composeTabs[tabId].notificationId)
