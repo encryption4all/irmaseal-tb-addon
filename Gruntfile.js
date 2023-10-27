@@ -41,7 +41,7 @@ module.exports = (grunt) => {
                     },
                     {
                         expand: true,
-                        src: ['./licence.txt', './README.md'],
+                        src: ['./LICENSE', './README.md'],
                         dest: outDirExtracted,
                     },
                 ],
