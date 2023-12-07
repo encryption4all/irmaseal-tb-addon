@@ -13,7 +13,7 @@ import { ISealOptions, ISigningKey } from '@e4a/pg-wasm'
 
 const DEFAULT_ENCRYPT = false
 const WIN_TYPE_COMPOSE = 'messageCompose'
-const PKG_URL = 'https://main.postguard.ihub.ru.nl/pkg'
+const PKG_URL = 'http://localhost:8087'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
