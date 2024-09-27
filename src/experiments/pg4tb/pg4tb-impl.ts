@@ -7,6 +7,7 @@
 declare const Components
 const { classes: Cc, interfaces: Ci, utils: Cu } = Components
 
+const { ExtensionError } = Cu.import('resource://gre/modules/ExtensionError.jsm')
 const { ExtensionCommon } = Cu.import('resource://gre/modules/ExtensionCommon.jsm')
 const { ExtensionParent } = Cu.import('resource://gre/modules/ExtensionParent.jsm')
 const { Services } = Cu.import('resource://gre/modules/Services.jsm')

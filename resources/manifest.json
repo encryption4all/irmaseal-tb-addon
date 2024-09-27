@@ -1,7 +1,7 @@
 {
-    "manifest_version": 2,
+    "manifest_version": 3,
     "name": "PostGuard (beta)",
-    "version": "0.7.8",
+    "version": "0.8.0",
     "description": "PostGuard encryption plugin for Thunderbird",
     "icons": {
         "48": "icons/pg_logo_no_text.svg",
@@ -10,7 +10,7 @@
     "browser_specific_settings": {
         "gecko": {
             "id": "pg4tb@e4a.org",
-            "strict_max_version": "118.*",
+            "strict_max_version": "130.*",
             "update_url": "https://postguard.eu/downloads/updates.json"
         }
     },
@@ -54,8 +54,21 @@
         "messagesImport",
         "activeTab",
         "compose",
-        "storage"
+        "storage",
+        "scripting"
     ],
-    "web_accessible_resources": ["images/*", "icons/*"],
-    "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
+    "host_permissions": [
+        "https://*.cs.ru.nl/pkg/*",
+        "https://postguard.eu/*",
+        "https://postguard.nl/*"
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["images/*.svg", "images/*.png", "icons/*.svg", "icons/*.ico"],
+            "matches": ["<all_urls>"]
+        }
+    ],
+    "content_security_policy": {
+        "extension_pages": "default-src *; style-src 'self' 'unsafe-inline'; worker-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src * data:"
+    }
 }

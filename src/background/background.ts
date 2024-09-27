@@ -13,7 +13,7 @@ import { ISealOptions, ISigningKey } from '@e4a/pg-wasm'
 
 const DEFAULT_ENCRYPT = false
 const WIN_TYPE_COMPOSE = 'messageCompose'
-const PKG_URL = 'https://main.postguard.ihub.ru.nl/pkg'
+const PKG_URL = 'https://postguard-main.cs.ru.nl/pkg'
 const EMAIL_ATTRIBUTE_TYPE = 'pbdf.sidn-pbdf.email.email'
 const SENT_COPY_FOLDER = 'PostGuard Sent'
 const RECEIVED_COPY_FOLDER = 'PostGuard Received'
@@ -63,6 +63,8 @@ const mod_promise = import('@e4a/pg-wasm')
 
 const [pk, vk, mod] = await Promise.all([pk_promise, vk_promise, mod_promise])
 
+console.log(`[background] Pk received: ${pk}`)
+
 // Keeps track of which tabs (messageCompose type) should use encryption.
 // Also, add a bar to any existing compose windows.
 const composeTabs: {
@@ -109,9 +111,15 @@ console.log('[background]: startup composeTabs: ', Object.keys(composeTabs))
 setInterval(cleanUp, 600000)
 
 // Register the messageDisplayScript.
-await browser.messageDisplayScripts.register({
-    js: [{ file: 'messageDisplay.js' }],
-})
+browser.scripting.messageDisplay
+    .registerScripts([
+        {
+            id: 'message-display-postguard',
+            js: ['messageDisplay.js'],
+            runAt: 'document_end',
+        },
+    ])
+    .catch(console.log('Browser message register'))
 
 // Cleanup notifications and windows.
 // TODO: this doesn't run somehow.
@@ -141,10 +149,12 @@ const displayListener = async (message, port) => {
         tab: { id: tabId, windowId },
     } = port.sender
 
+    console.log(`received message ${message.command}`)
+
     switch (message.command) {
         case 'queryDetails': {
             // Detects pg encryption
-            const header = await browser.messageDisplay.getDisplayedMessage(tabId)
+            const header = await browser.messageDisplay.getDisplayedMessages()
             const id = header.id
             const isEncrypted = await isPGEncrypted(id)
 
@@ -673,6 +683,7 @@ async function addSignBar(
 
 async function addBar(tab, enabled): Promise<number> {
     const darkMode = await detectMode()
+    console.log(`Add bar in tab ${tab.windowId} ${messenger}`)
     const notificationId = await messenger.switchbar.create({
         enabled,
         windowId: tab.windowId,
@@ -871,6 +882,8 @@ async function createAttributeSelectionPopup(
         height: 400,
         width: 700,
     })
+
+    console.log('Open manage access popup')
 
     const popupId = popupWindow.id
     composeTabs[tabId].configWindowId = popupId

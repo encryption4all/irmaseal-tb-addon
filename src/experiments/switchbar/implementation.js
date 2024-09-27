@@ -1,5 +1,5 @@
 /* eslint no-fallthrough: ["error", { "commentPattern": "break[\\s\\w]*omitted" }] */
-/* global ExtensionCommon,  ChromeUtils */
+/* global ExtensionCommon, globalThis */
 
 'use strict'
 
@@ -10,83 +10,83 @@
  */
 
 var { EventEmitter, EventManager, ExtensionAPI } = ExtensionCommon
-var { Services } = ChromeUtils.import('resource://gre/modules/Services.jsm')
+var Services = globalThis.Services
 
 class SwitchBar {
     constructor(notificationId, properties, parent) {
-        this.closedByUser = true
-        this.properties = properties
-        this.parent = parent
-        this.notificationId = notificationId
+        return (async () => {
+            this.closedByUser = true
+            this.properties = properties
+            this.parent = parent
+            this.notificationId = notificationId
 
-        const { enabled, buttonId, iconEnabled, iconDisabled, labels, style, windowId, buttons } =
-            properties
+            const {
+                enabled,
+                buttonId,
+                iconEnabled,
+                iconDisabled,
+                labels,
+                style,
+                windowId,
+                buttons,
+            } = properties
 
-        var iconEnabledURL = null
-        var iconDisabledURL = null
-        if (iconEnabled) {
-            if (iconEnabled.includes('chrome://')) {
-                iconEnabledURL = iconEnabled
-            } else if (!iconEnabled.includes(':')) {
-                iconEnabledURL = parent.extension.baseURI.resolve(iconEnabled)
+            var iconEnabledURL = null
+            var iconDisabledURL = null
+            if (iconEnabled) {
+                if (iconEnabled.includes('chrome://')) {
+                    iconEnabledURL = iconEnabled
+                } else if (!iconEnabled.includes(':')) {
+                    iconEnabledURL = parent.extension.baseURI.resolve(iconEnabled)
+                }
             }
-        }
-        if (iconDisabled) {
-            if (iconDisabled.includes('chrome://')) {
-                iconDisabledURL = iconDisabled
-            } else if (!iconDisabled.includes(':')) {
-                iconDisabledURL = parent.extension.baseURI.resolve(iconDisabled)
-            }
-        }
-
-        var fontURL = parent.extension.baseURI.resolve('fonts/Overpass-Regular.tff')
-
-        const buttonSet = buttons.map(({ id, label, accesskey }) => ({
-            id,
-            label,
-            accesskey,
-            callback: () => {
-                // Fire the event and keep the notification open, decided to close it
-                // based on the return values later.
-                this.parent.emitter.emit('buttonclicked', windowId, notificationId, id)
-                //.then((rv) => {
-                //    let keepOpen = rv.some((value) => value?.close === false)
-                //    if (!keepOpen) {
-                //        this.remove(/* closedByUser */ true)
-                //    }
-                //})
-
-                // Keep the notification box open until we hear from the event
-                // handlers.
-                return true
-            },
-        }))
-
-        const notificationBarCallback = (event) => {
-            // Every dismissed notification will also generate a removed notification
-            if (event === 'dismissed') {
-                this.parent.emitter.emit('dismissed', windowId, notificationId)
+            if (iconDisabled) {
+                if (iconDisabled.includes('chrome://')) {
+                    iconDisabledURL = iconDisabled
+                } else if (!iconDisabled.includes(':')) {
+                    iconDisabledURL = parent.extension.baseURI.resolve(iconDisabled)
+                }
             }
 
-            if (event === 'removed') {
-                this.parent.emitter.emit('closed', windowId, notificationId, this.closedByUser)
+            var fontURL = parent.extension.baseURI.resolve('fonts/Overpass-Regular.tff')
 
-                this.cleanup()
+            const buttonSet = buttons.map(({ id, label, accesskey }) => ({
+                id,
+                label,
+                accesskey,
+                callback: () => {
+                    // Fire the event and keep the notification open, decided to close it
+                    // based on the return values later.
+                    this.parent.emitter.emit('buttonclicked', windowId, notificationId, id)
+                    //.then((rv) => {
+                    //    let keepOpen = rv.some((value) => value?.close === false)
+                    //    if (!keepOpen) {
+                    //        this.remove(/* closedByUser */ true)
+                    //    }
+                    //})
+
+                    // Keep the notification box open until we hear from the event
+                    // handlers.
+                    return true
+                },
+            }))
+
+            const notificationBarCallback = (event) => {
+                // Every dismissed notification will also generate a removed notification
+                if (event === 'dismissed') {
+                    this.parent.emitter.emit('dismissed', windowId, notificationId)
+                }
+
+                if (event === 'removed') {
+                    this.parent.emitter.emit('closed', windowId, notificationId, this.closedByUser)
+
+                    this.cleanup()
+                }
             }
-        }
 
-        let element
-        if (this.getThunderbirdVersion().major < 94) {
-            element = this.getNotificationBox().appendNotification(
-                '',
-                `extension-notification-${notificationId}`,
-                enabled ? iconEnabledURL : iconDisabledURL,
-                0,
-                buttonSet,
-                notificationBarCallback
-            )
-        } else {
-            element = this.getNotificationBox().appendNotification(
+            let notBox = this.getNotificationBox()
+
+            let element = await notBox.appendNotification(
                 `extension-notification-${notificationId}`,
                 {
                     label: '',
@@ -96,72 +96,67 @@ class SwitchBar {
                 buttonSet,
                 notificationBarCallback
             )
-        }
 
-        const shadowroot = element.shadowRoot
-        const document = element.ownerDocument
+            const shadowroot = element.shadowRoot
 
-        if (style) {
-            //const allowedCssPropNames = ['background', 'color', 'margin', 'padding', 'font']
-            //const sanitizedStyles = Object.keys(style).filter((cssPropertyName) => {
-            //    const parts = cssPropertyName.split('-')
-            //    return (
-            //        // check if first part is in whitelist
-            //        parts.length > 0 &&
-            //        allowedCssPropNames.includes(parts[0]) &&
-            //        // validate second part (if any) being a simple word
-            //        (parts.length == 1 || (parts.length == 2 && /^[a-zA-Z0-9]+$/.test(parts[1])))
-            //    )
-            //})
+            console.log(shadowroot)
 
-            element.removeAttribute('type')
-            element.removeAttribute('message-bar-type')
-            element.removeAttribute('dismissable')
+            const document = element.ownerDocument
 
-            // swap the button and text
-            const message = shadowroot.querySelector('label.notification-message')
-            const buttonContainer = element.buttonContainer.cloneNode()
-            message.parentNode.insertBefore(buttonContainer, message)
-            message.innerHTML = enabled ? labels.enabled : labels.disabled
+            if (style) {
+                element.removeAttribute('type')
+                element.removeAttribute('message-bar-type')
+                element.removeAttribute('dismissable')
 
-            // change the button to a switch
-            const label = document.createElement('label')
-            const input = document.createElement('input')
-            const span = document.createElement('span')
-            input.setAttribute('type', 'checkbox')
-            input.checked = enabled
-            element.classList.add(enabled ? 'enabled' : 'disabled')
-            element.classList.add('initial')
-            span.setAttribute('class', 'slider round')
-            label.setAttribute('class', 'switch')
-            label.replaceChildren(input, span)
-            buttonContainer.replaceChildren(label)
+                // swap the button and text
+                const message = shadowroot.querySelector('.message')
+                const buttonContainer = element.buttonContainer.cloneNode()
 
-            const attributeButton = shadowroot.querySelector('.notification-button')
-            attributeButton.disabled = !enabled
+                console.log(buttonContainer)
 
-            input.addEventListener('input', (e) => {
-                const enabled = e.target.checked
-
-                this.parent.emitter.emit(
-                    'buttonclicked',
-                    windowId,
-                    notificationId,
-                    buttonId,
-                    e.target.checked
-                )
-
-                attributeButton.disabled = !enabled
+                message.parentNode.insertBefore(buttonContainer, message)
                 message.innerHTML = enabled ? labels.enabled : labels.disabled
-                element.classList.remove(enabled ? 'disabled' : 'enabled')
+
+                // change the button to a switch
+                const label = document.createElement('label')
+                const input = document.createElement('input')
+                const span = document.createElement('span')
+                input.setAttribute('type', 'checkbox')
+                input.checked = enabled
                 element.classList.add(enabled ? 'enabled' : 'disabled')
-                element.classList.remove('initial')
-            })
+                element.classList.add('initial')
+                span.setAttribute('class', 'slider round')
+                label.setAttribute('class', 'switch')
+                label.replaceChildren(input, span)
+                buttonContainer.replaceChildren(label)
 
-            element.style.transition = 'none'
+                //const attributeButton = shadowroot.querySelector('.notification-button')
+                //attributeButton.disabled = !enabled
 
-            const s = element.ownerDocument.createElement('style')
-            s.innerHTML = `
+                input.addEventListener('input', (e) => {
+                    const enabled = e.target.checked
+
+                    this.parent.emitter.emit(
+                        'buttonclicked',
+                        windowId,
+                        notificationId,
+                        buttonId,
+                        e.target.checked
+                    )
+
+                    //attributeButton.disabled = !enabled
+                    message.innerHTML = enabled ? labels.enabled : labels.disabled
+                    element.classList.remove(enabled ? 'disabled' : 'enabled')
+                    element.classList.add(enabled ? 'enabled' : 'disabled')
+                    element.classList.remove('initial')
+                })
+
+                console.log(shadowroot)
+
+                element.style.transition = 'none'
+
+                const s = element.ownerDocument.createElement('style')
+                s.innerHTML = `
                @font-face {
                     font-family: 'Overpass';
                     src: url(${fontURL}) format('truetype');
@@ -191,7 +186,7 @@ class SwitchBar {
                     border-radius: 0;
                     padding: 3px;
                 }
-                label.notification-message {
+                .message {
                     margin-inline-start: 8px;
                 }
                 .switch {
@@ -271,27 +266,22 @@ class SwitchBar {
                 */
             `
 
-            // Add the styles to the shadow root.
-            element.shadowRoot.appendChild(s)
-        }
+                // Add the styles to the shadow root.
+                element.shadowRoot.appendChild(s)
+                console.log(element.shadowRoot)
+            }
+            return this
+        })()
     }
-
-    getThunderbirdVersion() {
-        const [major, minor, revision = 0] = Services.appinfo.version
-            .split('.')
-            .map((chunk) => parseInt(chunk, 10))
-        return {
-            major,
-            minor,
-            revision,
-        }
-    }
+    //  document.body.insertBefore(notification, document.body.firstChild);
 
     getNotificationBox() {
         const w = this.parent.extension.windowManager.get(
             this.properties.windowId,
             this.parent.context
         ).window
+        console.log(this.properties)
+        console.log(w)
         switch (this.properties.placement) {
             case 'message':
                 // below the receipient list in the message preview window
@@ -413,7 +403,7 @@ var switchbar = class extends ExtensionAPI {
                     const notificationId = this.nextId++
                     this.notificationsMap.set(
                         notificationId,
-                        new SwitchBar(notificationId, properties, this)
+                        await new SwitchBar(notificationId, properties, this)
                     )
                     return notificationId
                 },

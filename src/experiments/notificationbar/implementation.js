@@ -1,11 +1,10 @@
 /*eslint no-fallthrough: ["error", { "commentPattern": "break[\\s\\w]*omitted" }]*/
-/* global ExtensionCommon,  ChromeUtils, ExtensionUtils */
+/* global ExtensionCommon,  globalThis */
 
 'use strict'
 
 var { EventEmitter, EventManager, ExtensionAPI } = ExtensionCommon
-var { ExtensionError } = ExtensionUtils
-var { Services } = ChromeUtils.import('resource://gre/modules/Services.jsm')
+var Services = globalThis.Services
 
 class ExtensionNotification {
     constructor(notificationId, properties, parent) {
@@ -13,7 +12,6 @@ class ExtensionNotification {
         this.properties = properties
         this.parent = parent
         this.notificationId = notificationId
-        this.tbVersion = this.getThunderbirdVersion().major
 
         const { buttons, icon, label, priority, style, windowId, badges, placement } = properties
 
@@ -163,17 +161,6 @@ class ExtensionNotification {
                 }
         `
             element.shadowRoot.appendChild(s)
-        }
-    }
-
-    getThunderbirdVersion() {
-        let [major, minor, revision = 0] = Services.appinfo.version
-            .split('.')
-            .map((chunk) => parseInt(chunk, 10))
-        return {
-            major,
-            minor,
-            revision,
         }
     }
 
@@ -328,10 +315,7 @@ class ExtensionNotification {
     }
 
     getNotificationBox() {
-        if (this.tbVersion >= 112) {
-            return this.getNotificationBoxPostSupernova()
-        }
-        return this.getNotificationBoxPreSupernova()
+        return this.getNotificationBoxPostSupernova()
     }
 
     remove(closedByUser) {

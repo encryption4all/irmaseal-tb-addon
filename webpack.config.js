@@ -20,6 +20,7 @@ module.exports = [
     {
         name: 'webext',
         mode,
+        devtool: 'source-map',
         entry: {
             background: './src/background/background.ts',
             decryptPopup: './src/components/decryptPopup/index.ts',
